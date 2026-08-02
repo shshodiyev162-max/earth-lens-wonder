@@ -1,0 +1,157 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 7%;
+    --foreground: 210 20% 92%;
+
+    --card: 220 18% 10%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 174 72% 50%;
+    --primary-foreground: 220 20% 7%;
+
+    --secondary: 220 16% 16%;
+    --secondary-foreground: 210 20% 85%;
+
+    --muted: 220 14% 14%;
+    --muted-foreground: 215 12% 55%;
+
+    --accent: 174 60% 40%;
+    --accent-foreground: 210 20% 95%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 14% 18%;
+    --input: 220 14% 18%;
+    --ring: 174 72% 50%;
+
+    --radius: 0.75rem;
+
+    --earth-green: 142 50% 45%;
+    --earth-blue: 205 75% 50%;
+    --earth-orange: 28 85% 55%;
+    --earth-red: 0 65% 50%;
+    --earth-yellow: 45 90% 55%;
+    --space-deep: 220 25% 4%;
+    --glow-primary: 174 72% 50%;
+    --glow-blue: 205 85% 60%;
+
+    --sidebar-background: 220 20% 7%;
+    --sidebar-foreground: 210 20% 92%;
+    --sidebar-primary: 174 72% 50%;
+    --sidebar-primary-foreground: 220 20% 7%;
+    --sidebar-accent: 220 16% 16%;
+    --sidebar-accent-foreground: 210 20% 85%;
+    --sidebar-border: 220 14% 18%;
+    --sidebar-ring: 174 72% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(174 72% 50% / 0.3), 0 0 60px hsl(174 72% 50% / 0.1);
+  }
+
+  .glow-text {
+    text-shadow: 0 0 30px hsl(174 72% 50% / 0.5);
+  }
+
+  .glass {
+    @apply bg-card/60 backdrop-blur-xl border border-border/50;
+  }
+
+  .glass-strong {
+    @apply bg-card/80 backdrop-blur-2xl border border-border/60;
+  }
+
+  .gradient-hero {
+    background: linear-gradient(135deg, hsl(220 25% 4%) 0%, hsl(220 20% 10%) 50%, hsl(205 30% 12%) 100%);
+  }
+
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(174 72% 50%) 0%, hsl(205 85% 60%) 100%);
+  }
+
+  .gradient-earth {
+    background: linear-gradient(135deg, hsl(142 50% 45%) 0%, hsl(174 72% 50%) 100%);
+  }
+}
+
+/* Leaflet overrides - Map under everything */
+.leaflet-container {
+  background: hsl(220 25% 4%) !important;
+  font-family: 'Inter', sans-serif !important;
+  z-index: 1 !important;
+}
+
+.leaflet-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-control-zoom a {
+  background: hsl(220 18% 10% / 0.9) !important;
+  color: hsl(210 20% 92%) !important;
+  border-color: hsl(220 14% 18%) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: hsl(220 16% 16%) !important;
+}
+
+.leaflet-control-attribution {
+  background: hsl(220 18% 10% / 0.8) !important;
+  color: hsl(215 12% 55%) !important;
+  font-size: 10px !important;
+}
+
+/* Drawing tools OVER everything - highest z-index */
+.leaflet-draw-toolbar {
+  z-index: 10000 !important;
+}
+
+.leaflet-draw-section {
+  z-index: 10000 !important;
+}
+
+.leaflet-draw-controls {
+  z-index: 10000 !important;
+}
+
+.leaflet-draw-toolbar a {
+  z-index: 10000 !important;
+  background: hsl(220 18% 10% / 0.95) !important;
+  border-color: hsl(220 14% 18%) !important;
+}
+
+.leaflet-draw-toolbar a:hover {
+  background: hsl(220 16% 16%) !important;
+}
+
+/* Ensure control container is above map */
+.leaflet-control-container .leaflet-top,
+.leaflet-control-container .leaflet-bottom {
+  z-index: 9999 !important;
+}
