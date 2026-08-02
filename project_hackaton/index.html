@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GeoRisk Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: radial-gradient(circle at top left, #0f172a 0, #020617 45%, #020617 100%);
+    --accent: #38bdf8;
+    --accent-soft: rgba(56, 189, 248, 0.12);
+    --surface: rgba(15, 23, 42, 0.96);
+    --surface-soft: rgba(15, 23, 42, 0.9);
+    --border-subtle: rgba(148, 163, 184, 0.35);
+    --text-main: #e5e7eb;
+    --text-muted: #9ca3af;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0;
+    padding:0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    min-height: 100vh;
+    display:flex;
+    align-items:stretch;
+    justify-content:center;
+  }
+  .frame {
+    width:100%;
+    max-width:1080px;
+    padding:24px 20px 32px;
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+  }
+  header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+  }
+  .brand {
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .brand-badge {
+    width:34px;
+    height:34px;
+    border-radius:12px;
+    background:conic-gradient(from 160deg,#22c55e,#06b6d4,#6366f1,#22c55e);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:16px;
+    color:#0b1120;
+    font-weight:700;
+  }
+  h1 {
+    margin:0;
+    font-size:22px;
+    letter-spacing:0.02em;
+  }
+  .tagline {
+    margin:2px 0 0;
+    font-size:13px;
+    color:var(--text-muted);
+  }
+  .chip-row {
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    font-size:11px;
+    color:var(--text-muted);
+  }
+  .chip {
+    padding:3px 8px;
+    border-radius:999px;
+    border:1px solid rgba(148, 163, 184, 0.4);
+    background:rgba(15, 23, 42, 0.8);
+  }
+  main {
+    display:grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2.2fr);
+    gap:22px;
+  }
+  @media (max-width: 840px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .hero {
+    background:var(--surface);
+    border-radius:20px;
+    border:1px solid var(--border-subtle);
+    padding:18px 18px 20px;
+    box-shadow:0 18px 45px rgba(0,0,0,0.55);
+    position:relative;
+    overflow:hidden;
+  }
+  .hero::after {
+    content:"";
+    position:absolute;
+    inset:auto -40%;
+    top:-120px;
+    height:220px;
+    background:radial-gradient(circle at 10% 0%, rgba(56,189,248,0.22) 0, transparent 60%),
+               radial-gradient(circle at 90% 0%, rgba(52,211,153,0.2) 0, transparent 65%);
+    opacity:0.9;
+    pointer-events:none;
+  }
+  .hero-inner {
+    position:relative;
+    z-index:1;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .hero-title {
+    font-size:20px;
+    font-weight:600;
+  }
+  .hero-sub {
+    font-size:13px;
+    color:var(--text-muted);
+    max-width:420px;
+  }
+  .pill-row {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:4px;
+  }
+  .pill {
+    padding:4px 9px;
+    border-radius:999px;
+    font-size:11px;
+    background:var(--accent-soft);
+    color:#e0f2fe;
+    border:1px solid rgba(56,189,248,0.4);
+  }
+  .cta-row {
+    margin-top:10px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .primary-btn, .ghost-btn {
+    border-radius:999px;
+    padding:8px 14px;
+    font-size:13px;
+    font-weight:500;
+    border:none;
+    cursor:pointer;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .primary-btn {
+    background:linear-gradient(to right,#38bdf8,#6366f1);
+    color:#0b1120;
+  }
+  .ghost-btn {
+    background:transparent;
+    color:var(--text-main);
+    border:1px solid var(--border-subtle);
+  }
+  .primary-btn span.icon,
+  .ghost-btn span.icon {
+    font-size:14px;
+  }
+  .menu {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+  .card {
+    background:var(--surface-soft);
+    border-radius:16px;
+    padding:14px 14px 16px;
+    border:1px solid var(--border-subtle);
+    box-shadow:0 10px 30px rgba(15,23,42,0.75);
+    position:relative;
+    overflow:hidden;
+    transition:transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .card::before {
+    content:"";
+    position:absolute;
+    inset:0;
+    background:radial-gradient(circle at top right, rgba(56,189,248,0.18), transparent 60%);
+    opacity:0;
+    transition:opacity 0.18s ease;
+    pointer-events:none;
+  }
+  .card > * {
+    position: relative;
+    z-index: 1;
+  }
+  .card:hover {
+    transform:translateY(-3px);
+    box-shadow:0 24px 60px rgba(0,0,0,0.75);
+    border-color:rgba(56,189,248,0.8);
+  }
+  .card:hover::before { opacity:1; }
+  .card h2 {
+    margin:0 0 4px;
+    font-size:15px;
+    font-weight:600;
+  }
+  .card p {
+    margin:0 0 10px;
+    font-size:12px;
+    color:var(--text-muted);
+  }
+  .card-meta {
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:8px;
+    font-size:11px;
+    color:var(--text-muted);
+  }
+  .card a {
+    text-decoration:none;
+    color:var(--accent);
+    font-weight:500;
+    font-size:13px;
+  }
+  .missions {
+    margin-top:24px;
+    display:grid;
+    grid-template-columns:minmax(0,2.2fr) minmax(0,2.2fr);
+    gap:18px;
+  }
+  @media (max-width: 840px) {
+    .missions { grid-template-columns:1fr; }
+  }
+  .missions-header h2 {
+    margin:0 0 6px;
+    font-size:16px;
+  }
+  .missions-header p {
+    margin:0;
+    font-size:12px;
+    color:var(--text-muted);
+  }
+  .missions-header button {
+    margin-top:10px;
+    border-radius:999px;
+    padding:7px 13px;
+    font-size:12px;
+    font-weight:500;
+    border:none;
+    cursor:pointer;
+    background:linear-gradient(to right,#22c55e,#38bdf8);
+    color:#02131c;
+  }
+  .missions-header button:hover {
+    opacity:0.9;
+  }
+  .mission-list {
+    list-style:none;
+    padding:0;
+    margin:0;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .mission {
+    padding:8px 10px;
+    border-radius:10px;
+    background:rgba(15,23,42,0.95);
+    border:1px solid rgba(34,197,94,0.4);
+    font-size:12px;
+    display:flex;
+    gap:8px;
+    align-items:flex-start;
+  }
+  .mission-icon {
+    font-size:14px;
+  }
+  .mission-text-strong {
+    font-weight:600;
+  }
+  footer {
+    text-align:center;
+    font-size:11px;
+    padding-top:4px;
+    color:var(--text-muted);
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <header>
+      <div>
+        <div class="brand">
+          <div class="brand-badge">G</div>
+          <div>
+            <h1>GeoRisk Studio</h1>
+            <p class="tagline">Interactive NASA-based risk maps for search, comparison, and analysis.</p>
+          </div>
+        </div>
+        <div class="chip-row">
+          <span class="chip">Powered by NASA GIBS & Trek</span>
+          <span class="chip">Leaflet.js • Zero-build HTML</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-inner">
+          <div class="hero-title">Explore, compare, and analyse planetary risks in a single place.</div>
+          <p class="hero-sub">
+            Switch between Earth, Moon, and Mars layers, trace custom areas, and let the assistant explain greenery stress,
+            dust, chlorophyll and night-time exposure for future disaster planning.
+          </p>
+          <div class="pill-row">
+            <span class="pill">Greenery index and environmental analysis</span>
+            <span class="pill">Date-aware NASA tiles</span>
+            <span class="pill">Dual & slider-based map comparison</span>
+            <span class="pill">Built‑in AI risk assistant</span>
+          </div>
+          <div class="cta-row">
+            <a href="search.html" class="primary-btn">
+              <span class="icon">▶</span>
+              <span>Start with Search map</span>
+            </a>
+            <a href="compare.html" class="ghost-btn">
+              <span class="icon">↔</span>
+              <span>Open compare & slider view</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="menu">
+        <div class="card">
+          <div class="card-meta">
+            <span>Single map • search • greenery index • analysis</span>
+          </div>
+          <h2>Search & analyse a location</h2>
+          <p>
+            Pick a world, date and layer, search by place or coordinates, draw an area and get greenery, dust, chlorophyll
+            or night-light analysis plus an assistant that explains future risk in plain language.
+          </p>
+          <a href="search.html">Open search & analysis map →</a>
+        </div>
+
+        <div class="card">
+          <div class="card-meta">
+            <span>Slider compare • drawing tools • per-layer context</span>
+          </div>
+          <h2>Compare maps with a slider</h2>
+          <p>
+            Load two different layers or worlds, use the centre slider to reveal changes, sketch areas on either side and
+            see analytical summaries and AI commentary for that region.
+          </p>
+          <a href="compare.html">Open slider comparison view →</a>
+        </div>
+
+        <div class="card">
+          <div class="card-meta">
+            <span>Dual viewer • synced pans • label & border overlays</span>
+          </div>
+          <h2>Compare by layers side‑by‑side</h2>
+          <p>
+            Show the same place with two independent daily layers, inspect both with synced zoom, click to get per‑layer
+            analytics, and ask the assistant how patterns may evolve.
+          </p>
+          <a href="compareby.html">Open dual‑layer viewer →</a>
+        </div>
+      </section>
+
+      <section class="missions">
+        <div class="missions-header">
+          <h2>Today’s eco missions</h2>
+          <p>Turn what you see from space into small, concrete actions that protect the environment.</p>
+          <button id="newMissionsBtn">Get new missions</button>
+        </div>
+        <div>
+          <ul id="missionList" class="mission-list"></ul>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      GeoRisk Studio • Experimental analysis only – always confirm with official forecasts.
+    </footer>
+  </div>
+
+  <script>
+    const MISSION_POOL = {
+      daily: [
+        "Walk or cycle for at least one short trip instead of driving.",
+        "Switch off all lights and electronics in rooms you are not using.",
+        "Bring a reusable bottle and avoid buying any drinks in plastic today."
+      ],
+      commute: [
+        "Use public transport, car‑share, or go to work on foot at least once this week.",
+        "Plan a 'no-car' day where you combine errands into a single low‑carbon trip.",
+        "If you drive, keep tyres properly inflated to reduce fuel use."
+      ],
+      waste: [
+        "Collect and recycle at least 10 plastic bottles or cans.",
+        "Bring a reusable bag and say no to single‑use shopping bags.",
+        "Sort your household waste so paper, glass and plastics are recycled correctly."
+      ],
+      home: [
+        "Set your air‑conditioning or heating 1–2°C closer to the outdoor temperature.",
+        "Take a shorter shower and avoid leaving the tap running while brushing teeth.",
+        "Unplug chargers and devices that are not in use to cut standby power."
+      ],
+      community: [
+        "Share one climate‑friendly habit with a friend or family member.",
+        "Pick up litter on your street or in a nearby park (safely, with gloves).",
+        "Support a local tree‑planting or clean‑up project, or plan one with friends."
+      ]
+    };
+
+    function pickRandomUnique(arr, count) {
+      const copy = arr.slice();
+      const out = [];
+      while (copy.length && out.length < count) {
+        const idx = Math.floor(Math.random() * copy.length);
+        out.push(copy.splice(idx, 1)[0]);
+      }
+      return out;
+    }
+
+    function generateMissions() {
+      const missions = [];
+      missions.push(...pickRandomUnique(MISSION_POOL.daily, 1));
+      missions.push(...pickRandomUnique(MISSION_POOL.commute, 1));
+      missions.push(...pickRandomUnique(MISSION_POOL.waste, 1));
+      missions.push(...pickRandomUnique(MISSION_POOL.home, 1));
+      missions.push(...pickRandomUnique(MISSION_POOL.community, 1));
+      return missions;
+    }
+
+    function renderMissions() {
+      const list = document.getElementById("missionList");
+      if (!list) return;
+      list.innerHTML = "";
+      const missions = generateMissions();
+      missions.forEach((text, index) => {
+        const li = document.createElement("li");
+        li.className = "mission";
+        const icon = document.createElement("div");
+        icon.className = "mission-icon";
+        icon.textContent = index === 0 ? "★" : "✓";
+        const body = document.createElement("div");
+        body.innerHTML = `<span class="mission-text-strong">Mission ${index + 1}:</span> ${text}`;
+        li.appendChild(icon);
+        li.appendChild(body);
+        list.appendChild(li);
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const btn = document.getElementById("newMissionsBtn");
+      if (btn) btn.addEventListener("click", renderMissions);
+      renderMissions();
+    });
+  </script>
+</body>
+</html>
