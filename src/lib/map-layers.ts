@@ -393,44 +393,126 @@ export const MAP_LAYERS: MapLayer[] = [
   },
 ];
 
-// Layer scales for legend (matching project_hackaton)
-export const LAYER_SCALES: Record<string, { name: string; colors: string[]; values: (string | number)[] }> = {
-  'MODIS_Terra_CorrectedReflectance_Bands721': {
-    name: 'Vegetation',
-    colors: ['#004400', '#00FF00', '#AAFFAA'],
-    values: [0, 50, 100],
-  },
-  'MODIS_Terra_Aerosol': {
-    name: 'Dust & Aerosols',
-    colors: ['#FFFFE0', '#FFD700', '#FF8C00', '#FF0000'],
-    values: [0.0, 0.3, 0.6, 1.0],
-  },
-  'MODIS_Aqua_L2_Chlorophyll_A_v2018.0_STD': {
-    name: 'Ocean Chlorophyll',
-    colors: ['#001970', '#0066FF', '#00FF00', '#FFFF00', '#FF6600', '#FF0000'],
-    values: [20, 10, 5, 1, 0.1, 0.01],
+// Layer scales for legend (matching project_hackaton) — expanded to cover every
+// map type in the catalog so all maps can display an accurate color scale.
+export type LayerScale = {
+  name: string;
+  unit: string;
+  colors: string[];
+  values: (string | number)[];
+};
+
+export const LAYER_SCALES: Record<string, LayerScale> = {
+  'blue-marble': {
+    name: 'Natural Color',
+    unit: 'RGB',
+    colors: ['#0b3d74', '#1a6fb5', '#3d9b6a', '#90be6d', '#c9b37e', '#b0b0b0'],
+    values: ['Deep water', 'Coastal', 'Forest', 'Vegetation', 'Desert', 'Urban'],
   },
   'VIIRS_NOAA20_CorrectedReflectance_TrueColor': {
-    name: 'Optical True Color',
-    colors: [],
-    values: [],
+    name: 'True Color',
+    unit: 'RGB',
+    colors: ['#0b3d74', '#1a6fb5', '#3d9b6a', '#90be6d', '#c9b37e', '#b0b0b0'],
+    values: ['Deep water', 'Coastal', 'Forest', 'Vegetation', 'Desert', 'Urban'],
   },
-  'VIIRS_SNPP_DayNightBand_At_Sensor_Radiance': {
-    name: 'Night Lights',
-    colors: ['#AAAAAA', '#FFFFFF'],
-    values: [0, 1000],
+  'VIIRS_NOAA21_CorrectedReflectance_TrueColor': {
+    name: 'True Color',
+    unit: 'RGB',
+    colors: ['#0b3d74', '#1a6fb5', '#3d9b6a', '#90be6d', '#c9b37e', '#b0b0b0'],
+    values: ['Deep water', 'Coastal', 'Forest', 'Vegetation', 'Desert', 'Urban'],
+  },
+  'VIIRS_SNPP_CorrectedReflectance_TrueColor': {
+    name: 'True Color',
+    unit: 'RGB',
+    colors: ['#0b3d74', '#1a6fb5', '#3d9b6a', '#90be6d', '#c9b37e', '#b0b0b0'],
+    values: ['Deep water', 'Coastal', 'Forest', 'Vegetation', 'Desert', 'Urban'],
+  },
+  'MODIS_Terra_CorrectedReflectance_Bands721': {
+    name: 'False Color (Vegetation)',
+    unit: 'index',
+    colors: ['#1a1a1a', '#4d1f00', '#b3541e', '#f0a05a', '#6fbf4b', '#006400'],
+    values: ['Bare', 'Sparse', 'Moderate', 'Active', 'Dense', 'Very dense'],
+  },
+  'MODIS_Terra_CorrectedReflectance_TrueColor': {
+    name: 'True Color',
+    unit: 'RGB',
+    colors: ['#0b3d74', '#1a6fb5', '#3d9b6a', '#90be6d', '#c9b37e', '#b0b0b0'],
+    values: ['Deep water', 'Coastal', 'Forest', 'Vegetation', 'Desert', 'Urban'],
+  },
+  'MODIS_Aqua_CorrectedReflectance_TrueColor': {
+    name: 'True Color',
+    unit: 'RGB',
+    colors: ['#0b3d74', '#1a6fb5', '#3d9b6a', '#90be6d', '#c9b37e', '#b0b0b0'],
+    values: ['Deep water', 'Coastal', 'Forest', 'Vegetation', 'Desert', 'Urban'],
+  },
+  'MODIS_Terra_Aerosol': {
+    name: 'Dust & Aerosols (AOD)',
+    unit: 'AOD',
+    colors: ['#e0f7fa', '#fff9c4', '#ffeb3b', '#ff9800', '#f44336', '#4a148c'],
+    values: [0, 0.1, 0.2, 0.4, 0.7, 1.0],
+  },
+  'aerosol': {
+    name: 'Dust & Aerosols (AOD)',
+    unit: 'AOD',
+    colors: ['#e0f7fa', '#fff9c4', '#ffeb3b', '#ff9800', '#f44336', '#4a148c'],
+    values: [0, 0.1, 0.2, 0.4, 0.7, 1.0],
   },
   'ndvi': {
-    name: 'NDVI',
+    name: 'NDVI (Plant Greenness)',
+    unit: 'index',
     colors: ['#8B4513', '#D2691E', '#F4A460', '#ADFF2F', '#228B22', '#006400'],
-    values: [-0.1, 0.1, 0.2, 0.4, 0.6, 0.8],
+    values: [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8],
   },
   'land-surface-temp': {
-    name: 'Land Surface Temp',
+    name: 'Land Surface Temperature',
+    unit: '°C',
     colors: ['#00008B', '#0000FF', '#00CED1', '#FFD700', '#FF4500', '#8B0000'],
-    values: [-2, 5, 15, 25, 32, 35],
+    values: [-25, -10, 0, 15, 30, 45],
+  },
+  'GHRSST_L4_MUR_Sea_Surface_Temperature': {
+    name: 'Sea Surface Temperature',
+    unit: '°C',
+    colors: ['#312e81', '#0284c7', '#22c55e', '#facc15', '#f97316', '#dc2626'],
+    values: [-2, 5, 12, 20, 28, 35],
+  },
+  'VIIRS_NOAA20_DayNightBand_At_Sensor_Radiance': {
+    name: 'Night Lights (Radiance)',
+    unit: 'nW/cm²/sr',
+    colors: ['#000000', '#1f2937', '#64748b', '#cbd5e1', '#f8fafc'],
+    values: [0, 1, 10, 100, 1000],
+  },
+  'MODIS_Aqua_L2_Chlorophyll_A': {
+    name: 'Ocean Chlorophyll-a',
+    unit: 'mg/m³',
+    colors: ['#001970', '#0066ff', '#00c853', '#ffea00', '#ff3d00', '#8b0000'],
+    values: [0.01, 0.1, 0.5, 1, 5, 10],
+  },
+  'IMERG_Precipitation_Rate': {
+    name: 'Precipitation Rate',
+    unit: 'mm/hr',
+    colors: ['#dbeafe', '#38bdf8', '#2563eb', '#7c3aed', '#dc2626'],
+    values: [0, 0.5, 2, 5, 10],
+  },
+  'MODIS_Terra_L3_NDSI_Snow_Cover_Daily': {
+    name: 'Snow Cover',
+    unit: '%',
+    colors: ['#334155', '#93c5fd', '#e0f2fe', '#f8fafc'],
+    values: [0, 25, 60, 100],
+  },
+  'AIRS_L3_Carbon_Monoxide_500hPa_Volume_Mixing_Ratio_Daily_Day': {
+    name: 'Carbon Monoxide',
+    unit: 'ppbv',
+    colors: ['#172554', '#0369a1', '#06b6d4', '#facc15', '#f97316', '#dc2626'],
+    values: [30, 50, 80, 120, 160, 200],
   },
 };
+
+export function getLayerScale(layer: MapLayer): LayerScale | undefined {
+  // True-color / Blue Marble layers are natural RGB imagery, not scientific
+  // measurements - displaying a measurement scale on them would be misleading.
+  if (layer.id === 'blue-marble' || layer.id.endsWith('TrueColor')) return undefined;
+  return LAYER_SCALES[layer.id];
+}
 
 export const COUNTRY_BORDERS_URL = 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png';
 export const COUNTRY_GEOJSON_URL = 'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json';

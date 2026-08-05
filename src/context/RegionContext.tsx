@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { getDefaultDate } from "@/lib/map-layers";
+import type { AreaMetric } from "@/lib/areaEstimator";
 
 export type Region = {
   id: string;
@@ -31,6 +32,7 @@ export type SelectedArea = {
   center: [number, number];
   areaKm2: number;
   greeneryIndex?: number;
+  metrics?: AreaMetric[];
   createdAt: string;
 };
 

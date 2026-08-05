@@ -36,3 +36,6 @@ coverage
 
 # TypeScript build artifacts
 *.tsbuildinfo
+
+# Disabled git metadata backup
+.git_disabled/

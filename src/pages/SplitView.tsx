@@ -3,10 +3,9 @@ import { Link } from "react-router-dom";
 import { MAP_LAYERS, getDefaultDate, formatDateForGIBS, getSafeDate, getTileUrl } from "@/lib/map-layers";
 import { CalendarDays, ChevronDown, Columns2, Globe2, Info, Layers3, LayoutGrid, Map as MapIcon, MapPin, Pencil, Search, Square, Trash2, TrendingUp, X } from "lucide-react";
 import { useRegion, type SelectedArea } from "@/context/RegionContext";
-import LayerGlobe from "@/components/LayerGlobe";
 import { QUICK_REGIONS } from "@/lib/layerCatalog";
-
-type WorkspaceMode = "map" | "globe";
+import LayerScaleOverlay from "@/components/LayerScaleOverlay";
+import { setupDrawControl } from "@/lib/mapDrawing";
 
 const VIEW_TABS = [
   { id: "explore", label: "Explore", icon: MapIcon, to: "/map" },
@@ -93,6 +92,11 @@ export default function SplitView() {
 
   const { selectedAreas, addSelectedArea, removeSelectedArea, updateSelectedArea, activeAreaId, setActiveAreaId } = useRegion();
 
+  // Live ref so the draw handler always sees the latest areas when naming
+  // new ones sequentially instead of the first render's empty array.
+  const selectedAreasRef = useRef(selectedAreas);
+  selectedAreasRef.current = selectedAreas;
+
   const [leftLayerId, setLeftLayerId] = useState("VIIRS_NOAA20_CorrectedReflectance_TrueColor");
   const [rightLayerId, setRightLayerId] = useState("MODIS_Terra_CorrectedReflectance_Bands721");
   const [leftDate, setLeftDate] = useState(getDefaultDate());
@@ -105,7 +109,6 @@ export default function SplitView() {
   const [showRightResults, setShowRightResults] = useState(false);
   const [mobilePanel, setMobilePanel] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState(QUICK_REGIONS[0]);
-  const [mode, setMode] = useState<WorkspaceMode>("map");
 
   const [coords, setCoords] = useState({ lat: 0, lng: 0 });
   const [message, setMessage] = useState("");
@@ -113,7 +116,6 @@ export default function SplitView() {
   const [rightLegend, setRightLegend] = useState<string | null>(null);
 
   // Drawing UI state
-  const [showDrawControls, setShowDrawControls] = useState(false);
   const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
 
@@ -136,14 +138,25 @@ export default function SplitView() {
       )
     : earthLayers;
 
-  // Calculate greenery index based on layer and area
+  // Deterministic greenery estimate from the area's latitude band so repeated
+  // analyses of the same region return consistent, traceable values.
   const calculateGreeneryIndex = useCallback((area: Partial<SelectedArea>): number => {
-    const baseIndex = 0.4 + Math.random() * 0.3;
-    return Math.round(baseIndex * 100) / 100;
+    const c = area.center ?? [0, 0];
+    const lat = Math.abs(c[0]);
+    const isArid = c[1] > -20 && c[1] < 55 && ((c[0] > 5 && c[0] < 35) || (c[0] < -5 && c[0] > -35));
+    const bandFactor =
+      lat > 66 ? 0.25 :
+      lat > 55 ? 0.5 :
+      lat > 35 ? 0.65 :
+      lat > 20 ? 0.55 :
+      lat > 5 ? 0.8 :
+      0.35;
+    const aridityAdjustment = isArid ? 0.45 : 1;
+    const value = Math.max(0.05, Math.min(0.95, bandFactor * aridityAdjustment));
+    return Math.round(value * 100) / 100;
   }, []);
 
   useEffect(() => {
-    if (mode !== "map") return;
     if (!mapRef.current || !mapTopRef.current) return;
     if (mapInstance.current || mapTopInstance.current) return;
 
@@ -186,7 +199,7 @@ export default function SplitView() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, []);
 
   // Render selected areas on both maps
   useEffect(() => {
@@ -295,143 +308,29 @@ export default function SplitView() {
       setCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
     });
 
-    setupDrawControls(L);
+    // Draw toolbar on BOTH maps so it is never hidden behind the clip-cropped top layer
+    setupDrawControls(L, mapInstance.current, drawnItemsRef);
+    setupDrawControls(L, mapTopInstance.current, drawnItemsTopRef);
 
     loadLeftLayer();
     loadRightLayer();
   };
 
-  const setupDrawControls = (L: typeof import("leaflet")) => {
-    if (!mapInstance.current) return;
+  const setupDrawControls = (L: typeof import("leaflet"), map: L.Map | null, group: React.MutableRefObject<L.FeatureGroup | null>) => {
+    if (!map) return;
     const Draw = (L as any).Control.Draw;
     if (!Draw) return;
 
-    drawControlRef.current = new Draw({
-      draw: {
-        polygon: {
-          allowIntersection: false,
-          shapeOptions: { color: "#00FFFF", fillOpacity: 0.2 }
-        },
-        rectangle: {
-          shapeOptions: { color: "#FFD700", fillOpacity: 0.2 }
-        },
-        circle: {
-          shapeOptions: { color: "#00FF00", fillOpacity: 0.2 }
-        },
-        polyline: {
-          shapeOptions: { color: "#FF00FF" }
-        },
-        marker: true,
-      },
-      edit: {
-        featureGroup: drawnItemsRef.current,
-        remove: true,
-      },
-    });
-
-    if (showDrawControls) {
-      mapInstance.current.addControl(drawControlRef.current);
-    }
-
-    mapInstance.current.on((L as any).Draw.Event.CREATED, (e: any) => {
-      const layer = e.layer;
-      const bounds = layer.getBounds();
-      const center = bounds.getCenter();
-
-      const latDiff = bounds.getNorth() - bounds.getSouth();
-      const lngDiff = bounds.getEast() - bounds.getWest();
-      const approxArea = Math.abs(latDiff * lngDiff * 111 * 111);
-
-      let coordinates: [number, number][] | [number, number];
-      let type: "polygon" | "rectangle" | "circle" = "polygon";
-      let radius: number | undefined;
-
-      if (e.drawType === "circle") {
-        coordinates = [center.lat, center.lng];
-        radius = layer.getRadius();
-        type = "circle";
-      } else if (e.drawType === "rectangle") {
-        coordinates = [
-          [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
-          [bounds.getNorthEast().lat, bounds.getNorthEast().lng]
-        ];
-        type = "rectangle";
-      } else {
-        const latlngs = layer.getLatLngs()[0] as L.LatLng[];
-        const coords: [number, number][] = latlngs.map((ll: L.LatLng) => [ll.lat, ll.lng]);
-        coordinates = coords;
-        type = "polygon";
-      }
-
-      const newArea = {
-        name: `Area ${selectedAreas.length + 1}`,
-        type,
-        coordinates,
-        radius,
-        bounds: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()] as [number, number, number, number],
-        center: [center.lat, center.lng] as [number, number],
-        areaKm2: Math.round(approxArea),
-        greeneryIndex: calculateGreeneryIndex({}),
-      };
-
-      addSelectedArea(newArea);
-      drawnItemsRef.current!.addLayer(layer);
-    });
-
-    mapInstance.current.on((L as any).Draw.Event.DELETED, (e: any) => {
-      const layers = e.layers;
-      layers.eachLayer((layer: any) => {
-        const bounds = layer.getBounds();
-        const center = bounds.getCenter();
-        const areaToRemove = selectedAreas.find(a =>
-          Math.abs(a.center[0] - center.lat) < 0.01 &&
-          Math.abs(a.center[1] - center.lng) < 0.01
-        );
-        if (areaToRemove) {
-          removeSelectedArea(areaToRemove.id);
-        }
-      });
+    setupDrawControl({
+      map: map as any,
+      L,
+      featureGroup: group.current as any,
+      layers: [leftLayer as any, rightLayer as any],
+      getSelectedAreas: () => selectedAreasRef.current,
+      onAdd: addSelectedArea,
+      onRemove: removeSelectedArea,
     });
   };
-
-  useEffect(() => {
-    if (!mapInstance.current || !drawControlRef.current) return;
-    const L = window.L;
-    if (!L) return;
-
-    const Draw = (L as any).Control.Draw;
-    if (!Draw) return;
-
-    if (drawControlRef.current._map) {
-      mapInstance.current.removeControl(drawControlRef.current);
-    }
-
-    if (showDrawControls) {
-      drawControlRef.current = new Draw({
-        draw: {
-          polygon: {
-            allowIntersection: false,
-            shapeOptions: { color: "#00FFFF", fillOpacity: 0.2 }
-          },
-          rectangle: {
-            shapeOptions: { color: "#FFD700", fillOpacity: 0.2 }
-          },
-          circle: {
-            shapeOptions: { color: "#00FF00", fillOpacity: 0.2 }
-          },
-          polyline: {
-            shapeOptions: { color: "#FF00FF" }
-          },
-          marker: true,
-        },
-        edit: {
-          featureGroup: drawnItemsRef.current,
-          remove: true,
-        },
-      });
-      mapInstance.current.addControl(drawControlRef.current);
-    }
-  }, [showDrawControls]);
 
   const syncMaps = (mapA: L.Map, mapB: L.Map) => {
     const sync = (source: L.Map, target: L.Map) => {
@@ -709,18 +608,12 @@ export default function SplitView() {
               <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400"><Square className="h-4 w-4 text-cyan-400" /> Selected areas</label>
               <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-slate-400">{selectedAreas.length}</span>
             </div>
-            <button
-              onClick={() => setShowDrawControls(!showDrawControls)}
-              className={`mb-3 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                showDrawControls ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : "border-white/10 bg-white/[0.04] text-slate-200 hover:border-cyan-400/40 hover:text-white"
-              }`}
-            >
-              <Square className="h-4 w-4" />
-              {showDrawControls ? "Drawing enabled" : "Enable drawing"}
-            </button>
+            <p className="mb-3 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-xs leading-relaxed text-slate-500">
+              Drawing is always enabled — use the draw tools on the map to mark, label, and analyse regions.
+            </p>
             {selectedAreas.length === 0 ? (
-              <p className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-xs leading-relaxed text-slate-500">
-                Enable drawing, then select regions on the map for analysis.
+              <p className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 text-xs leading-relaxed text-slate-400">
+                No areas yet. Draw a polygon, rectangle, or circle on the map to create an area.
               </p>
             ) : (
               <div className="space-y-2">
@@ -797,66 +690,45 @@ export default function SplitView() {
         </aside>
 
         <main className="relative min-h-0 flex-1">
-          {mode === "map" ? (
-            <>
-              <div ref={mapRef} className="absolute inset-0 z-[1]" />
-              <div ref={mapTopRef} className="absolute inset-0 z-[2]" style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }} />
+          <>
+            <div ref={mapRef} className="absolute inset-0 z-[1]" />
+            <div ref={mapTopRef} className="absolute inset-0 z-[2]" style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }} />
 
-              <div ref={sliderRef} className="absolute top-0 bottom-0 z-[1000] cursor-col-resize" style={{ left: `${sliderPos}%`, transform: "translateX(-50%)" }} onMouseDown={handleSliderMouseDown}>
-                <div className="w-1 h-full bg-cyan-400/70 shadow-lg shadow-cyan-500/40" />
-                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-[#07111d]/90 border-2 border-cyan-400 flex items-center justify-center backdrop-blur">
-                  <span className="text-cyan-300 text-lg">⟷</span>
-                </div>
-              </div>
-
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 rounded-full border border-white/10 bg-[#07111d]/90 px-4 py-2 shadow-xl backdrop-blur">
-                <span className="text-xs text-slate-400">Compare</span>
-                <input type="range" min={0} max={100} value={sliderPos} onChange={(e) => handleSliderChange(Number(e.target.value))} className="w-32 accent-cyan-400" />
-                <span className="text-xs text-white font-medium w-10">{Math.round(sliderPos)}%</span>
-              </div>
-
-              {message && (
-                <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[1002] rounded-full border border-amber-500/30 bg-amber-950/80 px-4 py-2 text-xs text-amber-200 shadow-xl backdrop-blur-md">{message}</div>
-              )}
-
-              <div className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs text-white backdrop-blur">
-                <MapPin className="w-3 h-3 inline mr-1 text-cyan-400" />
-                Lat: {coords.lat.toFixed(3)}, Lng: {coords.lng.toFixed(3)}
-              </div>
-            </>
-          ) : (
-            <div className="absolute inset-0 flex">
-              <div className="relative flex-1">
-                <LayerGlobe layer={leftLayer} date={safeLeftDate} />
-                <div className="absolute top-4 left-4 z-10 rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-1.5 text-xs font-medium text-cyan-300 backdrop-blur">{leftLayer.name}</div>
-              </div>
-              <div className="relative flex-1 border-l border-white/15">
-                <LayerGlobe layer={rightLayer} date={safeRightDate} />
-                <div className="absolute top-4 right-4 z-10 rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-1.5 text-xs font-medium text-cyan-300 backdrop-blur">{rightLayer.name}</div>
+            <div ref={sliderRef} className="absolute top-0 bottom-0 z-[1000] cursor-col-resize" style={{ left: `${sliderPos}%`, transform: "translateX(-50%)" }} onMouseDown={handleSliderMouseDown}>
+              <div className="w-1 h-full bg-cyan-400/70 shadow-lg shadow-cyan-500/40" />
+              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-[#07111d]/90 border-2 border-cyan-400 flex items-center justify-center backdrop-blur">
+                <span className="text-cyan-300 text-lg">⟷</span>
               </div>
             </div>
-          )}
+
+            <LayerScaleOverlay layer={leftLayer} position="bottom-20 left-4" />
+            <LayerScaleOverlay layer={rightLayer} position="bottom-20 left-1/2" />
+
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 rounded-full border border-white/10 bg-[#07111d]/90 px-4 py-2 shadow-xl backdrop-blur">
+              <span className="text-xs text-slate-400">Compare</span>
+              <input type="range" min={0} max={100} value={sliderPos} onChange={(e) => handleSliderChange(Number(e.target.value))} className="w-32 accent-cyan-400" />
+              <span className="text-xs text-white font-medium w-10">{Math.round(sliderPos)}%</span>
+            </div>
+
+            {message && (
+              <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[1002] rounded-full border border-amber-500/30 bg-amber-950/80 px-4 py-2 text-xs text-amber-200 shadow-xl backdrop-blur-md">{message}</div>
+            )}
+
+            <div className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs text-white backdrop-blur">
+              <MapPin className="w-3 h-3 inline mr-1 text-cyan-400" />
+              Lat: {coords.lat.toFixed(3)}, Lng: {coords.lng.toFixed(3)}
+            </div>
+          </>
 
           <div className="absolute left-3 right-3 top-3 z-[1000] flex items-center justify-between gap-3 lg:left-5 lg:right-5">
             <button onClick={() => setMobilePanel(true)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#07111d]/90 px-3 py-2.5 text-sm font-medium text-white shadow-xl backdrop-blur lg:hidden">
               <Layers3 className="h-4 w-4 text-cyan-400" /> Controls
             </button>
-            <div className="ml-auto flex rounded-xl border border-white/10 bg-[#07111d]/90 p-1 shadow-xl backdrop-blur">
-              <button onClick={() => setMode("map")} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition sm:px-4 ${mode === "map" ? "bg-cyan-400 text-slate-950" : "text-slate-300 hover:text-white"}`}><MapIcon className="h-4 w-4" /> 2D Map</button>
-              <button onClick={() => setMode("globe")} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition sm:px-4 ${mode === "globe" ? "bg-cyan-400 text-slate-950" : "text-slate-300 hover:text-white"}`}><Globe2 className="h-4 w-4" /> 3D Globe</button>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="hidden rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-[11px] text-slate-400 backdrop-blur sm:block">{leftLayer.dateDependent ? safeLeftDate : "static"} vs {rightLayer.dateDependent ? safeRightDate : "static"}</div>
+              <button onClick={handleLoadBoth} className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs font-medium text-white backdrop-blur transition hover:border-cyan-400/40">Load layers</button>
+              <button onClick={handleResetView} className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs font-medium text-slate-200 backdrop-blur transition hover:border-cyan-400/40">Reset view</button>
             </div>
-          </div>
-
-          <div className="absolute bottom-20 left-3 right-3 z-[1000] flex flex-wrap items-center justify-between gap-2 lg:left-5 lg:right-5">
-            <div className="rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-[11px] text-slate-400 backdrop-blur">
-              NASA GIBS · {leftLayer.dateDependent ? safeLeftDate : "static composite"} vs {rightLayer.dateDependent ? safeRightDate : "static composite"}
-            </div>
-            {mode === "map" && (
-              <div className="flex gap-2">
-                <button onClick={handleLoadBoth} className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs font-medium text-white backdrop-blur transition hover:border-cyan-400/40">Load layers</button>
-                <button onClick={handleResetView} className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs font-medium text-slate-200 backdrop-blur transition hover:border-cyan-400/40">Reset view</button>
-              </div>
-            )}
           </div>
 
           {/* Unified Ribbon — Earth Pulse style */}
@@ -875,7 +747,6 @@ export default function SplitView() {
                   >
                     <TabIcon className="h-4 w-4" />
                     <span>{tab.label}</span>
-                    {tab.id === "split" && <span className="ml-1 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-slate-500">{mode === "map" ? "2D" : "3D"}</span>}
                   </Link>
                 );
               })}

@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { MAP_LAYERS, getDefaultDate, formatDateForGIBS, getSafeDate, getTileUrl } from "@/lib/map-layers";
 import { CalendarDays, ChevronDown, Columns2, Globe2, Info, Layers3, LayoutGrid, Map as MapIcon, MapPin, Search, X } from "lucide-react";
-import LayerGlobe from "@/components/LayerGlobe";
 import { QUICK_REGIONS } from "@/lib/layerCatalog";
-
-type WorkspaceMode = "map" | "globe";
+import LayerScaleOverlay from "@/components/LayerScaleOverlay";
+import SelectedAreasPanel from "@/components/SelectedAreasPanel";
+import { renderSelectedAreas, setupDrawControl } from "@/lib/mapDrawing";
+import { useRegion } from "@/context/RegionContext";
 
 const VIEW_TABS = [
   { id: "explore", label: "Explore", icon: MapIcon, to: "/map" },
@@ -29,6 +30,18 @@ export default function SyncView() {
   const leftLayerRef = useRef<L.TileLayer | null>(null);
   const rightLayerRef = useRef<L.TileLayer | null>(null);
 
+  // Drawing refs
+  const drawnItemsLeftRef = useRef<L.FeatureGroup | null>(null);
+  const drawnItemsRightRef = useRef<L.FeatureGroup | null>(null);
+  const drawControlRef = useRef<any>(null);
+
+  const { selectedAreas, addSelectedArea, removeSelectedArea, activeAreaId, setActiveAreaId } = useRegion();
+
+  // Live ref so the draw handler always sees the latest areas when naming
+  // new ones sequentially instead of the first render's empty array.
+  const selectedAreasRef = useRef(selectedAreas);
+  selectedAreasRef.current = selectedAreas;
+
   const [leftLayerId, setLeftLayerId] = useState("VIIRS_NOAA20_CorrectedReflectance_TrueColor");
   const [rightLayerId, setRightLayerId] = useState("MODIS_Terra_CorrectedReflectance_Bands721");
   const [date, setDate] = useState(getDefaultDate());
@@ -38,7 +51,6 @@ export default function SyncView() {
   const [showRightLayers, setShowRightLayers] = useState(false);
   const [mobilePanel, setMobilePanel] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState(QUICK_REGIONS[0]);
-  const [mode, setMode] = useState<WorkspaceMode>("map");
   const [coords, setCoords] = useState({ lat: 0, lng: 0 });
 
   const leftLayer = earthLayers.find((l) => l.id === leftLayerId) ?? earthLayers[0];
@@ -55,12 +67,11 @@ export default function SyncView() {
     : earthLayers;
 
   useEffect(() => {
-    if (mode !== "map") return;
     if (!leftMapRef.current || !rightMapRef.current) return;
     if (leftMapInstance.current || rightMapInstance.current) return;
 
     const loadLeaflet = () => {
-      if (typeof window !== "undefined" && window.L) {
+      if (typeof window !== "undefined" && window.L && (window as any).L.Control?.Draw) {
         initMaps(window.L);
       } else {
         const linkEl = document.createElement("link");
@@ -68,9 +79,19 @@ export default function SyncView() {
         linkEl.href = "https://unpkg.com/leaflet/dist/leaflet.css";
         document.head.appendChild(linkEl);
 
+        const drawLink = document.createElement("link");
+        drawLink.rel = "stylesheet";
+        drawLink.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css";
+        document.head.appendChild(drawLink);
+
         const script = document.createElement("script");
         script.src = "https://unpkg.com/leaflet/dist/leaflet.js";
-        script.onload = () => initMaps(window.L);
+        script.onload = () => {
+          const drawScript = document.createElement("script");
+          drawScript.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js";
+          drawScript.onload = () => initMaps(window.L);
+          document.body.appendChild(drawScript);
+        };
         document.body.appendChild(script);
       }
     };
@@ -82,7 +103,7 @@ export default function SyncView() {
       if (rightMapInstance.current) { rightMapInstance.current.remove(); rightMapInstance.current = null; }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, []);
 
   // Shared flag so the two maps stay perfectly locked without ping-ponging
   const syncingRef = useRef(false);
@@ -119,6 +140,9 @@ export default function SyncView() {
     leftMapInstance.current = initMap(leftMapRef.current, true);
     rightMapInstance.current = initMap(rightMapRef.current, false);
 
+    drawnItemsLeftRef.current = new L.FeatureGroup().addTo(leftMapInstance.current);
+    drawnItemsRightRef.current = new L.FeatureGroup().addTo(rightMapInstance.current);
+
     syncMaps(leftMapInstance.current, rightMapInstance.current);
     syncMaps(rightMapInstance.current, leftMapInstance.current);
 
@@ -126,9 +150,42 @@ export default function SyncView() {
       setCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
     });
 
+    setupDrawControls(L, leftMapInstance.current, drawnItemsLeftRef.current);
+    setupDrawControls(L, rightMapInstance.current, drawnItemsRightRef.current);
+
     loadLeftLayer();
     loadRightLayer();
   };
+
+  const setupDrawControls = (L: typeof import("leaflet"), map: L.Map, featureGroup: L.FeatureGroup | null) => {
+    if (!featureGroup) return;
+    setupDrawControl({
+      map: map as any,
+      L,
+      featureGroup: featureGroup as any,
+      layers: [leftLayer as any, rightLayer as any],
+      getSelectedAreas: () => selectedAreasRef.current,
+      onAdd: addSelectedArea,
+      onRemove: removeSelectedArea,
+    });
+  };
+
+  // Render labelled selected areas on both synced maps
+  useEffect(() => {
+    if (!leftMapInstance.current || !rightMapInstance.current || !drawnItemsLeftRef.current || !drawnItemsRightRef.current) return;
+    const Lw = window.L;
+    if (!Lw) return;
+    [drawnItemsLeftRef.current, drawnItemsRightRef.current].forEach((group) => {
+      group.clearLayers();
+      renderSelectedAreas({
+        featureGroup: group,
+        L: Lw,
+        selectedAreas,
+        activeAreaId,
+        onActivate: setActiveAreaId,
+      });
+    });
+  }, [selectedAreas, activeAreaId, setActiveAreaId]);
 
   const loadLeftLayer = useCallback(() => {
     if (!leftMapInstance.current || !window.L) return;
@@ -144,8 +201,8 @@ export default function SyncView() {
     rightLayerRef.current = L.tileLayer(url, { maxZoom: rightLayer.maxZoom, attribution: "NASA GIBS", crossOrigin: true }).addTo(rightMapInstance.current);
   }, [rightLayer, safeRightDate]);
 
-  useEffect(() => { if (mode === "map") loadLeftLayer(); }, [loadLeftLayer, mode]);
-  useEffect(() => { if (mode === "map") loadRightLayer(); }, [loadRightLayer, mode]);
+  useEffect(() => { loadLeftLayer(); }, [loadLeftLayer]);
+  useEffect(() => { loadRightLayer(); }, [loadRightLayer]);
 
   useEffect(() => {
     const center = selectedRegion.center as [number, number];
@@ -235,6 +292,8 @@ export default function SyncView() {
             </div>
           </section>
 
+          <SelectedAreasPanel />
+
           <section className="mt-auto rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white"><Info className="h-4 w-4 text-cyan-400" /> {leftLayer.name} + {rightLayer.name}</div>
             <p className="text-xs leading-relaxed text-slate-400">{leftLayer.description}</p>
@@ -246,46 +305,24 @@ export default function SyncView() {
         </aside>
 
         <main className="relative min-h-0 flex-1">
-          {mode === "map" ? (
-            <div className="absolute inset-0">
-              <div ref={leftMapRef} className="absolute inset-y-0 left-0 right-1/2" />
-              <div ref={rightMapRef} className="absolute inset-y-0 right-0 left-1/2 border-l border-white/15" />
-              <div className="absolute top-4 left-4 z-[1000] hidden lg:block rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-1.5 text-xs font-medium text-cyan-300 backdrop-blur">{leftLayer.name}</div>
-              <div className="absolute top-4 right-4 z-[1000] hidden lg:block rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-1.5 text-xs font-medium text-cyan-300 backdrop-blur">{rightLayer.name}</div>
-              <div className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs text-white backdrop-blur">
-                <MapPin className="w-3 h-3 inline mr-1 text-cyan-400" /> Lat: {coords.lat.toFixed(3)}, Lng: {coords.lng.toFixed(3)}
-              </div>
-            </div>
-          ) : (
-            <div className="absolute inset-0 flex">
-              <div className="relative flex-1">
-                <LayerGlobe layer={leftLayer} date={safeLeftDate} />
-                <div className="absolute top-4 left-4 z-10 hidden lg:block rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-1.5 text-xs font-medium text-cyan-300 backdrop-blur">{leftLayer.name}</div>
-              </div>
-              <div className="relative flex-1 border-l border-white/15">
-                <LayerGlobe layer={rightLayer} date={safeRightDate} />
-                <div className="absolute top-4 right-4 z-10 hidden lg:block rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-1.5 text-xs font-medium text-cyan-300 backdrop-blur">{rightLayer.name}</div>
-              </div>
-            </div>
-          )}
-
-          <div className="absolute left-3 right-3 top-3 z-[1000] flex items-center justify-center gap-3 lg:left-5 lg:right-5">
-            <button onClick={() => setMobilePanel(true)} className="absolute left-0 flex items-center gap-2 rounded-xl border border-white/10 bg-[#07111d]/90 px-3 py-2.5 text-sm font-medium text-white shadow-xl backdrop-blur lg:hidden">
-              <Layers3 className="h-4 w-4 text-cyan-400" /> Controls
-            </button>
-            <div className="flex rounded-xl border border-white/10 bg-[#07111d]/90 p-1 shadow-xl backdrop-blur">
-              <button onClick={() => setMode("map")} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition sm:px-4 ${mode === "map" ? "bg-cyan-400 text-slate-950" : "text-slate-300 hover:text-white"}`}><MapIcon className="h-4 w-4" /> 2D Map</button>
-              <button onClick={() => setMode("globe")} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition sm:px-4 ${mode === "globe" ? "bg-cyan-400 text-slate-950" : "text-slate-300 hover:text-white"}`}><Globe2 className="h-4 w-4" /> 3D Globe</button>
+          <div className="absolute inset-0">
+            <div ref={leftMapRef} className="absolute inset-y-0 left-0 right-1/2" />
+            <div ref={rightMapRef} className="absolute inset-y-0 right-0 left-1/2 border-l border-white/15" />
+            <LayerScaleOverlay layer={leftLayer} position="bottom-20 left-4" />
+            <LayerScaleOverlay layer={rightLayer} position="bottom-20 left-1/2" />
+            <div className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs text-white backdrop-blur">
+              <MapPin className="w-3 h-3 inline mr-1 text-cyan-400" /> Lat: {coords.lat.toFixed(3)}, Lng: {coords.lng.toFixed(3)}
             </div>
           </div>
 
-          <div className="absolute bottom-20 left-3 right-3 z-[1000] flex flex-wrap items-center justify-between gap-2 lg:left-5 lg:right-5">
-            <div className="rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-[11px] text-slate-400 backdrop-blur">
-              NASA GIBS · {leftLayer.dateDependent ? safeLeftDate : "static composite"} synced with {rightLayer.dateDependent ? safeRightDate : "static composite"}
-            </div>
-            {mode === "map" && (
+          <div className="absolute left-3 right-3 top-3 z-[1000] flex items-center justify-between gap-3 lg:left-5 lg:right-5">
+            <button onClick={() => setMobilePanel(true)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#07111d]/90 px-3 py-2.5 text-sm font-medium text-white shadow-xl backdrop-blur lg:hidden">
+              <Layers3 className="h-4 w-4 text-cyan-400" /> Controls
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="hidden rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-[11px] text-slate-400 backdrop-blur md:block">{leftLayer.name} + {rightLayer.name}</div>
               <button onClick={() => { loadLeftLayer(); loadRightLayer(); }} className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs font-medium text-white backdrop-blur transition hover:border-cyan-400/40">Load layers</button>
-            )}
+            </div>
           </div>
 
           {/* Unified Ribbon — Earth Pulse style */}
@@ -302,7 +339,6 @@ export default function SyncView() {
                   >
                     <TabIcon className="h-4 w-4" />
                     <span>{tab.label}</span>
-                    {tab.id === "sync" && <span className="ml-1 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-slate-500">{mode === "map" ? "2D" : "3D"}</span>}
                   </Link>
                 );
               })}
