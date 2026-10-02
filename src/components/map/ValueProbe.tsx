@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Popup, useMapEvents } from "react-leaflet";
 import { Link } from "react-router-dom";
-import { Loader2, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { isAbortError } from "@/lib/async";
 import { isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { probePoint } from "@/lib/gibs/sample";
@@ -57,31 +57,33 @@ export default function ValueProbe({ layers, date, disabled }: { layers: { layer
   return (
     <Popup position={probe.point} eventHandlers={{ remove: () => setProbe(null) }} className="probe-popup" maxWidth={280} minWidth={210}>
       <div className="space-y-2">
-        <div className="text-[11px] font-medium text-slate-400">{formatLatLng(probe.point)}</div>
+        <div className="text-[11px] font-medium text-muted-foreground">{formatLatLng(probe.point)}</div>
         {probe.status === "loading" && (
-          <div className="flex items-center gap-2 text-sm text-slate-200">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-300" /> Reading NASA data…
+          <div role="status" aria-label="Reading NASA data" className="space-y-2 py-0.5">
+            <div className="skeleton h-2.5 w-24" />
+            <div className="skeleton h-5 w-32" />
+            <div className="skeleton h-2.5 w-16" />
           </div>
         )}
-        {probe.status === "error" && <div className="text-sm text-amber-300">Couldn't reach NASA GIBS for this point.</div>}
+        {probe.status === "error" && <div className="text-sm text-earth-yellow">Couldn't reach NASA GIBS for this point.</div>}
         {probe.status === "done" &&
           probe.values.map(({ layer, value }) => {
             const layerDate = layers.find((item) => item.layer.id === layer.id)?.date ?? date ?? null;
             return (
               <div key={layer.id}>
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">{layer.name}</div>
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{layer.name}</div>
                 {value === null ? (
-                  <div className="text-sm text-slate-300">No measurement here{layer.period === "daily" ? " (cloud, night or outside the satellite swath)" : ""}.</div>
+                  <div className="text-sm text-foreground/85">No measurement here{layer.period === "daily" ? " (cloud, night or outside the satellite swath)" : ""}.</div>
                 ) : (
-                  <div className="text-lg font-semibold text-white">{formatValue(value, layer.unit, layer.decimals)}</div>
+                  <div className="text-lg font-semibold text-foreground">{formatValue(value, layer.unit, layer.decimals)}</div>
                 )}
-                {layerDate && <div className="text-[11px] text-slate-500">{formatDate(layerDate)}</div>}
+                {layerDate && <div className="text-[11px] text-muted-foreground">{formatDate(layerDate)}</div>}
               </div>
             );
           })}
         <Link
           to={analysisHrefForPoint(probe.point, 10)}
-          className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-cyan-400/15 px-2.5 py-1.5 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-400/25"
+          className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-primary/15 px-2.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/25"
         >
           <TrendingUp className="h-3.5 w-3.5" /> Analyze 10 km around here
         </Link>

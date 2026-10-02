@@ -137,7 +137,7 @@ export default function SyncView() {
       <SidebarSection title="Search" icon={<Search className="h-3.5 w-3.5 text-primary" />}>
         <PlaceSearch onSelect={select} near={workspace.view.center} />
       </SidebarSection>
-      <div className="space-y-3 rounded-2xl border border-white/10 p-3.5">
+      <div className="space-y-3 rounded-2xl border border-border/60 bg-secondary/20 p-3.5">
         <LayerPickerLabel>Left map</LayerPickerLabel>
         <LayerPicker value={leftLayer} onChange={(layer: GibsLayer) => update({ left: layer.id })} label="Left layer" />
         <DateControl
@@ -153,19 +153,19 @@ export default function SyncView() {
         onClick={() => update(linkDates ? { link: "0", rightDate: leftRequested } : { link: null, rightDate: null })}
         className={cn(
           "flex w-full items-center justify-center gap-2 rounded-xl border py-2 text-xs font-semibold transition",
-          linkDates ? "border-primary/40 bg-primary/10 text-primary" : "border-white/10 bg-white/[0.03] text-slate-300 hover:text-white",
+          linkDates ? "border-primary/40 bg-primary/10 text-primary" : "border-border/60 bg-secondary/30 text-foreground/85 hover:text-foreground",
         )}
         aria-pressed={linkDates}
       >
         {linkDates ? <Link2 className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
         {linkDates ? "Dates linked — click to set them separately" : "Dates independent — click to link"}
       </button>
-      <div className="space-y-3 rounded-2xl border border-white/10 p-3.5">
+      <div className="space-y-3 rounded-2xl border border-border/60 bg-secondary/20 p-3.5">
         <LayerPickerLabel>Right map</LayerPickerLabel>
         <LayerPicker value={rightLayer} onChange={(layer: GibsLayer) => update({ right: layer.id })} label="Right layer" />
         {!linkDates && <DateControl layer={rightLayer} state={rightDate} requested={rightRequested} onChange={(date) => update({ rightDate: date })} label="Right date" />}
         {linkDates && rightDate.date && rightDate.date !== leftDate.date && (
-          <p className="text-xs text-slate-500">This product publishes on its own schedule — showing {formatDate(rightDate.date)}.</p>
+          <p className="text-xs text-muted-foreground">This product publishes on its own schedule — showing {formatDate(rightDate.date)}.</p>
         )}
       </div>
       <AreasPanel layer={isScienceLayer(rightLayer) ? rightLayer : leftLayer} date={isScienceLayer(rightLayer) ? rightDate.date : leftDate.date} dateReady={!rightDate.loading && !leftDate.loading} onZoomTo={zoomToArea} />
@@ -173,8 +173,14 @@ export default function SyncView() {
   );
 
   const label = (layer: GibsLayer, date: string | null, side: "left" | "right") => (
-    <div className={cn("absolute top-3 z-[1000] max-w-[calc(50%-1.5rem)] rounded-lg border border-white/10 bg-[#07111d]/85 px-2.5 py-1.5 text-[11px] text-slate-300 backdrop-blur", side === "left" ? "left-3" : "left-[calc(50%+0.75rem)]")}>
-      <span className="font-semibold text-white">{layer.name}</span> · {layer.source.split(" · ")[0]}
+    <div
+      className={cn(
+        "absolute z-[1000] truncate rounded-lg glass-strong px-2.5 py-1.5 text-[11px] text-foreground/85 shadow-lg shadow-black/30",
+        "left-3 max-w-[calc(100%-1.5rem)] sm:max-w-[calc(50%-1.5rem)]",
+        side === "left" ? "top-3" : "top-[calc(50%+0.75rem)] sm:left-[calc(50%+0.75rem)] sm:top-3",
+      )}
+    >
+      <span className="font-semibold text-foreground">{layer.name}</span> · {layer.source.split(" · ")[0]}
       {date ? ` · ${formatDate(date)}` : ""}
     </div>
   );
@@ -216,8 +222,8 @@ export default function SyncView() {
       panelOpen={panelOpen}
       onPanelOpenChange={setPanelOpen}
     >
-      <div className="absolute inset-0 grid grid-cols-2">
-        <div className="relative min-w-0">
+      <div className="absolute inset-0 grid grid-rows-2 sm:grid-cols-2 sm:grid-rows-1">
+        <div className="relative min-h-0 min-w-0">
           <BaseMap initialView={initialView} onViewChange={workspace.setView} onReady={setLeftMap} zoomControl={false} attribution={false}>
             <LayerStack layer={leftLayer} date={leftDate.date} />
             <ReferenceOverlays />
@@ -229,7 +235,7 @@ export default function SyncView() {
           </BaseMap>
           {label(leftLayer, leftDate.date, "left")}
         </div>
-        <div className="relative min-w-0 border-l border-white/20">
+        <div className="relative min-h-0 min-w-0 border-t-2 border-primary/40 sm:border-l-2 sm:border-t-0">
           <BaseMap initialView={initialView} onReady={setRightMap}>
             <LayerStack layer={rightLayer} date={rightDate.date} />
             <ReferenceOverlays />

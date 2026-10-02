@@ -25,32 +25,33 @@ export default function MapPageShell({ eyebrow, title, description, sidebar, chi
   }, [panelOpen, onPanelOpenChange]);
 
   return (
-    <div className="relative h-[calc(100dvh-4rem)] overflow-hidden bg-[#02070d]">
+    <div className="relative h-[calc(100dvh-4rem)] overflow-hidden bg-space-deep">
       <div className="flex h-full min-h-0">
         <aside
           className={cn(
-            "flex-col overflow-y-auto border-r border-white/10 bg-[#07111d]/[0.98] backdrop-blur-xl",
+            "relative flex-col overflow-y-auto overscroll-contain border-r border-border/60 bg-card/95 backdrop-blur-2xl",
             "lg:static lg:z-auto lg:flex lg:w-[23rem] lg:shrink-0",
-            panelOpen ? "fixed inset-x-0 bottom-0 top-16 z-[1300] flex" : "hidden",
+            panelOpen ? "fixed inset-x-0 bottom-0 top-16 z-[1300] flex animate-in fade-in-0 slide-in-from-bottom-4 duration-300" : "hidden",
           )}
           aria-label={`${title} controls`}
         >
-          <div className="flex items-start justify-between gap-4 px-5 pb-4 pt-5">
+          <div aria-hidden="true" className="pointer-events-none absolute -top-24 left-1/2 h-48 w-72 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative flex items-start justify-between gap-4 px-5 pb-4 pt-5">
             <div>
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">{eyebrow}</p>
-              <h1 className="text-xl font-bold text-white">{title}</h1>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{description}</p>
+              <p className="mb-1 eyebrow">{eyebrow}</p>
+              <h1 className="font-display text-2xl font-bold text-foreground">{title}</h1>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
             </div>
             <button
               type="button"
               onClick={() => onPanelOpenChange(false)}
-              className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-white lg:hidden"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-secondary/60 hover:text-foreground lg:hidden"
               aria-label="Close controls"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="flex-1 space-y-5 px-5 pb-28 lg:pb-6">{sidebar}</div>
+          <div className="relative flex-1 space-y-5 px-5 pb-28 lg:pb-6">{sidebar}</div>
         </aside>
 
         <section aria-label="Map" className="map-page relative min-h-0 min-w-0 flex-1">
@@ -60,7 +61,8 @@ export default function MapPageShell({ eyebrow, title, description, sidebar, chi
             <button
               type="button"
               onClick={() => onPanelOpenChange(true)}
-              className="pointer-events-auto absolute bottom-20 left-3 flex items-center gap-2 rounded-xl border border-white/10 bg-[#07111d]/90 px-3 py-2.5 text-sm font-medium text-white shadow-xl backdrop-blur lg:hidden"
+              aria-expanded={panelOpen}
+              className="pointer-events-auto absolute bottom-20 left-3 flex min-h-[44px] items-center gap-2 rounded-xl glass-strong px-3.5 py-2.5 text-sm font-medium text-foreground shadow-xl shadow-black/30 transition-colors hover:border-primary/40 lg:hidden"
             >
               <SlidersHorizontal className="h-4 w-4 text-primary" /> Layers & areas
             </button>
@@ -79,7 +81,7 @@ export function SidebarSection({ title, icon, children, action }: { title?: stri
     <section>
       {title && (
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <h2 className="flex items-center gap-2 section-label">
             {icon}
             {title}
           </h2>

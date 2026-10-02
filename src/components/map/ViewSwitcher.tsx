@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 import { Columns2, LayoutGrid, Map as MapIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +13,7 @@ const VIEWS = [
 export default function ViewSwitcher({ className }: { className?: string }) {
   const location = useLocation();
   return (
-    <nav aria-label="Map views" className={cn("pointer-events-auto inline-flex items-center gap-0.5 rounded-2xl border border-white/10 bg-[#0a1628]/95 p-1.5 shadow-2xl shadow-black/40 backdrop-blur-2xl", className)}>
+    <nav aria-label="Map views" className={cn("pointer-events-auto inline-flex items-center gap-0.5 rounded-2xl glass-strong p-1.5 shadow-2xl shadow-black/40", className)}>
       {VIEWS.map((view) => {
         const active = location.pathname === view.to;
         const Icon = view.icon;
@@ -21,13 +22,15 @@ export default function ViewSwitcher({ className }: { className?: string }) {
             key={view.to}
             to={view.to}
             aria-current={active ? "page" : undefined}
+            aria-label={view.label}
             className={cn(
-              "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition sm:px-4",
-              active ? "bg-primary/15 text-primary" : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100",
+              "relative flex min-h-[40px] items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors sm:px-4",
+              active ? "text-primary" : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground",
             )}
           >
-            <Icon className="h-4 w-4" />
-            <span className="hidden sm:inline">{view.label}</span>
+            {active && <motion.span layoutId="view-indicator" className="absolute inset-0 rounded-xl border border-primary/20 bg-primary/10" transition={{ type: "spring", duration: 0.45 }} />}
+            <Icon className="relative h-4 w-4" aria-hidden="true" />
+            <span className="relative hidden sm:inline">{view.label}</span>
           </Link>
         );
       })}

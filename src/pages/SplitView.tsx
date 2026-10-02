@@ -116,7 +116,7 @@ export default function SplitView() {
       <SidebarSection title="Search" icon={<Search className="h-3.5 w-3.5 text-primary" />}>
         <PlaceSearch onSelect={select} near={workspace.view.center} />
       </SidebarSection>
-      <div className="space-y-3 rounded-2xl border border-white/10 p-3.5">
+      <div className="space-y-3 rounded-2xl border border-border/60 bg-secondary/20 p-3.5">
         <LayerPickerLabel>Left side</LayerPickerLabel>
         <LayerPicker value={leftLayer} onChange={(layer: GibsLayer) => update({ left: layer.id })} label="Left layer" />
         <DateControl layer={leftLayer} state={leftDate} requested={leftRequested} onChange={(date) => update({ leftDate: date })} label="Left date" />
@@ -124,16 +124,16 @@ export default function SplitView() {
       <button
         type="button"
         onClick={swap}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2 text-xs font-semibold text-slate-300 transition hover:border-primary/40 hover:text-white"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-secondary/30 py-2 text-xs font-semibold text-foreground/85 transition hover:border-primary/40 hover:text-foreground"
       >
         <ArrowLeftRight className="h-3.5 w-3.5" /> Swap sides
       </button>
-      <div className="space-y-3 rounded-2xl border border-white/10 p-3.5">
+      <div className="space-y-3 rounded-2xl border border-border/60 bg-secondary/20 p-3.5">
         <LayerPickerLabel>Right side</LayerPickerLabel>
         <LayerPicker value={rightLayer} onChange={(layer: GibsLayer) => update({ right: layer.id })} label="Right layer" />
         <DateControl layer={rightLayer} state={rightDate} requested={rightRequested} onChange={(date) => update({ rightDate: date })} label="Right date" />
       </div>
-      <p className="text-xs leading-relaxed text-slate-500">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         Tip: pick the same layer on both sides with two different dates to see change over time — floods, fires, harvests or snow melt.
       </p>
       <LayerInfoCard layer={rightLayer} />
@@ -163,12 +163,12 @@ export default function SplitView() {
           <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
         </div>
       )}
-      <div className="absolute bottom-[4.75rem] left-3 hidden max-w-[45%] rounded-lg border border-white/10 bg-[#07111d]/85 px-2.5 py-1.5 text-[11px] text-slate-300 backdrop-blur sm:block">
-        ◀ <span className="font-semibold text-white">{leftLayer.name}</span> · {leftLayer.source.split(" · ")[0]}
+      <div className="absolute bottom-[4.75rem] left-3 hidden max-w-[45%] rounded-lg glass-strong px-2.5 py-1.5 text-[11px] text-foreground/85 sm:block">
+        ◀ <span className="font-semibold text-foreground">{leftLayer.name}</span> · {leftLayer.source.split(" · ")[0]}
         {leftDate.date ? ` · ${formatDate(leftDate.date)}` : ""}
       </div>
-      <div className="absolute bottom-[4.75rem] right-3 hidden max-w-[45%] rounded-lg border border-white/10 bg-[#07111d]/85 px-2.5 py-1.5 text-right text-[11px] text-slate-300 backdrop-blur sm:block">
-        <span className="font-semibold text-white">{rightLayer.name}</span> · {rightLayer.source.split(" · ")[0]}
+      <div className="absolute bottom-[4.75rem] right-3 hidden max-w-[45%] rounded-lg glass-strong px-2.5 py-1.5 text-right text-[11px] text-foreground/85 sm:block">
+        <span className="font-semibold text-foreground">{rightLayer.name}</span> · {rightLayer.source.split(" · ")[0]}
         {rightDate.date ? ` · ${formatDate(rightDate.date)}` : ""} ▶
       </div>
     </>
@@ -214,7 +214,7 @@ export default function SplitView() {
           <FlyTo target={flyTarget} />
         </BaseMap>
         <div className="pointer-events-none absolute inset-y-0 z-[900]" style={{ left: `${ratio * 100}%` }}>
-          <div className="absolute inset-y-0 -left-px w-0.5 bg-primary/80 shadow-[0_0_12px_rgba(45,212,191,0.6)]" />
+          <div className="absolute inset-y-0 -left-px w-0.5 bg-primary/80 shadow-[0_0_14px_hsl(var(--primary)/0.6)]" />
           <div
             role="slider"
             tabIndex={0}
@@ -227,7 +227,7 @@ export default function SplitView() {
             onPointerUp={onHandleUp}
             onPointerCancel={onHandleUp}
             onKeyDown={onHandleKey}
-            className="pointer-events-auto absolute top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-full border-2 border-primary bg-[#07111d]/95 text-primary shadow-xl outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            className="pointer-events-auto absolute top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-full border-2 border-primary bg-card/95 text-primary shadow-xl glow-primary outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
             <GripVertical className="h-5 w-5" />
           </div>

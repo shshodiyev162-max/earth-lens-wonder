@@ -33,10 +33,10 @@ export default function LayerLegend({ layer, className, compact }: { layer: Gibs
   const unit = layer.unit && layer.unit !== "NDVI" && layer.unit !== "AOD" ? layer.unit : "";
 
   return (
-    <div className={cn("rounded-xl border border-white/10 bg-[#07111d]/90 p-3 shadow-xl backdrop-blur", className)}>
+    <div className={cn("rounded-xl glass-strong p-3 shadow-xl", className)}>
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <span className="truncate text-xs font-semibold text-white">{layer.name}</span>
-        <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">{layer.unit}</span>
+        <span className="truncate text-xs font-semibold text-foreground">{layer.name}</span>
+        <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">{layer.unit}</span>
       </div>
       {legend ? (
         <>
@@ -44,7 +44,7 @@ export default function LayerLegend({ layer, className, compact }: { layer: Gibs
             className={cn("w-full rounded-sm", compact ? "h-2" : "h-2.5")}
             style={{ background: `linear-gradient(to right, ${legend.stops.map((s) => s.color).join(", ")})` }}
           />
-          <div className="mt-1.5 flex justify-between font-mono text-[10px] text-slate-300">
+          <div className="mt-1.5 flex justify-between font-mono text-[10px] text-foreground/85">
             <span>
               {legend.openMin ? "≤ " : ""}
               {legendLabel(legend.min, layer)}
@@ -58,9 +58,9 @@ export default function LayerLegend({ layer, className, compact }: { layer: Gibs
           </div>
         </>
       ) : state?.error ? (
-        <p className="text-[11px] text-slate-500">Legend unavailable offline.</p>
+        <p className="text-[11px] text-muted-foreground">Legend unavailable offline.</p>
       ) : (
-        <div className="h-2.5 w-full animate-pulse rounded-sm bg-white/10" />
+        <div className="h-2.5 w-full animate-pulse rounded-sm bg-secondary" />
       )}
     </div>
   );

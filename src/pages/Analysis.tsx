@@ -35,19 +35,19 @@ function seriesNote(series: SatelliteSeries | undefined, end: string): string | 
 
 function EmptyCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#0a1422]/50 px-6 py-14 text-center">
+    <section className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-card/50 px-6 py-14 text-center">
       <Satellite className="mb-3 h-8 w-8 text-primary" />
-      <h2 className="text-lg font-semibold text-white">{title}</h2>
-      <div className="mt-2 max-w-md text-sm leading-relaxed text-slate-400">{children}</div>
+      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      <div className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{children}</div>
     </section>
   );
 }
 
 function SeriesUnavailable({ title, series }: { title: string; series: SatelliteSeries }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#0a1422]/60 p-5">
-      <h3 className="text-sm font-semibold text-white">{title}</h3>
-      <p className="mt-2 text-xs leading-relaxed text-slate-400">
+    <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
         {series.status === "error"
           ? `NASA GIBS couldn't be reached for this dataset (${series.error ?? "network error"}). Try again in a moment.`
           : "No valid pixels for this area in the selected period — for example open water, permanent cloud, or a product that doesn't cover this region."}
@@ -110,7 +110,7 @@ function Charts({ result }: { result: AnalysisResult }) {
         </ChartCard>
       )}
       {climate?.status === "error" && (
-        <section className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-5 text-sm text-amber-100">
+        <section className="rounded-2xl border border-earth-yellow/20 bg-earth-yellow/[0.06] p-5 text-sm text-earth-yellow">
           NASA POWER (climate) didn't respond: {climate.error}. Satellite results above are unaffected.
         </section>
       )}
@@ -214,21 +214,21 @@ export default function Analysis() {
   const progressPct = run.progress ? Math.round((run.progress.done / Math.max(run.progress.total, 1)) * 100) : 0;
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-[#02070d]">
+    <div className="min-h-[calc(100dvh-4rem)] bg-space-deep">
       <div className="mx-auto max-w-[1560px] px-4 py-6 sm:px-6 lg:py-8">
         <motion.header initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="flex items-center gap-3">
             <BarChart3 className="h-7 w-7 text-primary" />
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">Analyze any place on Earth</h1>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Analyze any place on Earth</h1>
           </div>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-400">
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
             Choose a place — search it, click the map, draw an outline or use your location. TerraVision reads NASA satellite imagery and climate records for
             that exact area and explains what changed. Every number below is measured, not simulated.
           </p>
         </motion.header>
 
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(320px,400px),1fr]">
-          <aside className="space-y-6 rounded-2xl border border-white/10 bg-[#07111d]/90 p-5 lg:sticky lg:top-20">
+          <aside className="space-y-6 rounded-2xl glass-strong p-5 lg:sticky lg:top-20">
             <LocationPicker target={target} loading={targetLoading} onPlace={onPlace} onPoint={onPoint} onDrawn={onDrawn} onArea={onArea} />
             <PeriodPicker period={period} start={start} end={end} onChange={onPeriod} />
             <DatasetPicker selected={datasets} onChange={onDatasets} />
@@ -236,7 +236,7 @@ export default function Analysis() {
 
           <div ref={resultsRef} className="min-w-0 scroll-mt-20 space-y-5">
             {targetError && (
-              <section className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-sm text-amber-100">
+              <section className="flex items-start gap-3 rounded-2xl border border-earth-yellow/25 bg-earth-yellow/[0.07] p-4 text-sm text-earth-yellow">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {targetError}
               </section>
             )}
@@ -262,27 +262,27 @@ export default function Analysis() {
 
                 {running && (
                   <div className="rounded-2xl border border-primary/20 bg-primary/[0.06] p-4" role="status" aria-live="polite">
-                    <div className="mb-2 flex items-center justify-between gap-3 text-xs text-slate-300">
+                    <div className="mb-2 flex items-center justify-between gap-3 text-xs text-foreground/85">
                       <span className="flex items-center gap-2">
                         <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                         Reading NASA data{run.progress?.label && run.progress.label !== "Starting" ? ` · ${run.progress.label}` : ""}
                       </span>
-                      <span className="font-mono text-slate-400">
+                      <span className="font-mono text-muted-foreground">
                         {run.progress?.done ?? 0}/{run.progress?.total ?? "…"}
                       </span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-300" style={{ width: `${progressPct}%` }} />
+                    <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                      <div className="h-full rounded-full gradient-primary transition-all duration-300" style={{ width: `${progressPct}%` }} />
                     </div>
                   </div>
                 )}
 
                 {run.status === "error" && (
-                  <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-500/25 bg-red-500/[0.07] p-4 text-sm text-red-100">
+                  <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-earth-red/25 bg-earth-red/[0.07] p-4 text-sm text-earth-red">
                     <span className="flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4" /> {run.error}
                     </span>
-                    <button type="button" onClick={run.rerun} className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/15">
+                    <button type="button" onClick={run.rerun} className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-muted">
                       <RefreshCw className="h-3.5 w-3.5" /> Try again
                     </button>
                   </section>

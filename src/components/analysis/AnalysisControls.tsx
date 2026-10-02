@@ -18,10 +18,10 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
   const latest = defaultEndMonth();
   return (
     <div>
-      <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+      <div className="mb-1.5 flex items-center gap-1.5 section-label">
         <CalendarRange className="h-3.5 w-3.5 text-primary" /> Period
       </div>
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-white/[0.04] p-1" role="radiogroup" aria-label="Period">
+      <div className="grid grid-cols-4 gap-1 rounded-xl bg-secondary/40 p-1" role="radiogroup" aria-label="Period">
         {PERIOD_OPTIONS.map((option) => (
           <button
             key={option.id}
@@ -31,7 +31,7 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
             onClick={() => onChange(option.id, option.id === "custom" ? start : undefined, option.id === "custom" ? end : undefined)}
             className={cn(
               "rounded-lg px-1 py-1.5 text-xs font-semibold transition",
-              period === option.id ? "bg-primary text-primary-foreground shadow" : "text-slate-400 hover:text-white",
+              period === option.id ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {option.label}
@@ -40,7 +40,7 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
       </div>
       {period === "custom" ? (
         <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className="text-[11px] text-slate-500">
+          <label className="text-[11px] text-muted-foreground">
             From
             <input
               type="month"
@@ -48,10 +48,10 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
               min={EARLIEST_MONTH}
               max={end}
               onChange={(event) => MONTH_RE.test(event.target.value) && onChange("custom", event.target.value, end)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-sm text-white outline-none [color-scheme:dark] focus:border-primary/50"
+              className="mt-1 w-full rounded-lg field px-2.5 py-2 text-sm text-foreground outline-none [color-scheme:dark]"
             />
           </label>
-          <label className="text-[11px] text-slate-500">
+          <label className="text-[11px] text-muted-foreground">
             To
             <input
               type="month"
@@ -59,13 +59,13 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
               min={start}
               max={latest}
               onChange={(event) => MONTH_RE.test(event.target.value) && onChange("custom", start, event.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-sm text-white outline-none [color-scheme:dark] focus:border-primary/50"
+              className="mt-1 w-full rounded-lg field px-2.5 py-2 text-sm text-foreground outline-none [color-scheme:dark]"
             />
           </label>
-          <p className="col-span-2 text-[11px] text-slate-500">Up to 10 years, from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>
+          <p className="col-span-2 text-[11px] text-muted-foreground">Up to 10 years, from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>
         </div>
       ) : (
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[11px] text-muted-foreground">
           {formatMonth(start, "long")} – {formatMonth(end, "long")}
         </p>
       )}
@@ -88,7 +88,7 @@ export function DatasetPicker({ selected, onChange }: { selected: DatasetId[]; o
   };
   return (
     <div>
-      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">NASA datasets</div>
+      <div className="mb-1.5 section-label">NASA datasets</div>
       <div className="space-y-1.5">
         {DATASETS.map((dataset) => {
           const Icon = DATASET_ICON[dataset.id];
@@ -102,21 +102,21 @@ export function DatasetPicker({ selected, onChange }: { selected: DatasetId[]; o
               onClick={() => toggle(dataset.id)}
               className={cn(
                 "flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition",
-                on ? "border-white/15 bg-white/[0.05]" : "border-white/5 bg-transparent opacity-60 hover:opacity-90",
+                on ? "border-border bg-secondary/40" : "border-border/40 bg-transparent opacity-60 hover:opacity-90",
               )}
             >
               <span
-                className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border", on ? "border-transparent" : "border-white/30")}
+                className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border", on ? "border-transparent" : "border-muted-foreground/40")}
                 style={on ? { background: dataset.color } : undefined}
                 aria-hidden
               >
-                {on && <span className="block h-1.5 w-1.5 rounded-sm bg-slate-950" />}
+                {on && <span className="block h-1.5 w-1.5 rounded-sm bg-primary-foreground" />}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5 text-sm font-medium text-white">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                   <Icon className="h-3.5 w-3.5" style={{ color: dataset.color }} /> {dataset.label}
                 </span>
-                <span className="block text-xs text-slate-500">{dataset.description}</span>
+                <span className="block text-xs text-muted-foreground">{dataset.description}</span>
               </span>
             </button>
           );

@@ -29,7 +29,7 @@ interface DrawToolbarProps {
 export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish, onUndo, className, showHint = true }: DrawToolbarProps) {
   return (
     <div className={cn("pointer-events-auto flex flex-col items-end gap-2", className)}>
-      <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-[#07111d]/90 p-1 shadow-xl backdrop-blur" role="toolbar" aria-label="Draw an area">
+      <div className="flex items-center gap-1 rounded-xl glass-strong p-1 shadow-xl" role="toolbar" aria-label="Draw an area">
         {TOOLS.map((tool) => {
           const Icon = tool.icon;
           const active = mode === tool.mode;
@@ -43,7 +43,7 @@ export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish,
                   aria-label={tool.label}
                   className={cn(
                     "rounded-lg p-2 transition",
-                    active ? "bg-primary text-primary-foreground" : "text-slate-300 hover:bg-white/10 hover:text-white",
+                    active ? "bg-primary text-primary-foreground" : "text-foreground/85 hover:bg-secondary hover:text-foreground",
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -75,7 +75,7 @@ export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, classN
   return (
     <div
       className={cn(
-        "pointer-events-auto rounded-xl border border-primary/30 bg-[#07111d]/95 px-3 py-2.5 text-xs leading-relaxed text-slate-200 shadow-xl backdrop-blur",
+        "pointer-events-auto rounded-xl border border-primary/30 bg-card/95 px-3 py-2.5 text-xs leading-relaxed text-foreground shadow-xl backdrop-blur",
         className,
       )}
     >
@@ -95,13 +95,13 @@ export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, classN
               type="button"
               onClick={onUndo}
               disabled={vertexCount === 0}
-              className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-slate-200 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-foreground disabled:opacity-40"
             >
               <Undo2 className="h-3 w-3" /> Undo
             </button>
           </>
         )}
-        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-slate-200">
+        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-foreground">
           <X className="h-3 w-3" /> Cancel
         </button>
       </div>

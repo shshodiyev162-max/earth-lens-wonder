@@ -9,17 +9,17 @@ import { cn } from "@/lib/utils";
 export function LayerInfoCard({ layer, className }: { layer: GibsLayer; className?: string }) {
   return (
     <div className={cn("rounded-2xl border border-primary/15 bg-primary/[0.05] p-4", className)}>
-      <div className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-white">
+      <div className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-foreground">
         <Info className="h-4 w-4 text-primary" /> {layer.name}
       </div>
-      <p className="text-xs leading-relaxed text-slate-400">{layer.description}</p>
-      {layer.howToRead && <p className="mt-2 text-xs leading-relaxed text-slate-300">{layer.howToRead}</p>}
+      <p className="text-xs leading-relaxed text-muted-foreground">{layer.description}</p>
+      {layer.howToRead && <p className="mt-2 text-xs leading-relaxed text-foreground/85">{layer.howToRead}</p>}
       <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
-        <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{layer.source}</span>
-        <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{periodLabel(layer.period)}</span>
-        {isScienceLayer(layer) && <span className="rounded bg-emerald-400/10 px-2 py-1 text-emerald-300">Click map to read values</span>}
+        <span className="rounded bg-secondary/60 px-2 py-1 text-foreground/85">{layer.source}</span>
+        <span className="rounded bg-secondary/60 px-2 py-1 text-foreground/85">{periodLabel(layer.period)}</span>
+        {isScienceLayer(layer) && <span className="rounded bg-earth-green/10 px-2 py-1 text-earth-green">Click map to read values</span>}
       </div>
-      {isScienceLayer(layer) && <LayerLegend layer={layer} className="mt-3 border-white/5 bg-black/20 shadow-none" compact />}
+      {isScienceLayer(layer) && <LayerLegend layer={layer} className="mt-3 border-border/40 bg-background/40 shadow-none" compact />}
     </div>
   );
 }
@@ -30,7 +30,7 @@ export function MapStatusPill({ layer, date, status, className }: { layer: GibsL
     <div
       className={cn(
         "pointer-events-auto flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] shadow-xl backdrop-blur",
-        status === "error" ? "border-amber-400/30 bg-amber-950/80 text-amber-100" : "border-white/10 bg-[#07111d]/85 text-slate-300",
+        status === "error" ? "border-earth-yellow/30 bg-card/95 text-earth-yellow" : "border-border/60 bg-card/85 text-foreground/85",
         className,
       )}
       role="status"
@@ -38,13 +38,13 @@ export function MapStatusPill({ layer, date, status, className }: { layer: GibsL
       {status === "loading" ? (
         <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" />
       ) : status === "error" ? (
-        <AlertTriangle className="h-3 w-3 shrink-0 text-amber-300" />
+        <AlertTriangle className="h-3 w-3 shrink-0 text-earth-yellow" />
       ) : (
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-earth-green" />
       )}
       <span className="truncate">
         {status === "error" ? "No imagery for this view — " : ""}
-        <span className="font-medium text-white">{layer.name}</span> · {layer.source.split(" · ")[0]}
+        <span className="font-medium text-foreground">{layer.name}</span> · {layer.source.split(" · ")[0]}
         {date ? ` · ${formatDate(date)}` : ""}
       </span>
     </div>

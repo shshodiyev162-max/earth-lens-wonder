@@ -94,7 +94,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="hidden items-center gap-2 rounded-lg border border-border/60 bg-secondary/40 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground sm:flex"
+              className="hidden items-center gap-2 rounded-lg field px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground sm:flex"
               aria-label="Search places and layers"
             >
               <Search className="h-4 w-4" />

@@ -31,8 +31,8 @@ interface SeriesFormat {
 function ChartTooltip({ active, payload, label, formats }: TooltipProps<number, string> & { formats: Record<string, SeriesFormat> }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-white/10 bg-[#0b1725]/95 px-3 py-2 text-xs shadow-2xl backdrop-blur">
-      <div className="mb-1 font-semibold text-white">{label}</div>
+    <div className="rounded-xl menu/95 px-3 py-2 text-xs shadow-2xl backdrop-blur">
+      <div className="mb-1 font-semibold text-foreground">{label}</div>
       {payload.map((item) => {
         const key = String(item.dataKey);
         const format = formats[key];
@@ -47,11 +47,11 @@ function ChartTooltip({ active, payload, label, formats }: TooltipProps<number, 
         }
         return (
           <div key={key} className="flex items-center justify-between gap-4">
-            <span className="flex items-center gap-1.5 text-slate-400">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
               <i className="inline-block h-2 w-2 rounded-full" style={{ background: item.color }} />
               {format.label}
             </span>
-            <span className="font-mono text-slate-100">
+            <span className="font-mono text-foreground">
               {text}
               {text !== "—" && format.unit ? ` ${format.unit}` : ""}
             </span>
@@ -78,16 +78,16 @@ export function ChartCard({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-2xl border border-white/10 bg-[#0a1422]/80 p-4 sm:p-5", className)}>
+    <section className={cn("rounded-2xl border border-border/60 bg-card/80 p-4 sm:p-5", className)}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-white">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-[11px] text-slate-500">{subtitle}</p>}
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>}
         </div>
         {aside}
       </div>
       <div className="h-56 sm:h-64">{children}</div>
-      {footer && <div className="mt-2 text-[11px] leading-relaxed text-slate-500">{footer}</div>}
+      {footer && <div className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{footer}</div>}
     </section>
   );
 }
