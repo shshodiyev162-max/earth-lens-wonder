@@ -182,7 +182,7 @@ export default function SplitView() {
 
   const overlay = (
     <>
-      <div className="pointer-events-auto absolute left-1/2 top-[3.75rem] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-[#07111d]/90 px-4 py-2 shadow-xl backdrop-blur xl:top-4">
+      <div className="pointer-events-auto absolute left-1/2 top-[3.75rem] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-[#07111d]/90 px-4 py-2 shadow-xl backdrop-blur">
         <span className="text-xs text-slate-400">Compare</span>
         <input
           type="range"
@@ -195,7 +195,7 @@ export default function SplitView() {
         />
         <span className="w-10 text-xs font-medium text-white">{Math.round(ratio * 100)}%</span>
       </div>
-      <div className="absolute right-3 top-[7rem] lg:right-5 xl:top-[3.75rem]">
+      <div className="absolute right-3 top-[3.75rem] lg:right-5">
         <DrawToolbar
           mode={drawMode}
           onModeChange={setDrawMode}
@@ -206,7 +206,7 @@ export default function SplitView() {
       </div>
       {selection && (
         <>
-          <div className="pointer-events-auto absolute left-16 top-[7rem] hidden lg:block xl:top-[3.75rem]">
+          <div className="pointer-events-auto absolute left-16 top-[7rem] hidden lg:block">
             <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
           </div>
           <div className="pointer-events-auto absolute inset-x-3 bottom-20 flex justify-center lg:hidden">

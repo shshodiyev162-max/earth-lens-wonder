@@ -215,8 +215,9 @@
 
 /* ── Additions that don't change the look ── */
 
-/* Keyboard users get a visible focus ring; mouse clicks don't show it. */
-:focus-visible {
+/* Keyboard users get a visible focus ring; mouse clicks don't show it.
+   Text fields show focus on their own box instead (border / ring classes). */
+:focus-visible:not(input):not(textarea):not(select) {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }

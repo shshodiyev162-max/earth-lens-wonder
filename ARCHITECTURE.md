@@ -65,12 +65,13 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 
 ### Look and feel
 
-The visual language is the original TerraView design: a dark "space" theme, `gradient-hero` backgrounds with soft glows, `glass` cards, `font-display` (Space Grotesk) headings and `gradient-primary` + `glow-primary` buttons.
+The design is the original TerraView design from the GitHub version, unchanged where it existed:
 
-- Colours are tokens in `src/index.css` (`--primary`, `--card`, `--muted-foreground`, `--earth-*`, `--glow-*`). Components use Tailwind classes built on them, such as `bg-card`, `text-muted-foreground` and `text-earth-green`, never raw hex or palette colours. The token values pass WCAG AA contrast on the dark backgrounds.
-- Shared pieces in `src/index.css`: `panel`, `field` (glass inputs), `menu` (dropdowns), `chip`, `kbd`, `eyebrow`, `section-label`, `btn-primary`, `btn-glass`, `btn-ghost` and `skeleton` (loading placeholders).
-- Pages fade in with an opacity-only animation. Avoid transforms on page wrappers, because they would trap the map pages' fixed phone panels.
-- Motion respects `prefers-reduced-motion`.
+- The theme colours in `src/index.css` are the original ones: a dark "space" theme, `gradient-hero`, `glass` and `glass-strong` cards, `gradient-primary` + `glow-primary` buttons and `font-display` (Space Grotesk) headings.
+- The landing, sign-in, 404 and Analysis pages use these theme classes, exactly as the GitHub pages did.
+- The map pages (Explore, Split, Sync) use the original navy-and-cyan sidebar (`bg-[#07111d]`, `border-white/10`, `text-slate-*`, `text-cyan-400`), with the floating top row, Quick regions, the info card, Selected areas, the bottom Explore/Split/Sync ribbon, vertical draw tools and bright cyan country borders.
+- Search lives in the top navigation bar (`components/search/NavSearch.tsx`), where the old "World" picker was. Ctrl/⌘K and "/" focus it; on phones the search icon opens `GlobalSearch`. Both share `useUniversalSearch`.
+- Additions that don't change the look: a keyboard-only focus ring, `prefers-reduced-motion` support, a `skeleton` shimmer for loading placeholders and a fade between pages.
 
 ## Design decisions
 

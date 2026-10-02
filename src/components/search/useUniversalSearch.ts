@@ -4,6 +4,7 @@ import { usePlaceSearch } from "@/hooks/usePlaceSearch";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import type { PlaceResult } from "@/lib/geo/geocode";
 import { MAP_LAYERS, searchLayers, type GibsLayer } from "@/lib/gibs/catalog";
+import { analysisHrefForPlace } from "@/lib/links";
 
 export type SearchItem = { type: "place"; place: PlaceResult } | { type: "layer"; layer: GibsLayer };
 
@@ -21,12 +22,14 @@ export function useUniversalSearch(query: string, enabled: boolean) {
   return { ...places, layers, items };
 }
 
-/** Opening a place keeps you on the current map view; anywhere else it opens Explore. */
+/** Opening a place keeps you on the current map view (or analyzes it on the Analysis page); anywhere else it opens Explore. */
 export function useOpenSearchItem() {
   const navigate = useNavigate();
   return useCallback(
     (item: SearchItem) => {
-      if (item.type === "place") {
+      if (item.type === "place" && window.location.pathname === "/analysis") {
+        navigate(analysisHrefForPlace(item.place));
+      } else if (item.type === "place") {
         const path = MAP_PATHS.includes(window.location.pathname) ? window.location.pathname : "/map";
         navigate(`${path}${path === window.location.pathname ? window.location.search : ""}`, { state: { focusPlace: item.place } });
       } else {

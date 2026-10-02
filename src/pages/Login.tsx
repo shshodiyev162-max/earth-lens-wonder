@@ -62,7 +62,7 @@ export default function Login() {
               <label htmlFor="name" className="text-sm text-muted-foreground mb-1.5 block">
                 Name
               </label>
-              <div className="flex items-center gap-2 bg-secondary rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 bg-secondary rounded-xl px-4 py-3 focus-within:ring-1 focus-within:ring-primary/50">
                 <User className="w-4 h-4 text-muted-foreground" />
                 <input
                   id="name"
@@ -81,7 +81,7 @@ export default function Login() {
             <label htmlFor="email" className="text-sm text-muted-foreground mb-1.5 block">
               Email
             </label>
-            <div className="flex items-center gap-2 bg-secondary rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 bg-secondary rounded-xl px-4 py-3 focus-within:ring-1 focus-within:ring-primary/50">
               <Mail className="w-4 h-4 text-muted-foreground" />
               <input
                 id="email"
@@ -100,7 +100,7 @@ export default function Login() {
             <label htmlFor="password" className="text-sm text-muted-foreground mb-1.5 block">
               Password
             </label>
-            <div className="flex items-center gap-2 bg-secondary rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 bg-secondary rounded-xl px-4 py-3 focus-within:ring-1 focus-within:ring-primary/50">
               <Lock className="w-4 h-4 text-muted-foreground" />
               <input
                 id="password"
