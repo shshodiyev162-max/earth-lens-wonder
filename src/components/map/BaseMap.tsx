@@ -49,7 +49,7 @@ export default function BaseMap({
   onReady,
   zoomControl = true,
   attribution = true,
-  zoomPosition = "bottomright",
+  zoomPosition = "topleft",
 }: BaseMapProps) {
   return (
     <MapContainer

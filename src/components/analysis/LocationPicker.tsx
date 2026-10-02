@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Feature } from "geojson";
 import { GeoJSON, Pane, useMapEvents } from "react-leaflet";
-import { LocateFixed, Loader2, MousePointerClick, Shapes } from "lucide-react";
+import { LocateFixed, Loader2, MousePointerClick, Square } from "lucide-react";
 import BaseMap from "@/components/map/BaseMap";
 import GibsTileLayer from "@/components/map/GibsTileLayer";
 import ReferenceOverlays from "@/components/map/ReferenceOverlays";
@@ -76,11 +76,11 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
     <div className="space-y-4">
       <div>
         <PlaceSearch onSelect={onPlace} near={view.center} placeholder="Search a city, region or coordinates" ariaLabel="Search a place to analyze" clearOnSelect />
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <button
             type="button"
             onClick={locate}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/30 px-2.5 py-1.5 font-medium text-foreground/85 transition hover:border-primary/40 hover:text-foreground"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium glass text-muted-foreground hover:text-foreground transition-colors"
           >
             {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LocateFixed className="h-3.5 w-3.5" />}
             Use my location
@@ -92,7 +92,7 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
         {locateError && <p className="mt-2 text-xs text-earth-yellow">{locateError}</p>}
       </div>
 
-      <div className="relative h-64 overflow-hidden rounded-2xl border border-border/60 sm:h-72">
+      <div className="relative h-64 overflow-hidden rounded-xl border border-border/50 sm:h-72">
         <BaseMap initialView={target ? { center: target.center, zoom: 8 } : view} zoomPosition="bottomright">
           <GibsTileLayer layer={base} date={null} />
           <ReferenceOverlays />
@@ -131,8 +131,8 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
             showHint={false}
           />
           {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-space-deep/40">
-              <span className="flex items-center gap-2 rounded-full bg-card/90 px-3 py-1.5 text-xs text-foreground">
+            <div className="absolute inset-0 flex items-center justify-center bg-[#02070d]/40">
+              <span className="flex items-center gap-2 rounded-full bg-[#07111d]/90 px-3 py-1.5 text-xs text-slate-200">
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> Loading boundary…
               </span>
             </div>
@@ -153,8 +153,8 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
 
       {target?.ref.type === "point" && (
         <div>
-          <div className="mb-1.5 section-label">Area around the point</div>
-          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Radius">
+          <div className="mb-3 text-xs font-medium text-muted-foreground">Area around the point</div>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Radius">
             {RADII.map((r) => (
               <button
                 key={r}
@@ -163,8 +163,8 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
                 aria-checked={radius === r}
                 onClick={() => onPoint(target.center, r)}
                 className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-                  radius === r ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-foreground/85 hover:bg-secondary",
+                  "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors",
+                  radius === r ? "bg-primary text-primary-foreground" : "glass text-muted-foreground hover:text-foreground",
                 )}
               >
                 {r} km
@@ -176,10 +176,10 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
 
       {areas.length > 0 && (
         <div>
-          <div className="mb-1.5 flex items-center gap-1.5 section-label">
-            <Shapes className="h-3.5 w-3.5 text-primary" /> Your areas
+          <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <Square className="w-3 h-3 text-cyan-400" /> Selected areas from map
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="space-y-2 max-h-48 overflow-y-auto">
             {areas.map((area) => {
               const active = target?.ref.type === "area" && target.ref.id === area.id;
               return (
@@ -188,11 +188,12 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
                   type="button"
                   onClick={() => onArea(area.id)}
                   className={cn(
-                    "rounded-lg border px-2.5 py-1.5 text-left text-xs transition",
-                    active ? "border-earth-green/50 bg-earth-green/10 text-earth-green" : "border-border/60 bg-secondary/30 text-foreground/85 hover:border-muted-foreground/40",
+                    "w-full text-left rounded-xl px-3 py-2 border transition-colors",
+                    active ? "border-cyan-500 bg-cyan-500/10" : "border-border/50 hover:bg-card/60",
                   )}
                 >
-                  <span className="font-medium">{area.name}</span> <span className="text-muted-foreground">· {formatArea(area.areaKm2)}</span>
+                  <span translate="no" className="block text-sm font-medium text-foreground">{area.name}</span>
+                  <span className="block text-xs text-muted-foreground mt-1">{formatArea(area.areaKm2)}</span>
                 </button>
               );
             })}

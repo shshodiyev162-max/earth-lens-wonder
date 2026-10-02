@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
 import BaseMap from "@/components/map/BaseMap";
 import LayerStack from "@/components/map/LayerStack";
 import ReferenceOverlays from "@/components/map/ReferenceOverlays";
@@ -17,8 +16,8 @@ import AreasPanel from "@/components/map/AreasPanel";
 import SelectedPlaceCard from "@/components/map/SelectedPlaceCard";
 import LayerLegend from "@/components/map/LayerLegend";
 import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
+import QuickRegions, { type QuickRegion } from "@/components/map/QuickRegions";
 import { LayerInfoCard, MapStatusPill } from "@/components/map/LayerInfo";
-import PlaceSearch from "@/components/search/PlaceSearch";
 import type { TileStatus } from "@/components/map/GibsTileLayer";
 import { useWorkspace, type AreaKind, type MapView, type SavedArea } from "@/context/WorkspaceContext";
 import { useLayerDate } from "@/hooks/useLayerDate";
@@ -53,6 +52,7 @@ export default function Explore() {
   const [vertexCount, setVertexCount] = useState(0);
   const [finishSignal, setFinishSignal] = useState(0);
   const [undoSignal, setUndoSignal] = useState(0);
+  const [regionId, setRegionId] = useState<string | null>(null);
   const { selection, select, clear, flyTarget, flyTo } = usePlaceSelection();
 
   useRouteFocusPlace(select);
@@ -108,16 +108,22 @@ export default function Explore() {
   const zoomToArea = (area: SavedArea) => flyTo({ bbox: area.bbox });
   const dateReady = !dateState.loading;
 
+  const jumpToRegion = (region: QuickRegion) => {
+    setRegionId(region.id);
+    setPanelOpen(false);
+    flyTo({ center: region.center, zoom: region.zoom });
+  };
+
   const sidebar = (
     <>
-      <SidebarSection title="Search" icon={<Search className="h-3.5 w-3.5 text-primary" />}>
-        <PlaceSearch onSelect={select} near={workspace.view.center} />
-      </SidebarSection>
-      <div>
+      <SidebarSection>
         <LayerPickerLabel>Layer</LayerPickerLabel>
         <LayerPicker value={layer} onChange={changeLayer} />
-      </div>
-      <DateControl layer={layer} state={dateState} requested={requestedDate} onChange={changeDate} />
+      </SidebarSection>
+      <SidebarSection>
+        <DateControl layer={layer} state={dateState} requested={requestedDate} onChange={changeDate} />
+      </SidebarSection>
+      <QuickRegions activeId={regionId} onSelect={jumpToRegion} />
       <LayerInfoCard layer={layer} />
       <AreasPanel layer={layer} date={dateState.date} dateReady={dateReady} onZoomTo={zoomToArea} />
     </>
@@ -125,14 +131,7 @@ export default function Explore() {
 
   const overlay = (
     <>
-      <div className="absolute left-3 right-3 top-3 flex items-start justify-between gap-3 lg:left-4 lg:right-4">
-        <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-          <div className="pointer-events-auto w-full max-w-sm lg:hidden">
-            <PlaceSearch onSelect={select} variant="map" near={workspace.view.center} placeholder="Search any place…" />
-          </div>
-          <MapStatusPill layer={layer} date={dateState.date} status={tileStatus} className="hidden sm:flex" />
-          {selection && <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} className="hidden lg:block" />}
-        </div>
+      <div className="absolute right-3 top-[3.75rem] lg:right-5">
         <DrawToolbar
           mode={drawMode}
           onModeChange={setDrawMode}
@@ -142,12 +141,17 @@ export default function Explore() {
         />
       </div>
       {selection && (
-        <div className="absolute inset-x-3 bottom-20 flex justify-center lg:hidden">
-          <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
-        </div>
+        <>
+          <div className="pointer-events-auto absolute left-16 top-[3.75rem] hidden lg:block">
+            <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
+          </div>
+          <div className="pointer-events-auto absolute inset-x-3 bottom-20 flex justify-center lg:hidden">
+            <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
+          </div>
+        </>
       )}
       {isScienceLayer(layer) && (
-        <div className="absolute bottom-24 right-3 hidden w-64 sm:block lg:bottom-20">
+        <div className="absolute bottom-24 right-4 hidden sm:block">
           <LayerLegend layer={layer} />
         </div>
       )}
@@ -156,10 +160,10 @@ export default function Explore() {
 
   return (
     <MapPageShell
-      eyebrow="NASA GIBS · live satellite layers"
-      title="Explore"
-      description="Search any place, pick a NASA layer and a date. Click the map to read real values, or draw an area to measure and analyze it."
+      title="Explore NASA imagery"
+      description="Choose a NASA layer, a date and a region. Search any place from the bar at the top, click the map to read real values, or draw an area to measure it."
       sidebar={sidebar}
+      topRight={<MapStatusPill layer={layer} date={dateState.date} status={tileStatus} />}
       overlay={overlay}
       panelOpen={panelOpen}
       onPanelOpenChange={setPanelOpen}

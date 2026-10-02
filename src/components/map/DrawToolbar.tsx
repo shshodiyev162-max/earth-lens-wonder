@@ -29,7 +29,7 @@ interface DrawToolbarProps {
 export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish, onUndo, className, showHint = true }: DrawToolbarProps) {
   return (
     <div className={cn("pointer-events-auto flex flex-col items-end gap-2", className)}>
-      <div className="flex items-center gap-1 rounded-xl glass-strong p-1 shadow-xl" role="toolbar" aria-label="Draw an area">
+      <div className="flex flex-col items-end gap-1" role="toolbar" aria-label="Draw an area" aria-orientation="vertical">
         {TOOLS.map((tool) => {
           const Icon = tool.icon;
           const active = mode === tool.mode;
@@ -42,14 +42,14 @@ export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish,
                   aria-pressed={active}
                   aria-label={tool.label}
                   className={cn(
-                    "rounded-lg p-2 transition",
-                    active ? "bg-primary text-primary-foreground" : "text-foreground/85 hover:bg-secondary hover:text-foreground",
+                    "flex h-8 w-8 items-center justify-center rounded-lg border border-[hsl(174_72%_50%/0.9)] text-white shadow-[0_2px_10px_rgb(0_0_0/0.5)] transition-colors",
+                    active ? "bg-[hsl(174_72%_30%)]" : "bg-[hsl(220_20%_12%/0.95)] hover:bg-[hsl(174_72%_30%)]",
                   )}
                 >
                   <Icon className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">{tool.label}</TooltipContent>
+              <TooltipContent side="left">{tool.label}</TooltipContent>
             </Tooltip>
           );
         })}
@@ -75,7 +75,7 @@ export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, classN
   return (
     <div
       className={cn(
-        "pointer-events-auto rounded-xl border border-primary/30 bg-card/95 px-3 py-2.5 text-xs leading-relaxed text-foreground shadow-xl backdrop-blur",
+        "pointer-events-auto rounded-xl border border-cyan-400/30 bg-[#07111d]/95 px-3 py-2.5 text-xs leading-relaxed text-slate-200 shadow-xl backdrop-blur",
         className,
       )}
     >
@@ -87,7 +87,7 @@ export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, classN
               type="button"
               onClick={onFinish}
               disabled={vertexCount < 3}
-              className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 font-semibold text-primary-foreground disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-md bg-cyan-400 px-2 py-1 font-semibold text-slate-950 disabled:opacity-40"
             >
               <Check className="h-3 w-3" /> Finish ({vertexCount})
             </button>
@@ -95,13 +95,13 @@ export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, classN
               type="button"
               onClick={onUndo}
               disabled={vertexCount === 0}
-              className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-foreground disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-slate-200 disabled:opacity-40"
             >
               <Undo2 className="h-3 w-3" /> Undo
             </button>
           </>
         )}
-        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-foreground">
+        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-slate-200">
           <X className="h-3 w-3" /> Cancel
         </button>
       </div>

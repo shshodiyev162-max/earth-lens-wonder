@@ -50,7 +50,7 @@ export default function PlaceThumbnail({ target, className }: { target: Analysis
   const [cLat, cLon] = target.center;
 
   return (
-    <div className={cn("relative aspect-[16/7] overflow-hidden rounded-xl sm:aspect-[4/3] border border-border/60 bg-space-deep", className)}>
+    <div className={cn("relative aspect-[16/7] overflow-hidden rounded-xl border border-border/50 bg-space-deep sm:aspect-[4/3]", className)}>
       {status !== "ready" && <div className={cn("absolute inset-0", status === "loading" ? "skeleton rounded-none" : "gradient-hero")} />}
       {src && status !== "error" && (
         <img

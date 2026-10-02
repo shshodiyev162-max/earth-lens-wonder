@@ -33,18 +33,18 @@ export default function LayerLegend({ layer, className, compact }: { layer: Gibs
   const unit = layer.unit && layer.unit !== "NDVI" && layer.unit !== "AOD" ? layer.unit : "";
 
   return (
-    <div className={cn("rounded-xl glass-strong p-3 shadow-xl", className)}>
-      <div className="mb-2 flex items-baseline justify-between gap-3">
-        <span className="truncate text-xs font-semibold text-foreground">{layer.name}</span>
+    <div className={cn(compact ? "" : "glass-strong rounded-xl p-4 min-w-[180px]", className)}>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h4 className="truncate text-xs font-display font-semibold text-foreground">{layer.name}</h4>
         <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">{layer.unit}</span>
       </div>
       {legend ? (
         <>
           <div
-            className={cn("w-full rounded-sm", compact ? "h-2" : "h-2.5")}
+            className="h-3 w-full rounded-md"
             style={{ background: `linear-gradient(to right, ${legend.stops.map((s) => s.color).join(", ")})` }}
           />
-          <div className="mt-1.5 flex justify-between font-mono text-[10px] text-foreground/85">
+          <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
             <span>
               {legend.openMin ? "≤ " : ""}
               {legendLabel(legend.min, layer)}
@@ -58,9 +58,9 @@ export default function LayerLegend({ layer, className, compact }: { layer: Gibs
           </div>
         </>
       ) : state?.error ? (
-        <p className="text-[11px] text-muted-foreground">Legend unavailable offline.</p>
+        <p className="text-[10px] text-muted-foreground">Legend unavailable offline.</p>
       ) : (
-        <div className="h-2.5 w-full animate-pulse rounded-sm bg-secondary" />
+        <div className="skeleton h-3 w-full rounded-md" />
       )}
     </div>
   );

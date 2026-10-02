@@ -1,25 +1,9 @@
 import { lazy, Suspense, type ComponentType } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  ArrowRight,
-  BarChart3,
-  CalendarClock,
-  Columns2,
-  Database,
-  Globe,
-  LayoutGrid,
-  Map as MapIcon,
-  PenTool,
-  Satellite,
-  ScanSearch,
-  Search,
-} from "lucide-react";
-import PlaceSearch from "@/components/search/PlaceSearch";
-import { openGlobalSearch } from "@/components/search/openSearch";
+import { Link } from "react-router-dom";
+import { Globe, Map, Columns, GitCompare, BarChart3, PenTool, Search, ArrowRight, Satellite, ScanSearch, CalendarClock, Database } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { BrandMark } from "@/components/Navbar";
-import type { PlaceResult } from "@/lib/geo/geocode";
+import { openGlobalSearch } from "@/components/search/openSearch";
 
 // The WebGL globe is the heaviest part of the app, so it loads after the page.
 const CinematicEarth = lazy(() => import("@/components/CinematicEarth"));
@@ -33,80 +17,85 @@ interface Feature {
   onClick?: () => void;
 }
 
-const FEATURES: Feature[] = [
+const features: Feature[] = [
   {
-    icon: MapIcon,
-    title: "Explore NASA layers",
-    description: "Daily true-color imagery, vegetation, land heat, aerosols, rain, snow, oceans and night lights — pick any date NASA has published, back to 2000.",
+    icon: Map,
+    title: "Explore NASA Layers",
+    description: "Browse daily satellite imagery, vegetation, land heat, aerosols, rain, snow and night lights — for any date NASA has published, back to 2000.",
     to: "/map",
     color: "text-primary",
   },
   {
-    icon: Columns2,
-    title: "Swipe to compare",
-    description: "Put two layers or two dates on one map and drag the divider to see floods, fires, harvests or melting snow.",
+    icon: Columns,
+    title: "Swipe Compare",
+    description: "Compare two layers or two dates on one map with an interactive slider divider.",
     to: "/split",
     color: "text-earth-blue",
   },
   {
-    icon: LayoutGrid,
-    title: "Side-by-side maps",
-    description: "Two maps locked together — pan or zoom one and the other follows exactly.",
+    icon: GitCompare,
+    title: "Side-by-Side View",
+    description: "View the same location with different layers in synchronized maps that move together.",
     to: "/sync",
     color: "text-earth-green",
   },
   {
     icon: BarChart3,
-    title: "Area analysis",
-    description: "Pick any place and get measured vegetation, heat, rainfall, soil moisture and dust trends, with plain-language findings and a CSV download.",
+    title: "Area Analysis",
+    description: "Pick any place and get measured vegetation, heat, rainfall, soil moisture and dust trends from NASA data, with plain-language findings.",
     to: "/analysis",
     color: "text-earth-orange",
   },
   {
+    icon: PenTool,
+    title: "Draw & Measure",
+    description: "Outline a field, lake or district on the map, see its size, click to read real values, then send it to analysis.",
+    to: "/map",
+    color: "text-earth-green",
+  },
+  {
     icon: Search,
-    title: "Search anywhere",
-    description: "Find a city, region, country or coordinates from any page — press Ctrl K (⌘K on Mac) and jump straight there.",
+    title: "Global Search",
+    description: "Find any city, region, country or coordinates from the search bar at the top — or press Ctrl K (⌘K on Mac).",
     onClick: openGlobalSearch,
     color: "text-glow-blue",
   },
+];
+
+const steps = [
   {
-    icon: PenTool,
-    title: "Draw & measure",
-    description: "Outline a field, lake or district on the map, see its size, click to read real values, then send it to analysis.",
-    to: "/map",
-    color: "text-earth-yellow",
+    icon: ScanSearch,
+    title: "1. Pick a place",
+    description: "Search a city, region or country, click the map, or draw your own field or district.",
+  },
+  {
+    icon: Satellite,
+    title: "2. Read NASA's pixels",
+    description: "Monthly MODIS and MERRA-2 imagery is decoded inside your outline using NASA's own color scales.",
+  },
+  {
+    icon: CalendarClock,
+    title: "3. See what changed",
+    description: "Trends, differences from the 2001–2020 normal and clear findings — download everything as CSV.",
   },
 ];
 
-const STEPS = [
-  { icon: ScanSearch, title: "Pick a place", text: "Search a city, region or country, click the map, or draw your own field or district." },
-  { icon: Satellite, title: "We read NASA's pixels", text: "Monthly MODIS and MERRA-2 imagery is decoded inside your outline using NASA's own color scales." },
-  { icon: CalendarClock, title: "See what changed", text: "Trends, differences from the 2001–2020 normal and clear findings — download everything as CSV." },
-];
-
-const SOURCES = [
+const sources = [
   { name: "NASA GIBS", detail: "MODIS & VIIRS imagery, vegetation, heat, aerosols, snow, oceans" },
-  { name: "NASA POWER", detail: "Monthly temperature, rainfall, sunshine, soil moisture and 2001–2020 normals" },
+  { name: "NASA POWER", detail: "Monthly temperature, rainfall, sunshine and soil moisture, with 2001–2020 normals" },
   { name: "MERRA-2", detail: "NASA reanalysis of aerosols and dust" },
-  { name: "OpenStreetMap", detail: "Place search and boundaries (Photon & Nominatim)" },
+  { name: "OpenStreetMap", detail: "Place search and boundaries" },
 ];
-
-const reveal = { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: "-60px" } };
 
 function FeatureCard({ feature }: { feature: Feature }) {
   const body = (
     <>
-      <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary/60 transition-transform group-hover:scale-105">
-        <feature.icon className={`h-6 w-6 ${feature.color}`} />
-      </span>
-      <h3 className="mb-2 font-display text-lg font-semibold text-foreground transition-colors group-hover:text-primary">{feature.title}</h3>
-      <p className="text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
-      <span aria-hidden="true" className="mt-4 hidden items-center gap-1 text-xs font-semibold text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 md:inline-flex">
-        {feature.onClick ? "Open search" : "Open"} <ArrowRight className="h-3.5 w-3.5" />
-      </span>
+      <feature.icon className={`w-10 h-10 ${feature.color} mb-4`} />
+      <h3 className="font-display font-semibold text-lg text-foreground mb-2 group-hover:text-primary transition-colors">{feature.title}</h3>
+      <p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
     </>
   );
-  const className = "group block h-full w-full rounded-2xl p-6 text-left transition-all glass hover:-translate-y-0.5 hover:bg-card/70 hover:border-primary/30";
+  const className = "block w-full text-left p-6 rounded-2xl glass hover:bg-card/70 transition-all group h-full";
   return feature.to ? (
     <Link to={feature.to} className={className}>
       {body}
@@ -119,20 +108,13 @@ function FeatureCard({ feature }: { feature: Feature }) {
 }
 
 export default function Landing() {
-  const navigate = useNavigate();
-  const goToPlace = (place: PlaceResult) => navigate("/map", { state: { focusPlace: place } });
-
   return (
-    <div className="min-h-screen overflow-x-hidden">
+    <div className="min-h-screen">
       {/* Hero */}
-      <section className="relative -mt-16 flex min-h-[100svh] items-center justify-center overflow-hidden gradient-hero pt-16">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden gradient-hero">
         {/* Ambient glow */}
-        <div aria-hidden="true" className="absolute left-1/2 top-1/4 h-[600px] w-[600px] max-w-[150vw] -translate-x-1/2 rounded-full bg-primary/5 blur-[120px] animate-pulse-glow" />
-        <div
-          aria-hidden="true"
-          className="absolute bottom-1/4 right-1/4 h-[400px] w-[400px] max-w-[100vw] rounded-full bg-glow-blue/5 blur-[100px] animate-pulse-glow"
-          style={{ animationDelay: "1.5s" }}
-        />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px] animate-pulse-glow" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-glow-blue/5 blur-[100px] animate-pulse-glow" style={{ animationDelay: "1.5s" }} />
 
         {/* Full-viewport WebGL composition; the planet extends beyond the hero edges. */}
         <motion.div
@@ -141,8 +123,8 @@ export default function Landing() {
           transition={{ duration: 1.5, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
           className="pointer-events-auto absolute inset-0 z-0"
         >
-          <ErrorBoundary fallback={<div className="h-full w-full bg-[radial-gradient(circle_at_65%_85%,hsl(var(--glow-blue)/0.3),transparent_55%)]" />}>
-            <Suspense fallback={<div className="h-full w-full bg-[radial-gradient(circle_at_52%_55%,hsl(var(--glow-blue)/0.12),transparent_45%)]" />}>
+          <ErrorBoundary fallback={null}>
+            <Suspense fallback={null}>
               <CinematicEarth />
             </Suspense>
           </ErrorBoundary>
@@ -150,7 +132,6 @@ export default function Landing() {
 
         {/* Preserve contrast without hiding the illuminated globe. */}
         <div
-          aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-[1]"
           style={{
             background:
@@ -158,61 +139,80 @@ export default function Landing() {
           }}
         />
 
-        <div className="pointer-events-none relative z-20 mx-auto w-full max-w-5xl px-4 pb-28 pt-12 text-center sm:px-6 sm:pt-16">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-            <div className="mb-8 inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-xs text-muted-foreground glass sm:px-4 sm:text-sm">
-              <Satellite className="h-4 w-4 text-primary" aria-hidden="true" />
+        <div className="pointer-events-none relative z-10 max-w-5xl mx-auto px-6 text-center pt-24">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8 text-sm text-muted-foreground">
+              <Satellite className="w-4 h-4 text-primary" />
               Powered by NASA Earth Observation Data
             </div>
 
-            <h1 className="mb-6 font-display text-[2.6rem] font-bold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl">
+            <h1 className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6">
               <span className="text-foreground">See Earth Like</span>
               <br />
-              <span className="text-gradient">Never Before</span>
+              <span className="bg-gradient-to-r from-primary to-glow-blue bg-clip-text text-transparent">Never Before</span>
             </h1>
 
-            <p className="mx-auto mb-8 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl">
-              Search any place on the planet, watch it change in daily NASA satellite imagery, and get a measured report on its vegetation, heat, rainfall and air.
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+              Explore daily NASA satellite imagery, compare any two dates, and analyze any
+              place on the planet — all from one powerful platform.
             </p>
 
-            <div className="pointer-events-auto mx-auto mb-8 max-w-xl text-left">
-              <PlaceSearch variant="hero" onSelect={goToPlace} placeholder="Search any place on Earth…" ariaLabel="Search any place on Earth" />
-            </div>
-
-            <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <Link to="/map" className="btn-primary pointer-events-auto px-8 py-4">
-                <Globe className="h-5 w-5" aria-hidden="true" />
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link
+                to="/map"
+                className="pointer-events-auto inline-flex items-center gap-2 px-8 py-4 rounded-xl font-display font-semibold gradient-primary text-primary-foreground hover:opacity-90 transition-opacity glow-primary"
+              >
+                <Globe className="w-5 h-5" />
                 Start Exploring
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                <ArrowRight className="w-4 h-4" />
               </Link>
-              <Link to="/analysis" className="btn-glass pointer-events-auto px-8 py-4">
-                <BarChart3 className="h-5 w-5 text-earth-orange" aria-hidden="true" />
+              <Link
+                to="/analysis"
+                className="pointer-events-auto inline-flex items-center gap-2 px-8 py-4 rounded-xl font-display font-semibold glass text-foreground hover:bg-card/80 transition-colors"
+              >
+                <BarChart3 className="w-5 h-5 text-earth-orange" />
                 Analyze a place
               </Link>
             </div>
           </motion.div>
         </div>
 
-        <p className="pointer-events-none absolute inset-x-0 bottom-6 z-10 px-4 text-center text-xs tracking-wide text-muted-foreground">
+        <p className="pointer-events-none absolute inset-x-0 bottom-6 z-10 text-center text-xs tracking-wide text-muted-foreground/75">
           Drag to explore · Click to turn · Arrow keys to rotate
         </p>
       </section>
 
       {/* Features */}
-      <section className="px-4 py-24 sm:px-6" aria-labelledby="features-title">
-        <div className="mx-auto max-w-6xl">
-          <motion.div {...reveal} className="mb-16 text-center">
-            <h2 id="features-title" className="mb-4 font-display text-3xl font-bold text-foreground md:text-4xl">
+      <section className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-4">
               Everything You Need to Understand Earth
             </h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              From a single field to a whole country — explore it, compare it over time, and measure it with NASA data.
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              From satellite imagery to environmental analytics, TerraVision gives you the tools
+              to explore, compare, and understand our planet.
             </p>
           </motion.div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((feature, i) => (
-              <motion.div key={feature.title} {...reveal} transition={{ delay: i * 0.08 }}>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((feature, i) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+              >
                 <FeatureCard feature={feature} />
               </motion.div>
             ))}
@@ -221,112 +221,104 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section className="px-4 pb-24 sm:px-6" aria-labelledby="how-title">
-        <div className="mx-auto max-w-6xl">
-          <motion.div {...reveal} className="mb-12 text-center">
-            <p className="eyebrow mb-3">How it works</p>
-            <h2 id="how-title" className="mb-4 font-display text-3xl font-bold text-foreground md:text-4xl">
-              Real NASA Data, <span className="text-gradient">Measured</span>
+      <section className="pb-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-4">
+              How It Works — Real NASA Data
             </h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">Every number comes from published NASA datasets — nothing is simulated or made up.</p>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Every number comes from published NASA datasets. When data is missing or clouds hide an area,
+              TerraVision says so instead of filling the gap.
+            </p>
           </motion.div>
 
-          <ol className="mb-6 grid gap-6 md:grid-cols-3">
-            {STEPS.map((step, i) => (
-              <motion.li key={step.title} {...reveal} transition={{ delay: i * 0.1 }} className="relative rounded-2xl p-6 glass">
-                <span aria-hidden="true" className="absolute right-5 top-4 font-display text-5xl font-bold text-foreground/[0.06]">
-                  {i + 1}
-                </span>
-                <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <step.icon className="h-6 w-6" aria-hidden="true" />
-                </span>
-                <h3 className="mb-2 font-display text-lg font-semibold text-foreground">
-                  <span className="sr-only">Step {i + 1}: </span>
-                  {step.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">{step.text}</p>
-              </motion.li>
+          <div className="grid md:grid-cols-3 gap-6 mb-6">
+            {steps.map((step, i) => (
+              <motion.div
+                key={step.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="p-6 rounded-2xl glass h-full"
+              >
+                <step.icon className="w-10 h-10 text-primary mb-4" />
+                <h3 className="font-display font-semibold text-lg text-foreground mb-2">{step.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{step.description}</p>
+              </motion.div>
             ))}
-          </ol>
+          </div>
 
-          <motion.div {...reveal} className="rounded-2xl p-6 glass sm:p-8">
-            <h3 className="mb-6 flex items-center gap-2 font-display text-lg font-semibold text-foreground">
-              <Database className="h-5 w-5 text-primary" aria-hidden="true" /> Where the data comes from
-            </h3>
-            <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {SOURCES.map((source) => (
-                <li key={source.name} className="border-l-2 border-primary/40 pl-4">
-                  <div className="font-display font-semibold text-foreground">{source.name}</div>
-                  <div className="mt-1 text-sm leading-relaxed text-muted-foreground">{source.detail}</div>
-                </li>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="p-6 rounded-2xl glass"
+          >
+            <div className="flex items-center gap-2 mb-5">
+              <Database className="w-5 h-5 text-primary" />
+              <h3 className="font-display font-semibold text-lg text-foreground">Data sources</h3>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {sources.map((source) => (
+                <div key={source.name}>
+                  <div className="font-display font-semibold text-sm text-foreground mb-1">{source.name}</div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{source.detail}</p>
+                </div>
               ))}
-            </ul>
-            <p className="mt-6 border-t border-border/60 pt-5 text-xs leading-relaxed text-muted-foreground">
-              When NASA hasn't published a month yet, or clouds hide an area, TerraVision says so instead of filling the gap. Imagery usually appears a few hours to a few days after it is captured.
-            </p>
+            </div>
           </motion.div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="px-4 pb-24 sm:px-6">
-        <div className="mx-auto max-w-4xl text-center">
-          <motion.div {...reveal} className="relative overflow-hidden rounded-3xl p-8 glass sm:p-12">
-            <div aria-hidden="true" className="absolute inset-0 bg-primary/5" />
-            <div aria-hidden="true" className="absolute -top-24 left-1/2 h-48 w-96 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+      <section className="py-24 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="p-12 rounded-3xl glass relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-primary/5" />
             <div className="relative z-10">
-              <h2 className="mb-4 font-display text-3xl font-bold text-foreground">Ready to See the World Differently?</h2>
-              <p className="mx-auto mb-8 max-w-lg text-muted-foreground">
-                Open the map, search for your town and see how it looked yesterday — or twenty years ago. Built on open NASA data, no keys needed.
+              <h2 className="text-3xl font-display font-bold text-foreground mb-4">
+                Ready to See the World Differently?
+              </h2>
+              <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
+                Open the map, search for any place and see how it changes in NASA satellite data.
               </p>
-              <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-                <Link to="/map" className="btn-primary px-8 py-4">
-                  Launch Explorer
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
-                <Link to="/analysis" className="btn-glass px-8 py-4">
-                  Analyze a place
-                </Link>
-              </div>
+              <Link
+                to="/map"
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-display font-semibold gradient-primary text-primary-foreground hover:opacity-90 transition-opacity glow-primary"
+              >
+                Launch Explorer
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </motion.div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border px-4 py-10 sm:px-6">
-        <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[1.4fr,1fr,1.4fr]">
-          <div>
-            <BrandMark />
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">Explore, compare and measure any place on Earth with NASA satellite data.</p>
+      <footer className="py-8 px-6 border-t border-border">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded gradient-primary flex items-center justify-center">
+              <Globe className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <span className="font-display font-semibold text-sm text-foreground">TerraVision</span>
           </div>
-          <nav aria-label="Footer">
-            <h2 className="section-label mb-3">Explore</h2>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              {[
-                { to: "/map", label: "Map" },
-                { to: "/split", label: "Compare" },
-                { to: "/sync", label: "Side by side" },
-                { to: "/analysis", label: "Analysis" },
-              ].map((link) => (
-                <li key={link.to}>
-                  <Link to={link.to} className="text-muted-foreground transition-colors hover:text-primary">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-          <div>
-            <h2 className="section-label mb-3">Data</h2>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Imagery: NASA EOSDIS GIBS · Climate: NASA POWER · Aerosols: NASA MERRA-2 · Places: © OpenStreetMap contributors
-            </p>
-          </div>
+          <p className="text-xs text-muted-foreground text-center md:text-right">
+            Data provided by NASA GIBS &amp; NASA POWER · Places © OpenStreetMap contributors · Built for Earth observation and environmental awareness
+          </p>
         </div>
-        <p className="mx-auto mt-8 max-w-6xl border-t border-border/60 pt-6 text-center text-xs text-muted-foreground md:text-left">
-          TerraVision · Built by Bukhara Nova for the NASA Space Apps Challenge
-        </p>
       </footer>
     </div>
   );

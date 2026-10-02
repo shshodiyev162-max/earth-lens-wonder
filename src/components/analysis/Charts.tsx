@@ -17,9 +17,8 @@ import { formatMonth } from "@/lib/gibs/time";
 import type { ClimatePoint, SatelliteSeries } from "@/lib/analysis/types";
 import { cn } from "@/lib/utils";
 
-// SVG attributes can't read CSS variables, so these mirror --muted-foreground.
-const AXIS = { fill: "hsl(215, 14%, 64%)", fontSize: 11 };
-const GRID = "hsla(215, 14%, 64%, 0.12)";
+const AXIS = { fill: "#94a3b8", fontSize: 11 };
+const GRID = "#334155";
 
 type Row = Record<string, number | string | null | [number, number] | undefined>;
 
@@ -32,8 +31,8 @@ interface SeriesFormat {
 function ChartTooltip({ active, payload, label, formats }: TooltipProps<number, string> & { formats: Record<string, SeriesFormat> }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="menu px-3 py-2 text-xs">
-      <div className="mb-1 font-semibold text-foreground">{label}</div>
+    <div className="rounded-lg border border-border/50 bg-background/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
+      <div className="mb-1 font-medium text-foreground">{label}</div>
       {payload.map((item) => {
         const key = String(item.dataKey);
         const format = formats[key];
@@ -79,16 +78,16 @@ export function ChartCard({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-2xl p-4 glass sm:p-5", className)}>
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+    <section className={cn("glass rounded-2xl p-6", className)}>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="font-display text-base font-semibold text-foreground">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>}
+          <p className="text-sm font-medium text-foreground">{title}</p>
+          {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
         </div>
         {aside}
       </div>
       <div className="h-56 sm:h-64">{children}</div>
-      {footer && <div className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{footer}</div>}
+      {footer && <div className="mt-3 text-xs leading-relaxed text-muted-foreground">{footer}</div>}
     </section>
   );
 }
@@ -120,7 +119,7 @@ export function VegetationChart({ series }: { series: SatelliteSeries }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
+        <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
         <XAxis {...commonX(data.length)} />
         <YAxis tick={AXIS} tickLine={false} axisLine={false} domain={[0, (max: number) => Math.min(1, Math.ceil((max + 0.05) * 10) / 10)]} width={44} />
         <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} />
@@ -149,7 +148,7 @@ export function TemperatureChart({ climate, surface }: { climate: ClimatePoint[]
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
+        <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
         <XAxis {...commonX(data.length)} />
         <YAxis tick={AXIS} tickLine={false} axisLine={false} width={44} unit="°" />
         <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} />
@@ -168,7 +167,7 @@ export function RainChart({ climate }: { climate: ClimatePoint[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
+        <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
         <XAxis {...commonX(data.length)} />
         <YAxis tick={AXIS} tickLine={false} axisLine={false} width={44} />
         <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} cursor={{ fill: "rgba(148,163,184,0.08)" }} />
@@ -189,7 +188,7 @@ export function SoilChart({ climate }: { climate: ClimatePoint[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
+        <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
         <XAxis {...commonX(data.length)} />
         <YAxis tick={AXIS} tickLine={false} axisLine={false} width={44} domain={[0, 100]} unit="%" />
         <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} />
@@ -217,7 +216,7 @@ export function SingleSeriesChart({
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
+        <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
         <XAxis {...commonX(data.length)} />
         <YAxis tick={AXIS} tickLine={false} axisLine={false} width={44} />
         <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} />

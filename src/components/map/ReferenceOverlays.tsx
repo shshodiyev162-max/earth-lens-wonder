@@ -39,7 +39,7 @@ export default function ReferenceOverlays({ labels = true, borders = true }: { l
   return (
     <>
       <Pane name="reference-borders" style={{ zIndex: 420, pointerEvents: "none" }}>
-        {borders && data && <GeoJSON data={data} interactive={false} style={{ color: "#67e8f9", weight: 0.9, opacity: 0.55, fill: false }} />}
+        {borders && data && <GeoJSON data={data} interactive={false} style={{ color: "#00ffff", weight: 1.2, opacity: 0.9, fill: false }} />}
       </Pane>
       <Pane name="reference-labels" style={{ zIndex: 430, pointerEvents: "none" }}>
         {labels && <TileLayer url={LABELS_URL} attribution={LABELS_ATTRIBUTION} maxNativeZoom={13} maxZoom={20} opacity={0.95} />}

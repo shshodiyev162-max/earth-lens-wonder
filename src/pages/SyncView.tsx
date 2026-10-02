@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Link2, Link2Off, Search } from "lucide-react";
+import { Info, Link2, Link2Off } from "lucide-react";
 import type { LeafletEvent, Map as LeafletMap, ZoomAnimEvent } from "leaflet";
 import BaseMap from "@/components/map/BaseMap";
 import LayerStack from "@/components/map/LayerStack";
@@ -18,14 +18,15 @@ import AreasPanel from "@/components/map/AreasPanel";
 import SelectedPlaceCard from "@/components/map/SelectedPlaceCard";
 import LayerLegend from "@/components/map/LayerLegend";
 import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
-import PlaceSearch from "@/components/search/PlaceSearch";
+import QuickRegions, { type QuickRegion } from "@/components/map/QuickRegions";
+import { CoordsPill, CursorTracker } from "@/components/map/CursorCoords";
 import { useWorkspace, type AreaKind, type SavedArea } from "@/context/WorkspaceContext";
 import { useLayerDate } from "@/hooks/useLayerDate";
 import { usePlaceSelection } from "@/hooks/usePlaceSelection";
 import { useRouteFocusPlace } from "@/hooks/useRouteFocusPlace";
 import { DEFAULT_COMPARE_LAYER_ID, DEFAULT_LAYER_ID, getLayerOrDefault, isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { formatDate, isIsoDate } from "@/lib/gibs/time";
-import { formatArea, type PolygonGeometry } from "@/lib/geo/geometry";
+import { formatArea, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
 import { analysisHrefForArea } from "@/lib/links";
 import { cn } from "@/lib/utils";
 
@@ -88,6 +89,8 @@ export default function SyncView() {
   const [vertexCount, setVertexCount] = useState(0);
   const [finishSignal, setFinishSignal] = useState(0);
   const [undoSignal, setUndoSignal] = useState(0);
+  const [regionId, setRegionId] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<LatLng>(() => workspace.view.center);
   const left = usePlaceSelection();
   const { selection, select, clear } = left;
 
@@ -132,62 +135,84 @@ export default function SyncView() {
     onVertexCount: setVertexCount,
   };
 
+  const jumpToRegion = (region: QuickRegion) => {
+    setRegionId(region.id);
+    setPanelOpen(false);
+    left.flyTo({ center: region.center, zoom: region.zoom });
+  };
+
   const sidebar = (
     <>
-      <SidebarSection title="Search" icon={<Search className="h-3.5 w-3.5 text-primary" />}>
-        <PlaceSearch onSelect={select} near={workspace.view.center} />
-      </SidebarSection>
-      <div className="space-y-3 rounded-2xl border border-border/60 bg-secondary/20 p-3.5">
-        <LayerPickerLabel>Left map</LayerPickerLabel>
+      <SidebarSection>
+        <LayerPickerLabel>Left layer</LayerPickerLabel>
         <LayerPicker value={leftLayer} onChange={(layer: GibsLayer) => update({ left: layer.id })} label="Left layer" />
+      </SidebarSection>
+      <SidebarSection>
+        <LayerPickerLabel>Right layer</LayerPickerLabel>
+        <LayerPicker value={rightLayer} onChange={(layer: GibsLayer) => update({ right: layer.id })} label="Right layer" />
+      </SidebarSection>
+      <SidebarSection>
         <DateControl
           layer={leftLayer}
           state={leftDate}
           requested={leftRequested}
           onChange={(date) => update({ leftDate: date })}
-          label={linkDates ? "Date (both maps)" : "Left date"}
+          label={linkDates ? "Observation date" : "Left date"}
         />
-      </div>
+        {linkDates && rightDate.date && rightDate.date !== leftDate.date && (
+          <p className="mt-2 text-xs text-slate-400">The right layer publishes on its own schedule — showing {formatDate(rightDate.date)}.</p>
+        )}
+      </SidebarSection>
+      {!linkDates && (
+        <SidebarSection>
+          <DateControl layer={rightLayer} state={rightDate} requested={rightRequested} onChange={(date) => update({ rightDate: date })} label="Right date" />
+        </SidebarSection>
+      )}
       <button
         type="button"
         onClick={() => update(linkDates ? { link: "0", rightDate: leftRequested } : { link: null, rightDate: null })}
-        className={cn(
-          "flex w-full items-center justify-center gap-2 rounded-xl border py-2 text-xs font-semibold transition",
-          linkDates ? "border-primary/40 bg-primary/10 text-primary" : "border-border/60 bg-secondary/30 text-foreground/85 hover:text-foreground",
-        )}
         aria-pressed={linkDates}
-      >
-        {linkDates ? <Link2 className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
-        {linkDates ? "Dates linked — click to set them separately" : "Dates independent — click to link"}
-      </button>
-      <div className="space-y-3 rounded-2xl border border-border/60 bg-secondary/20 p-3.5">
-        <LayerPickerLabel>Right map</LayerPickerLabel>
-        <LayerPicker value={rightLayer} onChange={(layer: GibsLayer) => update({ right: layer.id })} label="Right layer" />
-        {!linkDates && <DateControl layer={rightLayer} state={rightDate} requested={rightRequested} onChange={(date) => update({ rightDate: date })} label="Right date" />}
-        {linkDates && rightDate.date && rightDate.date !== leftDate.date && (
-          <p className="text-xs text-muted-foreground">This product publishes on its own schedule — showing {formatDate(rightDate.date)}.</p>
+        className={cn(
+          "mb-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition",
+          linkDates ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-300" : "border-white/10 bg-white/[0.04] text-slate-200 hover:border-cyan-400/40 hover:text-white",
         )}
-      </div>
+      >
+        {linkDates ? <Link2 className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
+        {linkDates ? "Dates linked — set them separately" : "Dates separate — link them"}
+      </button>
+
+      <QuickRegions activeId={regionId} onSelect={jumpToRegion} />
       <AreasPanel layer={isScienceLayer(rightLayer) ? rightLayer : leftLayer} date={isScienceLayer(rightLayer) ? rightDate.date : leftDate.date} dateReady={!rightDate.loading && !leftDate.loading} onZoomTo={zoomToArea} />
+
+      <section className="mt-auto rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
+          <Info className="h-4 w-4 shrink-0 text-cyan-400" /> {leftLayer.name} + {rightLayer.name}
+        </div>
+        <p className="text-xs leading-relaxed text-slate-400">{leftLayer.description}</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+          <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{leftLayer.source}</span>
+          <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{rightLayer.source}</span>
+        </div>
+      </section>
     </>
   );
 
-  const label = (layer: GibsLayer, date: string | null, side: "left" | "right") => (
+  // On phones the two maps are stacked, so each gets a small name tag.
+  const phoneLabel = (layer: GibsLayer, date: string | null, side: "left" | "right") => (
     <div
       className={cn(
-        "absolute z-[1000] truncate rounded-lg glass-strong px-2.5 py-1.5 text-[11px] text-foreground/85 shadow-lg shadow-black/30",
-        "left-3 max-w-[calc(100%-1.5rem)] sm:max-w-[calc(50%-1.5rem)]",
-        side === "left" ? "top-3" : "top-[calc(50%+0.75rem)] sm:left-[calc(50%+0.75rem)] sm:top-3",
+        "absolute left-3 z-[1000] max-w-[calc(100%-1.5rem)] truncate rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-1.5 text-[11px] text-slate-300 backdrop-blur sm:hidden",
+        side === "left" ? "bottom-3" : "bottom-20",
       )}
     >
-      <span className="font-semibold text-foreground">{layer.name}</span> · {layer.source.split(" · ")[0]}
+      <span className="font-semibold text-white">{layer.name}</span>
       {date ? ` · ${formatDate(date)}` : ""}
     </div>
   );
 
   const overlay = (
     <>
-      <div className="absolute right-3 top-12 flex flex-col items-end gap-2 lg:right-4">
+      <div className="absolute right-3 top-[3.75rem] lg:right-5">
         <DrawToolbar
           mode={drawMode}
           onModeChange={setDrawMode}
@@ -196,28 +221,40 @@ export default function SyncView() {
           onUndo={() => setUndoSignal((n) => n + 1)}
         />
       </div>
-      <div className="absolute left-3 top-12 flex max-w-sm flex-col gap-2">
-        <div className="pointer-events-auto lg:hidden">
-          <PlaceSearch onSelect={select} variant="map" near={workspace.view.center} placeholder="Search any place…" />
-        </div>
-        {selection && <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} className="hidden lg:block" />}
-      </div>
       {selection && (
-        <div className="absolute inset-x-3 bottom-20 flex justify-center lg:hidden">
-          <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
+        <>
+          <div className="pointer-events-auto absolute left-5 top-[3.75rem] hidden lg:block">
+            <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
+          </div>
+          <div className="pointer-events-auto absolute inset-x-3 bottom-20 flex justify-center lg:hidden">
+            <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
+          </div>
+        </>
+      )}
+      {isScienceLayer(leftLayer) && (
+        <div className="absolute bottom-20 left-4 hidden sm:block">
+          <LayerLegend layer={leftLayer} />
         </div>
       )}
-      <div className="absolute bottom-20 left-3 hidden w-56 xl:block">{isScienceLayer(leftLayer) && <LayerLegend layer={leftLayer} compact />}</div>
-      <div className="absolute bottom-20 right-3 hidden w-56 xl:block">{isScienceLayer(rightLayer) && <LayerLegend layer={rightLayer} compact />}</div>
+      {isScienceLayer(rightLayer) && (
+        <div className="absolute bottom-20 left-[calc(50%+1rem)] hidden sm:block">
+          <LayerLegend layer={rightLayer} />
+        </div>
+      )}
+      <CoordsPill point={cursor} />
     </>
   );
 
   return (
     <MapPageShell
-      eyebrow="Synchronised maps"
-      title="Side by side"
-      description="Two maps locked together. Pan or zoom either one — the other follows exactly."
+      title="Synced maps"
+      description="Two NASA layers in lockstep. Pan, zoom, or jump to a quick region — both views stay perfectly in sync."
       sidebar={sidebar}
+      topRight={
+        <div className="hidden max-w-[22rem] truncate rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-[11px] text-slate-400 backdrop-blur md:block">
+          {leftLayer.name} + {rightLayer.name}
+        </div>
+      }
       overlay={overlay}
       panelOpen={panelOpen}
       onPanelOpenChange={setPanelOpen}
@@ -232,10 +269,11 @@ export default function SyncView() {
             <DrawTools mode={drawMode} {...drawProps} />
             <ValueProbe layers={[{ layer: leftLayer, date: leftDate.date }]} disabled={Boolean(drawMode)} />
             <FlyTo target={left.flyTarget} />
+            <CursorTracker onChange={setCursor} />
           </BaseMap>
-          {label(leftLayer, leftDate.date, "left")}
+          {phoneLabel(leftLayer, leftDate.date, "left")}
         </div>
-        <div className="relative min-h-0 min-w-0 border-t-2 border-primary/40 sm:border-l-2 sm:border-t-0">
+        <div className="relative min-h-0 min-w-0 border-t border-white/15 sm:border-l sm:border-t-0">
           <BaseMap initialView={initialView} onReady={setRightMap}>
             <LayerStack layer={rightLayer} date={rightDate.date} />
             <ReferenceOverlays />
@@ -243,9 +281,10 @@ export default function SyncView() {
             {selection && <PlaceOutline place={selection.place} geometry={selection.geometry} />}
             <DrawTools mode={drawMode} {...drawProps} />
             <ValueProbe layers={[{ layer: rightLayer, date: rightDate.date }]} disabled={Boolean(drawMode)} />
+            <CursorTracker onChange={setCursor} />
           </BaseMap>
+          {phoneLabel(rightLayer, rightDate.date, "right")}
         </div>
-        {label(rightLayer, rightDate.date, "right")}
       </div>
     </MapPageShell>
   );

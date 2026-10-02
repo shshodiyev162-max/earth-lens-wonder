@@ -1,9 +1,8 @@
 import { motion } from "framer-motion";
-import { AlertCircle, ArrowRight, Info, Lock, Mail, User } from "lucide-react";
+import { AlertCircle, ArrowRight, Globe, Info, Lock, Mail, User } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { BrandMark } from "@/components/Navbar";
 
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -32,57 +31,77 @@ export default function Login() {
   };
 
   return (
-    <div className="relative flex min-h-[calc(100dvh-4rem)] items-center justify-center overflow-hidden px-4 py-12 gradient-hero sm:px-6">
-      <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/4 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-primary/5 blur-[120px] animate-pulse-glow" />
-      <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-0 h-[320px] w-[320px] rounded-full bg-glow-blue/5 blur-[100px] animate-pulse-glow" style={{ animationDelay: "1.5s" }} />
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative w-full max-w-md">
-        <div className="mb-8 text-center">
-          <Link to="/" className="mb-6 inline-flex">
-            <BrandMark />
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6 py-12 gradient-hero">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-flex items-center gap-2 mb-6" aria-label="TerraVision home">
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
+              <Globe className="w-6 h-6 text-primary-foreground" />
+            </div>
           </Link>
-          <h1 className="text-2xl font-display font-bold text-foreground">{isSignUp ? "Create your account" : "Welcome back"}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{isSignUp ? "Save areas and analyses across devices." : "Sign in to continue exploring Earth."}</p>
+          <h1 className="text-2xl font-display font-bold text-foreground">{isSignUp ? "Create Account" : "Welcome Back"}</h1>
+          <p className="text-muted-foreground text-sm mt-2">{isSignUp ? "Join TerraVision to save your areas across devices" : "Sign in to continue exploring Earth"}</p>
         </div>
 
         {demo && (
-          <div className="mb-4 flex gap-2 rounded-xl border border-primary/20 bg-primary/[0.06] p-3 text-xs leading-relaxed text-foreground/80">
+          <div className="mb-4 flex gap-2 rounded-xl glass p-3 text-xs leading-relaxed text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <span>
-              Accounts need a backend (<code className="text-foreground">VITE_API_BASE_URL</code>). This deployment runs without one, so everything already works and
-              your areas are stored on this device. <Link to="/map" className="text-primary hover:underline">Go to the map →</Link>
+              Accounts need a backend (<code className="text-foreground">VITE_API_BASE_URL</code>). This deployment runs without one, so everything already works and your
+              areas are stored on this device.{" "}
+              <Link to="/map" className="text-primary hover:underline">
+                Go to the map →
+              </Link>
             </span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="glass space-y-4 rounded-2xl p-6 sm:p-8">
+        <form onSubmit={handleSubmit} className="glass rounded-2xl p-8 space-y-4">
           {isSignUp && (
             <div>
-              <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label htmlFor="name" className="text-sm text-muted-foreground mb-1.5 block">
                 Name
               </label>
-              <div className="field flex items-center gap-2 px-4 py-3">
-                <User aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-                <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="name" className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" />
+              <div className="flex items-center gap-2 bg-secondary rounded-xl px-4 py-3">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  autoComplete="name"
+                  className="bg-transparent flex-1 min-w-0 text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                />
               </div>
             </div>
           )}
 
           <div>
-            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-muted-foreground">
+            <label htmlFor="email" className="text-sm text-muted-foreground mb-1.5 block">
               Email
             </label>
-            <div className="field flex items-center gap-2 px-4 py-3">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" />
+            <div className="flex items-center gap-2 bg-secondary rounded-xl px-4 py-3">
+              <Mail className="w-4 h-4 text-muted-foreground" />
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                className="bg-transparent flex-1 min-w-0 text-sm text-foreground placeholder:text-muted-foreground outline-none"
+              />
             </div>
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-muted-foreground">
+            <label htmlFor="password" className="text-sm text-muted-foreground mb-1.5 block">
               Password
             </label>
-            <div className="field flex items-center gap-2 px-4 py-3">
-              <Lock className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 bg-secondary rounded-xl px-4 py-3">
+              <Lock className="w-4 h-4 text-muted-foreground" />
               <input
                 id="password"
                 type="password"
@@ -91,7 +110,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete={isSignUp ? "new-password" : "current-password"}
-                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                className="bg-transparent flex-1 min-w-0 text-sm text-foreground placeholder:text-muted-foreground outline-none"
               />
             </div>
           </div>
@@ -99,10 +118,10 @@ export default function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="btn-primary mt-2 w-full py-3"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-display font-semibold gradient-primary text-primary-foreground hover:opacity-90 transition-opacity mt-2"
           >
-            {submitting ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
-            <ArrowRight className="h-4 w-4" />
+            {submitting ? "Please wait…" : isSignUp ? "Create Account" : "Sign In"}
+            <ArrowRight className="w-4 h-4" />
           </button>
 
           {error && (
@@ -113,9 +132,9 @@ export default function Login() {
           )}
         </form>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground mt-6">
           {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="font-medium text-primary hover:underline">
+          <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-primary hover:underline">
             {isSignUp ? "Sign in" : "Sign up"}
           </button>
         </p>

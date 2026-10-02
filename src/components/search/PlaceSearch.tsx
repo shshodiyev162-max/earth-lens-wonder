@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { Loader2, MapPinOff, Search, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { usePlaceSearch } from "@/hooks/usePlaceSearch";
 import { kindLabel, type PlaceResult } from "@/lib/geo/geocode";
 import type { LatLng } from "@/lib/geo/geometry";
@@ -85,13 +85,13 @@ export default function PlaceSearch({
     <div ref={containerRef} className={cn("relative", className)}>
       <div
         className={cn(
-          "field flex items-center gap-2",
-          variant === "map" && "glass-strong px-3 shadow-xl shadow-black/30",
-          variant === "panel" && "px-3",
-          variant === "hero" && "glass rounded-2xl px-5 shadow-2xl shadow-black/40 focus-within:glow-primary",
+          "flex items-center gap-2 border transition-colors focus-within:border-primary/60",
+          variant === "map" && "rounded-xl border-white/10 bg-[#07111d]/90 px-3 shadow-xl backdrop-blur",
+          variant === "panel" && "rounded-xl border-transparent bg-secondary px-4",
+          variant === "hero" && "rounded-2xl border-white/15 bg-[#07111d]/80 px-5 shadow-2xl shadow-black/40 backdrop-blur-xl",
         )}
       >
-        <Search className={cn("shrink-0", big ? "h-5 w-5 text-primary" : "h-4 w-4 text-muted-foreground")} aria-hidden />
+        <Search className={cn("shrink-0 text-muted-foreground", big ? "h-5 w-5" : "h-4 w-4")} aria-hidden />
         <input
           ref={inputRef}
           value={query}
@@ -111,7 +111,7 @@ export default function PlaceSearch({
           aria-autocomplete="list"
           autoComplete="off"
           spellCheck={false}
-          className={cn("min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground", big ? "py-4 text-base" : "py-2.5 text-sm")}
+          className={cn("min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground", big ? "py-4 text-base" : "py-3 text-sm")}
         />
         {loading && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" aria-label="Searching" />}
         {query && !loading && (
@@ -121,7 +121,7 @@ export default function PlaceSearch({
               setQuery("");
               inputRef.current?.focus();
             }}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="rounded-md p-1 text-muted-foreground transition hover:text-foreground"
             aria-label="Clear search"
           >
             <X className="h-3.5 w-3.5" />
@@ -130,7 +130,7 @@ export default function PlaceSearch({
       </div>
 
       {showDropdown && (
-        <div tabIndex={0} aria-label="Search results" className={cn("menu absolute left-0 right-0 top-full z-[1500] mt-2 overflow-y-auto overscroll-contain p-1.5 animate-in fade-in-0 slide-in-from-top-1", big ? "max-h-[min(20rem,42svh)]" : "max-h-80")}>
+        <div tabIndex={0} aria-label="Search results" className="absolute left-0 right-0 top-full z-[1500] mt-2 max-h-80 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-lg">
           <div id={listId} role="listbox" aria-label="Places">
             {results.length > 0 &&
               results.map((place, index) => {
@@ -147,7 +147,7 @@ export default function PlaceSearch({
                     onClick={() => choose(place)}
                     className={cn(
                       "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition",
-                      index === highlight ? "bg-primary/10" : "hover:bg-secondary/60",
+                      index === highlight ? "bg-primary/10" : "hover:bg-primary/10",
                     )}
                   >
                     <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", index === highlight ? "text-primary" : "text-muted-foreground")} aria-hidden />
@@ -163,12 +163,9 @@ export default function PlaceSearch({
               })}
           </div>
           {!loading && results.length === 0 && !error && resultsFor === trimmed && (
-            <div className="flex gap-3 px-3 py-3 text-xs leading-relaxed text-muted-foreground">
-              <MapPinOff className="mt-0.5 h-4 w-4 shrink-0 text-primary/70" aria-hidden />
-              <span>
-                <span className="block font-medium text-foreground">No places found for “{trimmed}”</span>
-                Try a city, region or country, or coordinates like <span className="font-mono text-foreground/85">39.77, 64.42</span>.
-              </span>
+            <div className="px-3 py-3 text-xs leading-relaxed text-muted-foreground">
+              No places found for “{trimmed}”. Try a city, region or country, or coordinates like <span className="font-mono text-foreground">39.77, 64.42</span>
+              .
             </div>
           )}
           {error && <div role="alert" className="px-3 py-3 text-xs text-earth-yellow">{error}</div>}
@@ -185,7 +182,7 @@ export default function PlaceSearch({
               ))}
             </div>
           )}
-          <div className="border-t border-border/60 px-3 pb-1 pt-2 text-[10px] text-muted-foreground">
+          <div className="border-t border-border px-3 pb-1 pt-2 text-[10px] text-muted-foreground">
             Search by Photon &amp; Nominatim · © OpenStreetMap contributors
           </div>
         </div>

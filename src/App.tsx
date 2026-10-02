@@ -22,33 +22,30 @@ const queryClient = new QueryClient();
 
 const MAP_ROUTES = ["/map", "/split", "/sync"];
 
-/** Skeleton shaped like the page that is loading, so the layout doesn't jump. */
+/** Placeholder shaped like the page that is loading, so the layout doesn't jump. */
 function PageLoader() {
   const { pathname } = useLocation();
   if (MAP_ROUTES.includes(pathname)) {
     return (
-      <div role="status" aria-label="Loading map" className="flex h-[calc(100dvh-4rem)] bg-space-deep">
-        <div className="hidden w-[23rem] shrink-0 space-y-5 border-r border-border/60 p-5 panel lg:block">
-          <Skeleton className="h-3 w-40" />
-          <Skeleton className="h-6 w-28" />
-          <Skeleton className="h-10 w-full rounded-xl" />
+      <div role="status" aria-label="Loading map" className="flex h-[calc(100dvh-4rem)] bg-[#02070d]">
+        <div className="hidden w-[22rem] shrink-0 space-y-5 border-r border-white/10 bg-[#07111d]/98 p-5 lg:block">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-12 w-full" />
           <Skeleton className="h-14 w-full rounded-xl" />
-          <Skeleton className="h-24 w-full rounded-xl" />
-          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
         </div>
-        <div className="relative flex-1 gradient-hero">
-          <div className="absolute inset-0 m-auto h-40 w-40 rounded-full bg-primary/5 blur-3xl animate-pulse-glow" />
-        </div>
+        <div className="flex-1" />
       </div>
     );
   }
   return (
-    <div role="status" aria-label="Loading page" className="mx-auto max-w-6xl space-y-6 px-4 py-10 sm:px-6">
-      <Skeleton className="h-4 w-36" />
-      <Skeleton className="h-9 w-72 max-w-full" />
-      <div className="grid gap-4 md:grid-cols-[22rem,1fr]">
-        <Skeleton className="h-80 rounded-2xl" />
-        <Skeleton className="h-80 rounded-2xl" />
+    <div role="status" aria-label="Loading page" className="max-w-7xl mx-auto px-6 py-12 space-y-8">
+      <Skeleton className="h-9 w-64 max-w-full" />
+      <div className="grid gap-6 lg:grid-cols-[1fr,2fr]">
+        <Skeleton className="h-96 rounded-2xl" />
+        <Skeleton className="h-96 rounded-2xl" />
       </div>
     </div>
   );
@@ -56,11 +53,15 @@ function PageLoader() {
 
 function PageError() {
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center px-6 gradient-hero">
-      <div role="alert" className="max-w-md rounded-2xl p-8 text-center glass">
-        <h1 className="mb-2 font-display text-xl font-semibold text-foreground">Something went wrong on this page</h1>
-        <p className="mb-6 text-sm leading-relaxed text-muted-foreground">Reload the page to try again. If it keeps happening, check your internet connection — the maps and data come from NASA over the internet.</p>
-        <button type="button" onClick={() => window.location.reload()} className="btn-primary">
+    <div className="min-h-[calc(100dvh-4rem)] flex items-center justify-center px-6 gradient-hero">
+      <div role="alert" className="glass rounded-2xl p-8 max-w-md text-center">
+        <h1 className="text-xl font-display font-bold text-foreground mb-2">Something went wrong on this page</h1>
+        <p className="text-sm text-muted-foreground mb-6">Reload the page to try again. If it keeps happening, check your internet connection — the maps and data come from NASA over the internet.</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-display font-semibold gradient-primary text-primary-foreground hover:opacity-90 transition-opacity"
+        >
           Reload the page
         </button>
       </div>

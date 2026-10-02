@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeftRight, GripVertical, Search } from "lucide-react";
+import { ArrowLeftRight, Info } from "lucide-react";
 import { Pane } from "react-leaflet";
 import BaseMap from "@/components/map/BaseMap";
 import LayerStack from "@/components/map/LayerStack";
@@ -18,15 +18,16 @@ import DateControl from "@/components/map/DateControl";
 import AreasPanel from "@/components/map/AreasPanel";
 import SelectedPlaceCard from "@/components/map/SelectedPlaceCard";
 import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
-import { LayerInfoCard } from "@/components/map/LayerInfo";
-import PlaceSearch from "@/components/search/PlaceSearch";
+import QuickRegions, { type QuickRegion } from "@/components/map/QuickRegions";
+import LayerLegend from "@/components/map/LayerLegend";
+import { CoordsPill, CursorTracker } from "@/components/map/CursorCoords";
 import { useWorkspace, type AreaKind, type SavedArea } from "@/context/WorkspaceContext";
 import { useLayerDate } from "@/hooks/useLayerDate";
 import { usePlaceSelection } from "@/hooks/usePlaceSelection";
 import { useRouteFocusPlace } from "@/hooks/useRouteFocusPlace";
-import { DEFAULT_COMPARE_LAYER_ID, DEFAULT_LAYER_ID, getLayerOrDefault, type GibsLayer } from "@/lib/gibs/catalog";
+import { DEFAULT_COMPARE_LAYER_ID, DEFAULT_LAYER_ID, getLayerOrDefault, isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { formatDate, isIsoDate } from "@/lib/gibs/time";
-import { formatArea, type PolygonGeometry } from "@/lib/geo/geometry";
+import { formatArea, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
 import { analysisHrefForArea } from "@/lib/links";
 
 export default function SplitView() {
@@ -46,6 +47,8 @@ export default function SplitView() {
   const [vertexCount, setVertexCount] = useState(0);
   const [finishSignal, setFinishSignal] = useState(0);
   const [undoSignal, setUndoSignal] = useState(0);
+  const [regionId, setRegionId] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<LatLng>(() => workspace.view.center);
   const { selection, select, clear, flyTarget, flyTo } = usePlaceSelection();
   const stageRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -111,45 +114,88 @@ export default function SplitView() {
     if (event.key === "ArrowRight") setRatio((r) => Math.min(0.98, r + 0.05));
   };
 
+  const jumpToRegion = (region: QuickRegion) => {
+    setRegionId(region.id);
+    setPanelOpen(false);
+    flyTo({ center: region.center, zoom: region.zoom });
+  };
+
   const sidebar = (
     <>
-      <SidebarSection title="Search" icon={<Search className="h-3.5 w-3.5 text-primary" />}>
-        <PlaceSearch onSelect={select} near={workspace.view.center} />
-      </SidebarSection>
-      <div className="space-y-3 rounded-2xl border border-border/60 bg-secondary/20 p-3.5">
-        <LayerPickerLabel>Left side</LayerPickerLabel>
+      <SidebarSection>
+        <LayerPickerLabel>Left layer</LayerPickerLabel>
         <LayerPicker value={leftLayer} onChange={(layer: GibsLayer) => update({ left: layer.id })} label="Left layer" />
+      </SidebarSection>
+      <SidebarSection>
         <DateControl layer={leftLayer} state={leftDate} requested={leftRequested} onChange={(date) => update({ leftDate: date })} label="Left date" />
-      </div>
+      </SidebarSection>
+      {isScienceLayer(leftLayer) && (
+        <SidebarSection title="Left legend" icon={<Info className="h-4 w-4 text-cyan-400" />}>
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <LayerLegend layer={leftLayer} compact />
+          </div>
+        </SidebarSection>
+      )}
+
+      <div className="mb-5 border-t border-white/10" />
+
+      <SidebarSection>
+        <LayerPickerLabel>Right layer</LayerPickerLabel>
+        <LayerPicker value={rightLayer} onChange={(layer: GibsLayer) => update({ right: layer.id })} label="Right layer" />
+      </SidebarSection>
+      <SidebarSection>
+        <DateControl layer={rightLayer} state={rightDate} requested={rightRequested} onChange={(date) => update({ rightDate: date })} label="Right date" />
+      </SidebarSection>
+      {isScienceLayer(rightLayer) && (
+        <SidebarSection title="Right legend" icon={<Info className="h-4 w-4 text-cyan-400" />}>
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <LayerLegend layer={rightLayer} compact />
+          </div>
+        </SidebarSection>
+      )}
+
       <button
         type="button"
         onClick={swap}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-secondary/30 py-2 text-xs font-semibold text-foreground/85 transition hover:border-primary/40 hover:text-foreground"
+        className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-400/40 hover:text-white"
       >
-        <ArrowLeftRight className="h-3.5 w-3.5" /> Swap sides
+        <ArrowLeftRight className="h-4 w-4 text-cyan-400" /> Swap sides
       </button>
-      <div className="space-y-3 rounded-2xl border border-border/60 bg-secondary/20 p-3.5">
-        <LayerPickerLabel>Right side</LayerPickerLabel>
-        <LayerPicker value={rightLayer} onChange={(layer: GibsLayer) => update({ right: layer.id })} label="Right layer" />
-        <DateControl layer={rightLayer} state={rightDate} requested={rightRequested} onChange={(date) => update({ rightDate: date })} label="Right date" />
-      </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        Tip: pick the same layer on both sides with two different dates to see change over time — floods, fires, harvests or snow melt.
-      </p>
-      <LayerInfoCard layer={rightLayer} />
+
+      <QuickRegions activeId={regionId} onSelect={jumpToRegion} />
       <AreasPanel layer={rightLayer} date={rightDate.date} dateReady={!rightDate.loading} onZoomTo={(area: SavedArea) => flyTo({ bbox: area.bbox })} />
+
+      <section className="mt-auto rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
+          <Info className="h-4 w-4 shrink-0 text-cyan-400" /> {leftLayer.name} vs {rightLayer.name}
+        </div>
+        <p className="text-xs leading-relaxed text-slate-400">
+          Drag the slider to compare the two layers. Tip: pick the same layer on both sides with two different dates to see change over time — floods, fires, harvests or snow melt.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+          <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{leftLayer.source}</span>
+          <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{rightLayer.source}</span>
+        </div>
+      </section>
     </>
   );
 
   const overlay = (
     <>
-      <div className="absolute left-3 right-3 top-3 flex items-start justify-between gap-3 lg:left-4 lg:right-4">
-        <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-          <div className="pointer-events-auto w-full max-w-sm lg:hidden">
-            <PlaceSearch onSelect={select} variant="map" near={workspace.view.center} placeholder="Search any place…" />
-          </div>
-          {selection && <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} className="hidden lg:block" />}
-        </div>
+      <div className="pointer-events-auto absolute left-1/2 top-[3.75rem] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-[#07111d]/90 px-4 py-2 shadow-xl backdrop-blur xl:top-4">
+        <span className="text-xs text-slate-400">Compare</span>
+        <input
+          type="range"
+          min={2}
+          max={98}
+          value={Math.round(ratio * 100)}
+          onChange={(event) => setRatio(Number(event.target.value) / 100)}
+          className="w-24 accent-cyan-400 sm:w-32"
+          aria-label="Comparison position"
+        />
+        <span className="w-10 text-xs font-medium text-white">{Math.round(ratio * 100)}%</span>
+      </div>
+      <div className="absolute right-3 top-[7rem] lg:right-5 xl:top-[3.75rem]">
         <DrawToolbar
           mode={drawMode}
           onModeChange={setDrawMode}
@@ -159,27 +205,41 @@ export default function SplitView() {
         />
       </div>
       {selection && (
-        <div className="absolute inset-x-3 bottom-20 flex justify-center lg:hidden">
-          <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
+        <>
+          <div className="pointer-events-auto absolute left-16 top-[7rem] hidden lg:block xl:top-[3.75rem]">
+            <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
+          </div>
+          <div className="pointer-events-auto absolute inset-x-3 bottom-20 flex justify-center lg:hidden">
+            <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
+          </div>
+        </>
+      )}
+      {isScienceLayer(leftLayer) && (
+        <div className="absolute bottom-24 left-4 hidden xl:block">
+          <LayerLegend layer={leftLayer} />
         </div>
       )}
-      <div className="absolute bottom-[4.75rem] left-3 hidden max-w-[45%] rounded-lg glass-strong px-2.5 py-1.5 text-[11px] text-foreground/85 sm:block">
-        ◀ <span className="font-semibold text-foreground">{leftLayer.name}</span> · {leftLayer.source.split(" · ")[0]}
-        {leftDate.date ? ` · ${formatDate(leftDate.date)}` : ""}
-      </div>
-      <div className="absolute bottom-[4.75rem] right-3 hidden max-w-[45%] rounded-lg glass-strong px-2.5 py-1.5 text-right text-[11px] text-foreground/85 sm:block">
-        <span className="font-semibold text-foreground">{rightLayer.name}</span> · {rightLayer.source.split(" · ")[0]}
-        {rightDate.date ? ` · ${formatDate(rightDate.date)}` : ""} ▶
-      </div>
+      {isScienceLayer(rightLayer) && (
+        <div className="absolute bottom-24 right-4 hidden sm:block">
+          <LayerLegend layer={rightLayer} />
+        </div>
+      )}
+      <CoordsPill point={cursor} />
     </>
   );
 
+  const sideLabel = (layer: GibsLayer, date: string | null) => `${layer.name}${date ? ` ${formatDate(date)}` : ""}`;
+
   return (
     <MapPageShell
-      eyebrow="Swipe comparison"
-      title="Compare"
-      description="Two NASA layers or two dates on one map. Drag the divider to reveal what changed."
+      title="Split comparison"
+      description="Compare two NASA layers — or one layer on two dates — on a single map with a draggable slider. Draw areas to measure and analyze them."
       sidebar={sidebar}
+      topRight={
+        <div className="hidden max-w-[22rem] truncate rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-[11px] text-slate-400 backdrop-blur md:block">
+          {sideLabel(leftLayer, leftDate.date)} vs {sideLabel(rightLayer, rightDate.date)}
+        </div>
+      }
       overlay={overlay}
       panelOpen={panelOpen}
       onPanelOpenChange={setPanelOpen}
@@ -212,9 +272,10 @@ export default function SplitView() {
             disabled={Boolean(drawMode)}
           />
           <FlyTo target={flyTarget} />
+          <CursorTracker onChange={setCursor} />
         </BaseMap>
         <div className="pointer-events-none absolute inset-y-0 z-[900]" style={{ left: `${ratio * 100}%` }}>
-          <div className="absolute inset-y-0 -left-px w-0.5 bg-primary/80 shadow-[0_0_14px_hsl(var(--primary)/0.6)]" />
+          <div className="absolute inset-y-0 -left-0.5 w-1 bg-cyan-400/70 shadow-lg shadow-cyan-500/40" />
           <div
             role="slider"
             tabIndex={0}
@@ -227,9 +288,11 @@ export default function SplitView() {
             onPointerUp={onHandleUp}
             onPointerCancel={onHandleUp}
             onKeyDown={onHandleKey}
-            className="pointer-events-auto absolute top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-full border-2 border-primary bg-card/95 text-primary shadow-xl glow-primary outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            className="pointer-events-auto absolute top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-col-resize touch-none items-center justify-center rounded-full border-2 border-cyan-400 bg-[#07111d]/90 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
           >
-            <GripVertical className="h-5 w-5" />
+            <span className="text-lg text-cyan-300" aria-hidden="true">
+              ⟷
+            </span>
           </div>
         </div>
       </div>

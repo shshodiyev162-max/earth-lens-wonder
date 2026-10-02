@@ -1,4 +1,4 @@
-import { CalendarRange, CloudRain, Flame, Leaf, Snowflake, Wind } from "lucide-react";
+import { Calendar, CloudRain, Flame, Leaf, Snowflake, Wind } from "lucide-react";
 import { DATASETS } from "@/lib/analysis/run";
 import type { DatasetId } from "@/lib/analysis/types";
 import { formatMonth } from "@/lib/gibs/time";
@@ -17,11 +17,11 @@ interface PeriodPickerProps {
 export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps) {
   const latest = defaultEndMonth();
   return (
-    <div>
-      <div className="mb-1.5 flex items-center gap-1.5 section-label">
-        <CalendarRange className="h-3.5 w-3.5 text-primary" /> Period
+    <div className="space-y-3">
+      <div className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+        <Calendar className="w-3 h-3 text-primary" /> Time range
       </div>
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-secondary/40 p-1" role="radiogroup" aria-label="Period">
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Time range">
         {PERIOD_OPTIONS.map((option) => (
           <button
             key={option.id}
@@ -30,8 +30,8 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
             aria-checked={period === option.id}
             onClick={() => onChange(option.id, option.id === "custom" ? start : undefined, option.id === "custom" ? end : undefined)}
             className={cn(
-              "rounded-lg px-1 py-1.5 text-xs font-semibold transition",
-              period === option.id ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground",
+              "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors",
+              period === option.id ? "bg-primary text-primary-foreground" : "glass text-muted-foreground hover:text-foreground",
             )}
           >
             {option.label}
@@ -39,8 +39,8 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
         ))}
       </div>
       {period === "custom" ? (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className="text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <label className="flex items-center gap-2 text-muted-foreground">
             From
             <input
               type="month"
@@ -48,10 +48,10 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
               min={EARLIEST_MONTH}
               max={end}
               onChange={(event) => MONTH_RE.test(event.target.value) && onChange("custom", event.target.value, end)}
-              className="mt-1 w-full rounded-lg field px-2.5 py-2 text-sm text-foreground outline-none [color-scheme:dark]"
+              className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground [color-scheme:dark]"
             />
           </label>
-          <label className="text-[11px] text-muted-foreground">
+          <label className="flex items-center gap-2 text-muted-foreground">
             To
             <input
               type="month"
@@ -59,13 +59,13 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
               min={start}
               max={latest}
               onChange={(event) => MONTH_RE.test(event.target.value) && onChange("custom", start, event.target.value)}
-              className="mt-1 w-full rounded-lg field px-2.5 py-2 text-sm text-foreground outline-none [color-scheme:dark]"
+              className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground [color-scheme:dark]"
             />
           </label>
-          <p className="col-span-2 text-[11px] text-muted-foreground">Up to 10 years, from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>
+          <p className="w-full text-xs text-muted-foreground">Up to 10 years, from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>
         </div>
       ) : (
-        <p className="mt-2 text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {formatMonth(start, "long")} – {formatMonth(end, "long")}
         </p>
       )}
@@ -87,9 +87,9 @@ export function DatasetPicker({ selected, onChange }: { selected: DatasetId[]; o
     if (next.length) onChange(DATASETS.map((d) => d.id).filter((d) => next.includes(d)));
   };
   return (
-    <div>
-      <div className="mb-1.5 section-label">NASA datasets</div>
-      <div className="space-y-1.5">
+    <div className="space-y-3">
+      <div className="text-xs font-medium text-muted-foreground">NASA datasets</div>
+      <div className="grid gap-2">
         {DATASETS.map((dataset) => {
           const Icon = DATASET_ICON[dataset.id];
           const on = selected.includes(dataset.id);
@@ -101,21 +101,13 @@ export function DatasetPicker({ selected, onChange }: { selected: DatasetId[]; o
               aria-checked={on}
               onClick={() => toggle(dataset.id)}
               className={cn(
-                "flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition",
-                on ? "border-border bg-secondary/40" : "border-border/40 bg-transparent opacity-60 hover:opacity-90",
+                "flex items-start gap-3 rounded-xl px-3 py-2 text-left border transition-colors",
+                on ? "border-primary bg-primary/5" : "border-border/50 hover:bg-card/60",
               )}
             >
-              <span
-                className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border", on ? "border-transparent" : "border-muted-foreground/40")}
-                style={on ? { background: dataset.color } : undefined}
-                aria-hidden
-              >
-                {on && <span className="block h-1.5 w-1.5 rounded-sm bg-primary-foreground" />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                  <Icon className="h-3.5 w-3.5" style={{ color: dataset.color }} /> {dataset.label}
-                </span>
+              <Icon className="w-4 h-4 mt-0.5 shrink-0" style={{ color: dataset.color }} />
+              <span className="min-w-0 flex-1 space-y-0.5">
+                <span className="block text-sm font-medium text-foreground">{dataset.label}</span>
                 <span className="block text-xs text-muted-foreground">{dataset.description}</span>
               </span>
             </button>
