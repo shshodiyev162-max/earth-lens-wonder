@@ -28,8 +28,10 @@ export default function Layout() {
         Skip to content
       </a>
       <Navbar />
-      <main id="main" className="relative min-h-screen bg-background pt-16">
-        <Outlet />
+      <main id="main" tabIndex={-1} className="relative min-h-screen bg-background pt-16 outline-none">
+        <div key={pathname} className="animate-page-in">
+          <Outlet />
+        </div>
       </main>
     </>
   );

@@ -8,8 +8,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
-        <p className="text-sm text-muted-foreground">Checking your session…</p>
+      <div role="status" className="flex min-h-[calc(100dvh-4rem)] items-center justify-center gradient-hero">
+        <p className="chip animate-pulse-glow">Checking your session…</p>
       </div>
     );
   }

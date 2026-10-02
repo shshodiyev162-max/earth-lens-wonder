@@ -15,7 +15,7 @@ const NAV_ITEMS = [
 export function BrandMark({ className }: { className?: string }) {
   return (
     <span className={cn("flex items-center gap-2", className)}>
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary shadow-lg shadow-primary/20">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary glow-primary">
         <Globe2 className="h-5 w-5 text-primary-foreground" />
       </span>
       <span className="font-display text-lg font-bold tracking-tight text-foreground">
@@ -56,8 +56,8 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="fixed left-0 right-0 top-0 z-[2000] border-b border-white/[0.06] bg-[#050b13]/85 backdrop-blur-2xl">
-        <div className="mx-auto flex h-16 max-w-[1560px] items-center justify-between gap-4 px-4 sm:px-6">
+      <nav aria-label="Main" className="fixed left-0 right-0 top-0 z-[2000] glass-strong border-x-0 border-t-0">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/" aria-label="TerraVision home">
             <BrandMark />
           </Link>
@@ -88,21 +88,21 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="hidden items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-400 transition hover:border-primary/40 hover:text-white sm:flex"
+              className="hidden items-center gap-2 rounded-lg border border-border/60 bg-secondary/40 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground sm:flex"
               aria-label="Search places and layers"
             >
               <Search className="h-4 w-4" />
               <span className="hidden lg:inline">Search places…</span>
-              <kbd className="hidden rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-slate-400 lg:inline">{isMac ? "⌘K" : "Ctrl K"}</kbd>
+              <kbd className="kbd hidden lg:inline">{isMac ? "⌘K" : "Ctrl K"}</kbd>
             </button>
-            <button type="button" onClick={() => setSearchOpen(true)} className="rounded-lg p-2 text-muted-foreground hover:text-foreground sm:hidden" aria-label="Search">
+            <button type="button" onClick={() => setSearchOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground sm:hidden" aria-label="Search places and layers">
               <Search className="h-5 w-5" />
             </button>
 
             {showAccount &&
               (user ? (
                 <div className="hidden items-center gap-2 md:flex">
-                  <span className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-slate-300">
+                  <span translate="no" className="flex max-w-[12rem] items-center gap-1.5 truncate rounded-lg px-2 py-1.5 text-sm text-foreground/85">
                     <User className="h-4 w-4 text-primary" /> {user.name || user.email}
                   </span>
                   <button
@@ -111,7 +111,7 @@ export default function Navbar() {
                       await logout();
                       navigate("/");
                     }}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"
+                    className="btn-ghost"
                   >
                     <LogOut className="h-4 w-4" /> Sign out
                   </button>
@@ -125,9 +125,10 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setMobileOpen((open) => !open)}
-              className="rounded-lg p-2 text-muted-foreground hover:text-foreground md:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground md:hidden"
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
+              aria-controls="mobile-menu"
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -135,12 +136,13 @@ export default function Navbar() {
         </div>
 
         {mobileOpen && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="space-y-1 border-t border-white/10 bg-[#050b13]/95 p-4 md:hidden">
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} id="mobile-menu" className="space-y-1 border-t border-border p-4 glass-strong md:hidden">
             {[{ to: "/", label: "Home", icon: Globe2, match: ["/"] }, ...NAV_ITEMS].map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
-                className={cn("flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm", isActive(item.match) ? "bg-primary/10 text-primary" : "text-muted-foreground")}
+                aria-current={isActive(item.match) ? "page" : undefined}
+                className={cn("flex items-center gap-2 rounded-lg px-3 py-3 text-sm", isActive(item.match) ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
@@ -154,12 +156,12 @@ export default function Navbar() {
                     await logout();
                     navigate("/");
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-muted-foreground"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-3 text-sm text-muted-foreground hover:text-foreground"
                 >
                   <LogOut className="h-4 w-4" /> Sign out ({user.name || user.email})
                 </button>
               ) : (
-                <Link to="/login" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-primary">
+                <Link to="/login" className="flex items-center gap-2 rounded-lg px-3 py-3 text-sm text-primary">
                   <User className="h-4 w-4" /> Sign in
                 </Link>
               ))}

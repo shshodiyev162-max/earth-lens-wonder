@@ -22,13 +22,13 @@
     --secondary-foreground: 210 20% 85%;
 
     --muted: 220 14% 14%;
-    --muted-foreground: 215 12% 55%;
+    --muted-foreground: 215 14% 64%;
 
     --accent: 174 60% 40%;
     --accent-foreground: 210 20% 95%;
 
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 78% 64%;
+    --destructive-foreground: 220 20% 7%;
 
     --border: 220 14% 18%;
     --input: 220 14% 18%;
@@ -37,9 +37,9 @@
     --radius: 0.75rem;
 
     --earth-green: 142 50% 45%;
-    --earth-blue: 205 75% 50%;
+    --earth-blue: 205 80% 60%;
     --earth-orange: 28 85% 55%;
-    --earth-red: 0 65% 50%;
+    --earth-red: 0 78% 64%;
     --earth-yellow: 45 90% 55%;
     --space-deep: 220 25% 4%;
     --glow-primary: 174 72% 50%;
@@ -67,6 +67,31 @@
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.3);
+    color: hsl(var(--foreground));
+  }
+
+  /* One visible, on-brand focus ring for keyboard users everywhere. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
   }
 }
 
@@ -97,6 +122,105 @@
 
   .gradient-earth {
     background: linear-gradient(135deg, hsl(142 50% 45%) 0%, hsl(174 72% 50%) 100%);
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-glow-blue bg-clip-text text-transparent;
+  }
+}
+
+/* ───────────── Shared pieces built from the original TerraView look ───────────── */
+@layer components {
+  /* Floating/side panels on map and analysis pages. */
+  .panel {
+    @apply border border-border/60 bg-card/85 backdrop-blur-2xl;
+  }
+
+  /* Glass input wrapper (search boxes, selects, date fields). */
+  .field {
+    @apply rounded-xl border border-border/60 bg-secondary/40 text-foreground transition-colors;
+  }
+
+  .field:hover {
+    @apply border-primary/30;
+  }
+
+  .field:focus-within {
+    @apply border-primary/60 bg-secondary/60;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+  }
+
+  .field input,
+  .field select {
+    outline: none;
+  }
+
+  /* Popovers and dropdowns that sit above maps. */
+  .menu {
+    @apply rounded-xl border border-border/70 bg-popover/95 shadow-2xl shadow-black/40 backdrop-blur-2xl;
+  }
+
+  .tile {
+    @apply rounded-xl border border-border/50 bg-secondary/30;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-primary;
+  }
+
+  .section-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/50 px-2.5 py-1 text-xs text-muted-foreground;
+  }
+
+  .kbd {
+    @apply rounded-md border border-border/80 bg-secondary/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display font-semibold text-primary-foreground transition-opacity gradient-primary glow-primary hover:opacity-90 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-glass {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display font-semibold text-foreground transition-colors glass hover:bg-card/80 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground;
+  }
+
+  /* Loading placeholder with a soft moving sheen. */
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-secondary/60;
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.06), transparent);
+    animation: shimmer 1.6s infinite;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
