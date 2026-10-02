@@ -50,7 +50,7 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 - `components/map`:
   - `BaseMap` is the shared Leaflet setup.
   - `GibsTileLayer` and `LayerStack` show a science layer over a dimmed Blue Marble so gaps still show context.
-  - `ReferenceOverlays` adds the bundled borders and NASA GIBS place labels (`Reference_Labels_15m`, no key).
+  - `ReferenceOverlays` adds the bundled cyan country borders. There are no label tiles: CARTO's need a key and NASA's `Reference_Labels_15m` come back as solid black tiles.
   - `DrawTools` and `DrawToolbar` provide pointer-based rectangle, circle and polygon drawing, with no plugin.
   - `ValueProbe` handles click-to-read.
   - `SwipeClip` clips Leaflet panes for the comparison divider.
