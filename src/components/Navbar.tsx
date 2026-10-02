@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { BarChart3, Globe2, LogOut, Map as MapIcon, Menu, Search, User, X } from "lucide-react";
 import GlobalSearch from "@/components/search/GlobalSearch";
+import { OPEN_SEARCH_EVENT } from "@/components/search/openSearch";
 import { useAuth } from "@/context/AuthContext";
 import { isDemoMode } from "@/lib/apiClient";
 import { cn } from "@/lib/utils";
@@ -47,8 +48,13 @@ export default function Navbar() {
         setSearchOpen(true);
       }
     };
+    const onOpen = () => setSearchOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(OPEN_SEARCH_EVENT, onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_SEARCH_EVENT, onOpen);
+    };
   }, []);
 
   const isActive = (match: string[]) => match.includes(location.pathname);

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { Loader2, Search, X } from "lucide-react";
+import { Loader2, MapPinOff, Search, X } from "lucide-react";
 import { usePlaceSearch } from "@/hooks/usePlaceSearch";
 import { kindLabel, type PlaceResult } from "@/lib/geo/geocode";
 import type { LatLng } from "@/lib/geo/geometry";
@@ -85,13 +85,13 @@ export default function PlaceSearch({
     <div ref={containerRef} className={cn("relative", className)}>
       <div
         className={cn(
-          "flex items-center gap-2 border transition-colors focus-within:border-primary/60",
-          variant === "map" && "rounded-xl border-white/10 bg-[#07111d]/90 px-3 shadow-xl backdrop-blur",
-          variant === "panel" && "rounded-xl border-white/10 bg-white/[0.04] px-3",
-          variant === "hero" && "rounded-2xl border-white/15 bg-[#07111d]/80 px-5 shadow-2xl shadow-black/40 backdrop-blur-xl",
+          "field flex items-center gap-2",
+          variant === "map" && "glass-strong px-3 shadow-xl shadow-black/30",
+          variant === "panel" && "px-3",
+          variant === "hero" && "glass rounded-2xl px-5 shadow-2xl shadow-black/40 focus-within:glow-primary",
         )}
       >
-        <Search className={cn("shrink-0 text-slate-400", big ? "h-5 w-5" : "h-4 w-4")} aria-hidden />
+        <Search className={cn("shrink-0", big ? "h-5 w-5 text-primary" : "h-4 w-4 text-muted-foreground")} aria-hidden />
         <input
           ref={inputRef}
           value={query}
@@ -111,7 +111,7 @@ export default function PlaceSearch({
           aria-autocomplete="list"
           autoComplete="off"
           spellCheck={false}
-          className={cn("min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-slate-500", big ? "py-4 text-base" : "py-2.5 text-sm")}
+          className={cn("min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground", big ? "py-4 text-base" : "py-2.5 text-sm")}
         />
         {loading && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" aria-label="Searching" />}
         {query && !loading && (
@@ -121,7 +121,7 @@ export default function PlaceSearch({
               setQuery("");
               inputRef.current?.focus();
             }}
-            className="rounded-md p-1 text-slate-500 transition hover:bg-white/10 hover:text-white"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             aria-label="Clear search"
           >
             <X className="h-3.5 w-3.5" />
@@ -130,7 +130,7 @@ export default function PlaceSearch({
       </div>
 
       {showDropdown && (
-        <div className="absolute left-0 right-0 top-full z-[1500] mt-2 max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1725]/98 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+        <div className={cn("menu absolute left-0 right-0 top-full z-[1500] mt-2 overflow-y-auto overscroll-contain p-1.5 animate-in fade-in-0 slide-in-from-top-1", big ? "max-h-[min(20rem,42svh)]" : "max-h-80")}>
           <div id={listId} role="listbox" aria-label="Places">
             {results.length > 0 &&
               results.map((place, index) => {
@@ -147,13 +147,13 @@ export default function PlaceSearch({
                     onClick={() => choose(place)}
                     className={cn(
                       "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition",
-                      index === highlight ? "bg-primary/10" : "hover:bg-white/5",
+                      index === highlight ? "bg-primary/10" : "hover:bg-secondary/60",
                     )}
                   >
-                    <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", index === highlight ? "text-primary" : "text-slate-500")} aria-hidden />
+                    <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", index === highlight ? "text-primary" : "text-muted-foreground")} aria-hidden />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-white">{place.name}</span>
-                      <span className="block truncate text-xs text-slate-500">
+                      <span translate="no" className="block truncate text-sm font-medium text-foreground">{place.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
                         {kindLabel(place.kind)}
                         {place.context ? ` · ${place.context}` : ""}
                       </span>
@@ -163,14 +163,29 @@ export default function PlaceSearch({
               })}
           </div>
           {!loading && results.length === 0 && !error && resultsFor === trimmed && (
-            <div className="px-3 py-3 text-xs leading-relaxed text-slate-400">
-              No places found for “{trimmed}”. Try a city, region or country, or coordinates like <span className="font-mono text-slate-300">39.77, 64.42</span>
-              .
+            <div className="flex gap-3 px-3 py-3 text-xs leading-relaxed text-muted-foreground">
+              <MapPinOff className="mt-0.5 h-4 w-4 shrink-0 text-primary/70" aria-hidden />
+              <span>
+                <span className="block font-medium text-foreground">No places found for “{trimmed}”</span>
+                Try a city, region or country, or coordinates like <span className="font-mono text-foreground/85">39.77, 64.42</span>.
+              </span>
             </div>
           )}
-          {error && <div className="px-3 py-3 text-xs text-amber-300">{error}</div>}
-          {loading && results.length === 0 && <div className="px-3 py-3 text-xs text-slate-500">Searching…</div>}
-          <div className="border-t border-white/5 px-3 pb-1 pt-2 text-[10px] text-slate-600">
+          {error && <div role="alert" className="px-3 py-3 text-xs text-earth-yellow">{error}</div>}
+          {loading && results.length === 0 && (
+            <div role="status" aria-label="Searching" className="space-y-1 p-1">
+              {[0, 1, 2].map((row) => (
+                <div key={row} className="flex items-center gap-3 px-2 py-2">
+                  <div className="skeleton h-4 w-4 rounded" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="skeleton h-3 w-2/5" />
+                    <div className="skeleton h-2.5 w-3/5" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="border-t border-border/60 px-3 pb-1 pt-2 text-[10px] text-muted-foreground">
             Search by Photon &amp; Nominatim · © OpenStreetMap contributors
           </div>
         </div>
