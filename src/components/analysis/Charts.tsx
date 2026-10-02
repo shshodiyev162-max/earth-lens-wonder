@@ -17,8 +17,9 @@ import { formatMonth } from "@/lib/gibs/time";
 import type { ClimatePoint, SatelliteSeries } from "@/lib/analysis/types";
 import { cn } from "@/lib/utils";
 
-const AXIS = { fill: "#94a3b8", fontSize: 11 };
-const GRID = "rgba(148,163,184,0.12)";
+// SVG attributes can't read CSS variables, so these mirror --muted-foreground.
+const AXIS = { fill: "hsl(215, 14%, 64%)", fontSize: 11 };
+const GRID = "hsla(215, 14%, 64%, 0.12)";
 
 type Row = Record<string, number | string | null | [number, number] | undefined>;
 
@@ -31,7 +32,7 @@ interface SeriesFormat {
 function ChartTooltip({ active, payload, label, formats }: TooltipProps<number, string> & { formats: Record<string, SeriesFormat> }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl menu/95 px-3 py-2 text-xs shadow-2xl backdrop-blur">
+    <div className="menu px-3 py-2 text-xs">
       <div className="mb-1 font-semibold text-foreground">{label}</div>
       {payload.map((item) => {
         const key = String(item.dataKey);
@@ -78,10 +79,10 @@ export function ChartCard({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-2xl border border-border/60 bg-card/80 p-4 sm:p-5", className)}>
+    <section className={cn("rounded-2xl p-4 glass sm:p-5", className)}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <h3 className="font-display text-base font-semibold text-foreground">{title}</h3>
           {subtitle && <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>}
         </div>
         {aside}

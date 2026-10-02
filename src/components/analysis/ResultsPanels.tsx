@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, BadgeCheck, Check, CircleAlert, Copy, Download, ExternalLink, Info, Loader2, Map as MapIcon, Sparkles, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { Sparkline } from "./Charts";
+import PlaceThumbnail from "./PlaceThumbnail";
 import type { Finding, InsightReport, Kpi, Tone } from "@/lib/analysis/insights";
 import type { AnalysisResult, AnalysisTarget, DatasetId } from "@/lib/analysis/types";
 import { DATASET_BY_ID } from "@/lib/analysis/run";
@@ -26,7 +27,35 @@ const CONCERN_STYLE = {
   high: "bg-earth-red/15 text-earth-red border-earth-red/30",
 };
 
-export function ResultsHeader({ target, result, shareUrl }: { target: AnalysisTarget; result: AnalysisResult | null; shareUrl: string }) {
+const CONCERN_LABEL: Record<InsightReport["concern"]["level"], string> = {
+  low: "Low concern",
+  moderate: "Moderate concern",
+  elevated: "Elevated concern",
+  high: "High concern",
+};
+
+export function ConcernBadge({ level, className }: { level: InsightReport["concern"]["level"]; className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide", CONCERN_STYLE[level], className)}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+      {CONCERN_LABEL[level]}
+    </span>
+  );
+}
+
+export function ResultsHeader({
+  target,
+  result,
+  report,
+  running,
+  shareUrl,
+}: {
+  target: AnalysisTarget;
+  result: AnalysisResult | null;
+  report?: InsightReport | null;
+  running?: boolean;
+  shareUrl: string;
+}) {
   const [copied, setCopied] = useState(false);
   const mapHref = `/map?${new URLSearchParams({
     lat: target.center[0].toFixed(4),
@@ -45,37 +74,54 @@ export function ResultsHeader({ target, result, shareUrl }: { target: AnalysisTa
     }
   };
 
+  const kindLabel = target.kind === "drawn" ? "Your drawn area" : target.kind === "point" ? "Area around a point" : "Place";
+
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-border/60 bg-card/80 p-5">
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Area report</p>
-        <h2 className="mt-1 truncate text-2xl font-bold text-foreground">{target.name}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {[target.context, formatArea(target.areaKm2), formatLatLng(target.center, 2)].filter(Boolean).join(" · ")}
-        </p>
-        {result && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            {formatMonth(result.start, "long")} – {formatMonth(result.end, "long")} · NASA GIBS (MODIS, MERRA-2) · NASA POWER
-          </p>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Link to={mapHref} className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/60 px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary">
-          <MapIcon className="h-3.5 w-3.5" /> View on map
+    <section aria-label="Report summary" className="relative overflow-hidden rounded-2xl p-4 glass sm:p-5">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
+      <div className="relative grid gap-4 sm:grid-cols-[minmax(0,13rem),1fr] sm:gap-5">
+        <Link to={mapHref} aria-label={`Open ${target.name} on the map`} className="group block rounded-xl">
+          <PlaceThumbnail key={`${target.name}-${target.bbox.join(",")}`} target={target} className="transition-transform duration-300 group-hover:scale-[1.02]" />
         </Link>
-        <button type="button" onClick={copy} className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/60 px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary">
-          {copied ? <Check className="h-3.5 w-3.5 text-earth-green" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy link"}
-        </button>
-        <button
-          type="button"
-          disabled={!result}
-          onClick={() => result && downloadText(`terravision-${slugify(target.name)}-${result.start}-to-${result.end}.csv`, buildCsv(result))}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-        >
-          <Download className="h-3.5 w-3.5" /> Download CSV
-        </button>
+        <div className="flex min-w-0 flex-col">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="eyebrow">Area report · {kindLabel}</p>
+            {report ? (
+              <ConcernBadge level={report.concern.level} />
+            ) : running ? (
+              <span className="skeleton h-6 w-32 rounded-full" role="status" aria-label="Working out the concern level" />
+            ) : null}
+          </div>
+          <h2 translate="no" className="mt-2 break-words font-display text-2xl font-bold leading-tight text-foreground sm:text-3xl">
+            {target.name}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {[target.context, formatArea(target.areaKm2), formatLatLng(target.center, 2)].filter(Boolean).join(" · ")}
+          </p>
+          {result && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatMonth(result.start, "long")} – {formatMonth(result.end, "long")} · NASA GIBS (MODIS, MERRA-2) · NASA POWER
+            </p>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2 sm:mt-auto sm:pt-4">
+            <button
+              type="button"
+              disabled={!result}
+              onClick={() => result && downloadText(`terravision-${slugify(target.name)}-${result.start}-to-${result.end}.csv`, buildCsv(result))}
+              className="btn-primary px-3.5 py-2 text-xs"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" /> Download CSV
+            </button>
+            <button type="button" onClick={copy} className="btn-glass px-3.5 py-2 text-xs">
+              {copied ? <Check className="h-3.5 w-3.5 text-earth-green" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />} {copied ? "Copied" : "Copy link"}
+            </button>
+            <Link to={mapHref} className="btn-glass px-3.5 py-2 text-xs">
+              <MapIcon className="h-3.5 w-3.5" aria-hidden="true" /> View on map
+            </Link>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -93,14 +139,13 @@ export function InsightPanel({ report, result }: { report: InsightReport; result
   };
 
   return (
-    <section className="rounded-2xl border border-border/60 bg-gradient-to-br from-card to-secondary/40 p-5">
+    <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-card to-secondary/40 p-5 pl-6">
+      <div aria-hidden="true" className="absolute inset-y-0 left-0 w-1 gradient-primary" />
       <div className="flex flex-wrap items-center gap-2">
-        <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide", CONCERN_STYLE[report.concern.level])}>
-          Concern: {report.concern.level}
-        </span>
+        <ConcernBadge level={report.concern.level} />
         <span className="text-[11px] text-muted-foreground">Computed from the measurements below — thresholds are listed in each finding.</span>
       </div>
-      <h3 className="mt-3 text-lg font-semibold leading-snug text-foreground">{report.headline}</h3>
+      <h3 className="mt-3 font-display text-xl font-semibold leading-snug text-foreground">{report.headline}</h3>
       <p className="mt-2 text-sm leading-relaxed text-foreground/85">{report.summary}</p>
 
       {aiEnabled && (
@@ -140,13 +185,13 @@ export function InsightPanel({ report, result }: { report: InsightReport; result
 export function KpiGrid({ kpis }: { kpis: Kpi[] }) {
   if (!kpis.length) return null;
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-3 2xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-5">
       {kpis.map((kpi) => (
-        <div key={kpi.id} className="rounded-2xl border border-border/60 bg-card/80 p-4">
+        <div key={kpi.id} className="rounded-2xl p-4 transition-all glass hover:-translate-y-0.5 hover:border-primary/30">
           <div className="text-[11px] font-medium text-muted-foreground">{kpi.label}</div>
           <div
             className={cn(
-              "mt-1 text-2xl font-bold",
+              "mt-1 font-display text-2xl font-bold",
               kpi.tone === "critical" ? "text-earth-red" : kpi.tone === "warning" ? "text-earth-yellow" : kpi.tone === "positive" ? "text-earth-green" : "text-foreground",
             )}
           >
@@ -165,8 +210,8 @@ export function KpiGrid({ kpis }: { kpis: Kpi[] }) {
 export function FindingsList({ findings }: { findings: Finding[] }) {
   if (!findings.length) return null;
   return (
-    <section className="rounded-2xl border border-border/60 bg-card/80 p-5">
-      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+    <section className="rounded-2xl p-5 glass">
+      <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-foreground">
         <TrendingUp className="h-4 w-4 text-primary" /> What the data shows
       </h3>
       <ul className="space-y-2">
@@ -191,7 +236,7 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
 
 export function Methodology({ report, result }: { report: InsightReport; result: AnalysisResult }) {
   return (
-    <section className="rounded-2xl border border-border/60 bg-card/60 p-5 text-xs leading-relaxed text-muted-foreground">
+    <section className="rounded-2xl p-5 text-xs leading-relaxed text-muted-foreground glass">
       <h3 className="mb-2 text-sm font-semibold text-foreground">How these numbers are made</h3>
       <ul className="list-disc space-y-1.5 pl-5">
         <li>
