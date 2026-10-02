@@ -4,7 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Image as ImageIcon, Loader2, MapPinOff, Ruler, Search, X } from "lucide-react";
 import { usePlaceSearch } from "@/hooks/usePlaceSearch";
 import { kindLabel, type PlaceResult } from "@/lib/geo/geocode";
-import { MAP_LAYERS, isScienceLayer, searchLayers, type GibsLayer } from "@/lib/gibs/catalog";
+import { MAP_LAYERS, getLayer, isScienceLayer, searchLayers, type GibsLayer } from "@/lib/gibs/catalog";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { cn } from "@/lib/utils";
 import { KIND_ICON } from "./placeIcons";
@@ -13,7 +13,16 @@ type Item = { type: "place"; place: PlaceResult } | { type: "layer"; layer: Gibs
 
 const MAP_PATHS = ["/map", "/split", "/sync"];
 // Shown before the user types, so the palette is useful straight away.
-const QUICK_LAYERS = MAP_LAYERS.slice(0, 6);
+const QUICK_LAYERS = [
+  "VIIRS_NOAA20_CorrectedReflectance_TrueColor",
+  "MODIS_Terra_L3_NDVI_16Day",
+  "MODIS_Terra_L3_Land_Surface_Temp_8Day_Day",
+  "IMERG_Precipitation_Rate",
+  "MODIS_Terra_Aerosol",
+  "VIIRS_Black_Marble",
+]
+  .map((id) => getLayer(id))
+  .filter((layer): layer is GibsLayer => Boolean(layer));
 
 /** ⌘K / Ctrl+K palette: jump to any place on Earth or open any NASA layer. */
 export default function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -101,7 +110,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
               <X className="h-4 w-4" />
             </DialogPrimitive.Close>
           </div>
-          <div ref={listRef} className="relative max-h-[60vh] overflow-y-auto overscroll-contain p-2">
+          <div ref={listRef} tabIndex={0} aria-label="Search results" className="relative max-h-[60vh] overflow-y-auto overscroll-contain p-2">
             {trimmed.length < 2 && (
               <div className="px-1 py-2">
                 <p className="px-2 pb-3 text-sm text-muted-foreground">

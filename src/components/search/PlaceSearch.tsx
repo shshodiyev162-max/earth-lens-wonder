@@ -130,7 +130,7 @@ export default function PlaceSearch({
       </div>
 
       {showDropdown && (
-        <div className={cn("menu absolute left-0 right-0 top-full z-[1500] mt-2 overflow-y-auto overscroll-contain p-1.5 animate-in fade-in-0 slide-in-from-top-1", big ? "max-h-[min(20rem,42svh)]" : "max-h-80")}>
+        <div tabIndex={0} aria-label="Search results" className={cn("menu absolute left-0 right-0 top-full z-[1500] mt-2 overflow-y-auto overscroll-contain p-1.5 animate-in fade-in-0 slide-in-from-top-1", big ? "max-h-[min(20rem,42svh)]" : "max-h-80")}>
           <div id={listId} role="listbox" aria-label="Places">
             {results.length > 0 &&
               results.map((place, index) => {
