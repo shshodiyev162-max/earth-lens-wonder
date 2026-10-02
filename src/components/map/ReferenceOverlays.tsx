@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { GeoJSON, Pane, TileLayer } from "react-leaflet";
 import type { GeoJsonObject } from "geojson";
 
-const LABELS_URL = "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png";
-const LABELS_ATTRIBUTION = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a>';
+// Place labels from NASA GIBS (built from OpenStreetMap). No key needed; CARTO's
+// label tiles now require one and return an "API KEY REQUIRED" watermark instead.
+const LABELS_URL = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Reference_Labels_15m/default/GoogleMapsCompatible_Level13/{z}/{y}/{x}.png";
+const LABELS_ATTRIBUTION = 'Labels: NASA GIBS · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
 
 let bordersRequest: Promise<GeoJsonObject | null> | null = null;
 
@@ -40,7 +42,7 @@ export default function ReferenceOverlays({ labels = true, borders = true }: { l
         {borders && data && <GeoJSON data={data} interactive={false} style={{ color: "#67e8f9", weight: 0.9, opacity: 0.55, fill: false }} />}
       </Pane>
       <Pane name="reference-labels" style={{ zIndex: 430, pointerEvents: "none" }}>
-        {labels && <TileLayer url={LABELS_URL} attribution={LABELS_ATTRIBUTION} subdomains="abcd" maxZoom={20} opacity={0.95} />}
+        {labels && <TileLayer url={LABELS_URL} attribution={LABELS_ATTRIBUTION} maxNativeZoom={13} maxZoom={20} opacity={0.95} />}
       </Pane>
     </>
   );
