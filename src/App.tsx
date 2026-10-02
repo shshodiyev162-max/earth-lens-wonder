@@ -9,6 +9,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { RequireAuth } from "./components/RequireAuth";
 import { AuthProvider } from "./context/AuthContext";
 import { WorkspaceProvider } from "./context/WorkspaceContext";
+import { ACCOUNTS_ENABLED } from "./config";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 
@@ -75,7 +76,7 @@ function Page({ children, protectedRoute }: { children: ReactNode; protectedRout
       <Suspense fallback={<PageLoader />}>{children}</Suspense>
     </ErrorBoundary>
   );
-  return protectedRoute ? <RequireAuth>{content}</RequireAuth> : content;
+  return protectedRoute && ACCOUNTS_ENABLED ? <RequireAuth>{content}</RequireAuth> : content;
 }
 
 const App = () => (
@@ -92,7 +93,7 @@ const App = () => (
                 <Route path="/split" element={<Page protectedRoute><SplitView /></Page>} />
                 <Route path="/sync" element={<Page protectedRoute><SyncView /></Page>} />
                 <Route path="/analysis" element={<Page protectedRoute><Analysis /></Page>} />
-                <Route path="/login" element={<Page><Login /></Page>} />
+                {ACCOUNTS_ENABLED && <Route path="/login" element={<Page><Login /></Page>} />}
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>

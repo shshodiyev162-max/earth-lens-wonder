@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, availableMonths, monthRange, parseDomainXml, parsePeriod, resolveInDomain } from "../time";
+import { addMonths, availableMonths, completeDaysAgoUtc, monthRange, parseDomainXml, parsePeriod, resolveInDomain } from "../time";
 
 const DAILY = `<Domains><DimensionDomain><ows:Identifier>time</ows:Identifier><Domain>2000-06-01/2025-10-22/P1D,2025-10-30/2026-01-07/P1D,2026-01-09/2026-09-30/P1D</Domain><Size>3</Size></DimensionDomain></Domains>`;
 const SIXTEEN = `<Domains><DimensionDomain><Domain>2025-01-01/2025-12-19/P16D,2026-01-01/2026-08-29/P16D</Domain></DimensionDomain></Domains>`;
@@ -59,5 +59,19 @@ describe("date helpers", () => {
     expect(parsePeriod("P16D")).toEqual({ days: 16, months: 0 });
     expect(parsePeriod("P1M")).toEqual({ days: 0, months: 1 });
     expect(parsePeriod("P1Y")).toEqual({ days: 0, months: 12 });
+  });
+});
+
+describe("completeDaysAgoUtc", () => {
+  it("uses yesterday once NASA has had time to process it", () => {
+    expect(completeDaysAgoUtc(1, new Date("2026-10-02T16:50:00Z"))).toBe("2026-10-01");
+  });
+
+  it("falls back a day early in the UTC morning, while yesterday is still incomplete", () => {
+    expect(completeDaysAgoUtc(1, new Date("2026-10-02T03:00:00Z"))).toBe("2026-09-30");
+  });
+
+  it("returns today for a lag of zero", () => {
+    expect(completeDaysAgoUtc(0, new Date("2026-10-02T03:00:00Z"))).toBe("2026-10-02");
   });
 });

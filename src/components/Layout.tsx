@@ -8,7 +8,6 @@ const TITLES: Record<string, string> = {
   "/split": "Compare · TerraVision",
   "/sync": "Side by side · TerraVision",
   "/analysis": "Area analysis · TerraVision",
-  "/login": "Sign in · TerraVision",
 };
 
 export default function Layout() {

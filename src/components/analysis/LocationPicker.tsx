@@ -8,6 +8,7 @@ import ReferenceOverlays from "@/components/map/ReferenceOverlays";
 import DrawTools, { type DrawMode } from "@/components/map/DrawTools";
 import DrawToolbar, { DrawHint } from "@/components/map/DrawToolbar";
 import FlyTo, { type FlyTarget } from "@/components/map/FlyTo";
+import ZoomLimit from "@/components/map/ZoomLimit";
 import PlaceSearch from "@/components/search/PlaceSearch";
 import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
 import { BASE_LAYER_ID, getLayer, type GibsLayer } from "@/lib/gibs/catalog";
@@ -119,6 +120,7 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
           />
           <ClickToPick enabled={!drawMode} onPick={(point) => onPoint(point, radius)} />
           <FlyTo target={flyTarget} maxZoom={12} />
+          <ZoomLimit layers={[base]} />
         </BaseMap>
         <div className="pointer-events-none absolute inset-0 z-[1000]">
           <DrawToolbar

@@ -7,6 +7,7 @@ import NavSearch, { type NavSearchHandle } from "@/components/search/NavSearch";
 import { OPEN_SEARCH_EVENT } from "@/components/search/openSearch";
 import { useAuth } from "@/context/AuthContext";
 import { isDemoMode } from "@/lib/apiClient";
+import { ACCOUNTS_ENABLED } from "@/config";
 
 const navItems = [
   { to: "/", label: "Home", icon: Globe, match: ["/"] },
@@ -109,7 +110,7 @@ export default function Navbar() {
             <Search className="w-5 h-5" />
           </button>
 
-          {signedIn ? (
+          {!ACCOUNTS_ENABLED ? null : signedIn ? (
             <button
               type="button"
               onClick={signOut}
@@ -163,7 +164,7 @@ export default function Navbar() {
               {item.label}
             </Link>
           ))}
-          {signedIn ? (
+          {!ACCOUNTS_ENABLED ? null : signedIn ? (
             <button type="button" onClick={signOut} className="flex w-full items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-muted-foreground">
               <LogOut className="w-4 h-4" />
               Sign Out

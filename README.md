@@ -49,7 +49,7 @@ Copy `.env.example` to `.env`.
 
 | Variable                    | Purpose                                                                                                                                                                         |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VITE_API_BASE_URL`         | Backend for accounts (`/auth/login`, `/auth/register`, `/auth/logout`, `/auth/me`). Without it the app runs in demo mode with a local profile.                                    |
+| `VITE_API_BASE_URL`         | Backend for accounts (`/auth/login`, `/auth/register`, `/auth/logout`, `/auth/me`). Accounts are switched off for now (`ACCOUNTS_ENABLED` in `src/config.ts`); every page is open. |
 | `VITE_AI_ANALYSIS_ENDPOINT` | Your own endpoint for an optional AI briefing on the Analysis page. TerraVision POSTs the measured findings and expects `{ "summary": string, "bullets": string[] }`.             |
 
 Never put secrets (model API keys, database credentials) in `VITE_` variables — they end up in the browser bundle. Keep them on the backend.
@@ -89,7 +89,7 @@ src/
 │   ├── analysis/            # Analysis engine, NASA POWER client, statistics, insights, CSV export
 │   ├── async.ts             # Request de-duplication, cancellation and concurrency limits
 │   └── analysisClient.ts    # Optional AI briefing endpoint
-└── pages/                   # Landing, Explore, Compare (SplitView), Side by side (SyncView), Analysis, Login, 404
+└── pages/                   # Landing, Explore, Split (SplitView), Sync (SyncView), Analysis, Login (off for now), 404
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together.

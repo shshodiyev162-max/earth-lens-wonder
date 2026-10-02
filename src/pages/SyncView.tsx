@@ -10,6 +10,7 @@ import AreasLayer from "@/components/map/AreasLayer";
 import DrawTools, { type DrawMode } from "@/components/map/DrawTools";
 import DrawToolbar from "@/components/map/DrawToolbar";
 import FlyTo from "@/components/map/FlyTo";
+import ZoomLimit from "@/components/map/ZoomLimit";
 import PlaceOutline from "@/components/map/PlaceOutline";
 import ValueProbe from "@/components/map/ValueProbe";
 import LayerPicker, { LayerPickerLabel } from "@/components/map/LayerPicker";
@@ -270,6 +271,7 @@ export default function SyncView() {
             <ValueProbe layers={[{ layer: leftLayer, date: leftDate.date }]} disabled={Boolean(drawMode)} />
             <FlyTo target={left.flyTarget} />
             <CursorTracker onChange={setCursor} />
+            <ZoomLimit layers={[leftLayer, rightLayer]} />
           </BaseMap>
           {phoneLabel(leftLayer, leftDate.date, "left")}
         </div>
@@ -282,6 +284,7 @@ export default function SyncView() {
             <DrawTools mode={drawMode} {...drawProps} />
             <ValueProbe layers={[{ layer: rightLayer, date: rightDate.date }]} disabled={Boolean(drawMode)} />
             <CursorTracker onChange={setCursor} />
+            <ZoomLimit layers={[leftLayer, rightLayer]} />
           </BaseMap>
           {phoneLabel(rightLayer, rightDate.date, "right")}
         </div>

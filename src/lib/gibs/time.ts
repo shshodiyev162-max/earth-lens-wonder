@@ -33,6 +33,18 @@ export function todayUtc(): string {
   return toIsoDate(new Date());
 }
 
+/**
+ * NASA needs a few hours after a UTC day ends to process its last satellite passes,
+ * so "N days ago" for near-real-time imagery is counted with this margin.
+ */
+export const NRT_PROCESSING_HOURS = 6;
+
+/** UTC date `days` days ago, counting a day as complete only NRT_PROCESSING_HOURS after it ended. */
+export function completeDaysAgoUtc(days: number, now: Date = new Date()): string {
+  const hours = days > 0 ? days * 24 + NRT_PROCESSING_HOURS : 0;
+  return toIsoDate(new Date(now.getTime() - hours * 3_600_000));
+}
+
 export function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -185,7 +197,7 @@ export function fetchTimeDomain(layer: GibsLayer): Promise<TimeDomain | null> {
 
 /** Default date for a layer: its latest step, minus the near-real-time lag for daily imagery. */
 export function defaultDateFor(layer: GibsLayer, domain: TimeDomain | null): string {
-  const lagged = addDays(todayUtc(), -(layer.defaultLagDays ?? 0));
+  const lagged = completeDaysAgoUtc(layer.defaultLagDays ?? 0);
   if (!domain) return lagged;
   const target = layer.defaultLagDays ? (lagged < domain.latest ? lagged : domain.latest) : domain.latest;
   return resolveInDomain(domain, target).date;
@@ -193,11 +205,10 @@ export function defaultDateFor(layer: GibsLayer, domain: TimeDomain | null): str
 
 /** Offline guess used before the domain has loaded (keeps the first paint fast). */
 export function provisionalDate(layer: GibsLayer, requested?: string | null): string {
-  const today = todayUtc();
   const lagDays =
     layer.defaultLagDays ??
     (layer.period === "16-day" ? 40 : layer.period === "8-day" ? 20 : layer.period === "monthly" ? 70 : layer.period === "yearly" ? 3000 : 2);
-  const latestGuess = addDays(today, -lagDays);
+  const latestGuess = completeDaysAgoUtc(lagDays);
   if (!requested || requested > latestGuess) return latestGuess;
   return requested;
 }

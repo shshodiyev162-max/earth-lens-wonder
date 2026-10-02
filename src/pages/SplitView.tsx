@@ -10,6 +10,7 @@ import AreasLayer from "@/components/map/AreasLayer";
 import DrawTools, { type DrawMode } from "@/components/map/DrawTools";
 import DrawToolbar from "@/components/map/DrawToolbar";
 import FlyTo from "@/components/map/FlyTo";
+import ZoomLimit from "@/components/map/ZoomLimit";
 import PlaceOutline from "@/components/map/PlaceOutline";
 import ValueProbe from "@/components/map/ValueProbe";
 import SwipeClip from "@/components/map/SwipeClip";
@@ -273,6 +274,7 @@ export default function SplitView() {
           />
           <FlyTo target={flyTarget} />
           <CursorTracker onChange={setCursor} />
+          <ZoomLimit layers={[leftLayer, rightLayer]} />
         </BaseMap>
         <div className="pointer-events-none absolute inset-y-0 z-[900]" style={{ left: `${ratio * 100}%` }}>
           <div className="absolute inset-y-0 -left-0.5 w-1 bg-cyan-400/70 shadow-lg shadow-cyan-500/40" />
