@@ -4,7 +4,7 @@ import type { Map as LeafletMap } from "leaflet";
 import type { MapView } from "@/context/WorkspaceContext";
 import { cn } from "@/lib/utils";
 
-/** Leaflet upsamples tiles past each layer's native zoom up to this level. */
+/** Highest zoom any map allows; each page lowers it to its layers' real detail (see ZoomLimit). */
 export const MAX_MAP_ZOOM = 12;
 
 function ViewReporter({ onChange }: { onChange?: (view: MapView) => void }) {
@@ -22,10 +22,6 @@ function MapReady({ onReady }: { onReady?: (map: LeafletMap) => void }) {
   const map = useMap();
   useEffect(() => {
     onReady?.(map);
-    // Containers often change size after first paint (sidebars, fonts); keep tiles aligned.
-    const observer = new ResizeObserver(() => map.invalidateSize({ debounceMoveend: true }));
-    observer.observe(map.getContainer());
-    return () => observer.disconnect();
   }, [map, onReady]);
   return null;
 }
@@ -41,6 +37,7 @@ interface BaseMapProps {
   zoomPosition?: "topleft" | "topright" | "bottomleft" | "bottomright";
 }
 
+/** A plain Leaflet map, set up the same way as the original (GitHub) version. */
 export default function BaseMap({
   initialView,
   children,
@@ -55,14 +52,7 @@ export default function BaseMap({
     <MapContainer
       center={initialView.center}
       zoom={initialView.zoom}
-      minZoom={2}
       maxZoom={MAX_MAP_ZOOM}
-      worldCopyJump
-      maxBounds={[
-        [-85, -720],
-        [85, 720],
-      ]}
-      maxBoundsViscosity={0.8}
       zoomControl={false}
       attributionControl={false}
       className={cn("h-full w-full", className)}

@@ -58,7 +58,7 @@ export const LAYERS: GibsLayer[] = [
     format: "jpg",
     matrixSet: "GoogleMapsCompatible_Level9",
     period: "daily",
-    defaultLagDays: 1,
+    defaultLagDays: 2,
     howToRead: "Clouds are white, vegetation green, deserts tan, water dark blue. Black wedges are gaps between satellite passes.",
   }),
   layer({
@@ -81,7 +81,7 @@ export const LAYERS: GibsLayer[] = [
     format: "jpg",
     matrixSet: "GoogleMapsCompatible_Level9",
     period: "daily",
-    defaultLagDays: 1,
+    defaultLagDays: 2,
   }),
   layer({
     id: "MODIS_Terra_CorrectedReflectance_TrueColor",
@@ -92,7 +92,7 @@ export const LAYERS: GibsLayer[] = [
     format: "jpg",
     matrixSet: "GoogleMapsCompatible_Level9",
     period: "daily",
-    defaultLagDays: 1,
+    defaultLagDays: 2,
   }),
   layer({
     id: "MODIS_Aqua_CorrectedReflectance_TrueColor",
@@ -103,7 +103,7 @@ export const LAYERS: GibsLayer[] = [
     format: "jpg",
     matrixSet: "GoogleMapsCompatible_Level9",
     period: "daily",
-    defaultLagDays: 1,
+    defaultLagDays: 2,
   }),
   layer({
     id: "MODIS_Terra_CorrectedReflectance_Bands721",
@@ -114,7 +114,7 @@ export const LAYERS: GibsLayer[] = [
     format: "jpg",
     matrixSet: "GoogleMapsCompatible_Level9",
     period: "daily",
-    defaultLagDays: 1,
+    defaultLagDays: 2,
     howToRead: "Vegetation is bright green, bare soil pink-brown, burn scars red-brown, water black, snow and ice cyan.",
   }),
   layer({
@@ -182,7 +182,7 @@ export const LAYERS: GibsLayer[] = [
     colormap: "MODIS_VIIRS_AOD",
     unit: "AOD",
     decimals: 2,
-    defaultLagDays: 1,
+    defaultLagDays: 3,
     needsBase: true,
     howToRead: "Below 0.1 is clean air, 0.1–0.3 hazy, above 0.5 thick dust or smoke. Clouds hide the retrieval.",
   }),
@@ -198,7 +198,7 @@ export const LAYERS: GibsLayer[] = [
     colormap: "AIRS_Carbon_Monoxide_Volume_Mixing_Ratio",
     unit: "ppbv",
     decimals: 0,
-    defaultLagDays: 2,
+    defaultLagDays: 5,
     needsBase: true,
   }),
   layer({
@@ -213,7 +213,7 @@ export const LAYERS: GibsLayer[] = [
     colormap: "GPM_Precipitation_Rate",
     unit: "mm/h",
     decimals: 1,
-    defaultLagDays: 2,
+    defaultLagDays: 3,
     needsBase: true,
     howToRead: "Green to yellow is light to moderate rain, red heavy rain; cyan-to-purple shades are snowfall.",
   }),
@@ -229,7 +229,7 @@ export const LAYERS: GibsLayer[] = [
     colormap: "GHRSST_Sea_Surface_Temperature",
     unit: "°C",
     decimals: 1,
-    defaultLagDays: 2,
+    defaultLagDays: 3,
     needsBase: true,
   }),
   layer({
@@ -259,7 +259,7 @@ export const LAYERS: GibsLayer[] = [
     colormap: "MODIS_NDSI_Snow_Cover",
     unit: "%",
     decimals: 0,
-    defaultLagDays: 3,
+    defaultLagDays: 4,
     needsBase: true,
   }),
   layer({
@@ -276,7 +276,7 @@ export const LAYERS: GibsLayer[] = [
     decimals: 1,
     // Yesterday's night passes are often still incomplete; two days back is
     // reliably full-coverage (checked against GIBS on 2 Oct 2026).
-    defaultLagDays: 2,
+    defaultLagDays: 1,
   }),
 
   // ── Monthly products used by the Analysis page ─────────────────────────

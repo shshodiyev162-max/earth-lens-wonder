@@ -4,12 +4,13 @@ import type { GibsLayer } from "@/lib/gibs/catalog";
 import { MAX_MAP_ZOOM } from "./BaseMap";
 
 /**
- * Lets the map zoom one level past the sharpest imagery it shows, and no further.
- * Beyond that NASA tiles are only enlarged pixels, which looks like the map failed to load.
+ * Caps the map's zoom at the real detail of its imagery, like the original version's
+ * MaxZoomEnforcer (map maxZoom = layer max zoom). With two layers (Split/Sync) the
+ * sharper one decides.
  */
 export default function ZoomLimit({ layers }: { layers: GibsLayer[] }) {
   const map = useMap();
-  const limit = Math.min(MAX_MAP_ZOOM, Math.max(...layers.map((layer) => layer.maxNativeZoom)) + 1);
+  const limit = Math.min(MAX_MAP_ZOOM, Math.max(...layers.map((layer) => layer.maxNativeZoom)));
 
   useEffect(() => {
     map.setMaxZoom(limit);

@@ -208,11 +208,6 @@
   cursor: crosshair !important;
 }
 
-/* Smooth tile fade */
-.leaflet-tile-container img.leaflet-tile {
-  transition: opacity 0.25s ease;
-}
-
 /* ── Additions that don't change the look ── */
 
 /* Keyboard users get a visible focus ring; mouse clicks don't show it.
