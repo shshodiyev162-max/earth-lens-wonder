@@ -228,62 +228,6 @@
     font-weight:500;
     font-size:13px;
   }
-  .missions {
-    margin-top:24px;
-    display:grid;
-    grid-template-columns:minmax(0,2.2fr) minmax(0,2.2fr);
-    gap:18px;
-  }
-  @media (max-width: 840px) {
-    .missions { grid-template-columns:1fr; }
-  }
-  .missions-header h2 {
-    margin:0 0 6px;
-    font-size:16px;
-  }
-  .missions-header p {
-    margin:0;
-    font-size:12px;
-    color:var(--text-muted);
-  }
-  .missions-header button {
-    margin-top:10px;
-    border-radius:999px;
-    padding:7px 13px;
-    font-size:12px;
-    font-weight:500;
-    border:none;
-    cursor:pointer;
-    background:linear-gradient(to right,#22c55e,#38bdf8);
-    color:#02131c;
-  }
-  .missions-header button:hover {
-    opacity:0.9;
-  }
-  .mission-list {
-    list-style:none;
-    padding:0;
-    margin:0;
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-  }
-  .mission {
-    padding:8px 10px;
-    border-radius:10px;
-    background:rgba(15,23,42,0.95);
-    border:1px solid rgba(34,197,94,0.4);
-    font-size:12px;
-    display:flex;
-    gap:8px;
-    align-items:flex-start;
-  }
-  .mission-icon {
-    font-size:14px;
-  }
-  .mission-text-strong {
-    font-weight:600;
-  }
   footer {
     text-align:center;
     font-size:11px;
@@ -375,16 +319,6 @@
         </div>
       </section>
 
-      <section class="missions">
-        <div class="missions-header">
-          <h2>Today’s eco missions</h2>
-          <p>Turn what you see from space into small, concrete actions that protect the environment.</p>
-          <button id="newMissionsBtn">Get new missions</button>
-        </div>
-        <div>
-          <ul id="missionList" class="mission-list"></ul>
-        </div>
-      </section>
     </main>
 
     <footer>
@@ -392,79 +326,5 @@
     </footer>
   </div>
 
-  <script>
-    const MISSION_POOL = {
-      daily: [
-        "Walk or cycle for at least one short trip instead of driving.",
-        "Switch off all lights and electronics in rooms you are not using.",
-        "Bring a reusable bottle and avoid buying any drinks in plastic today."
-      ],
-      commute: [
-        "Use public transport, car‑share, or go to work on foot at least once this week.",
-        "Plan a 'no-car' day where you combine errands into a single low‑carbon trip.",
-        "If you drive, keep tyres properly inflated to reduce fuel use."
-      ],
-      waste: [
-        "Collect and recycle at least 10 plastic bottles or cans.",
-        "Bring a reusable bag and say no to single‑use shopping bags.",
-        "Sort your household waste so paper, glass and plastics are recycled correctly."
-      ],
-      home: [
-        "Set your air‑conditioning or heating 1–2°C closer to the outdoor temperature.",
-        "Take a shorter shower and avoid leaving the tap running while brushing teeth.",
-        "Unplug chargers and devices that are not in use to cut standby power."
-      ],
-      community: [
-        "Share one climate‑friendly habit with a friend or family member.",
-        "Pick up litter on your street or in a nearby park (safely, with gloves).",
-        "Support a local tree‑planting or clean‑up project, or plan one with friends."
-      ]
-    };
-
-    function pickRandomUnique(arr, count) {
-      const copy = arr.slice();
-      const out = [];
-      while (copy.length && out.length < count) {
-        const idx = Math.floor(Math.random() * copy.length);
-        out.push(copy.splice(idx, 1)[0]);
-      }
-      return out;
-    }
-
-    function generateMissions() {
-      const missions = [];
-      missions.push(...pickRandomUnique(MISSION_POOL.daily, 1));
-      missions.push(...pickRandomUnique(MISSION_POOL.commute, 1));
-      missions.push(...pickRandomUnique(MISSION_POOL.waste, 1));
-      missions.push(...pickRandomUnique(MISSION_POOL.home, 1));
-      missions.push(...pickRandomUnique(MISSION_POOL.community, 1));
-      return missions;
-    }
-
-    function renderMissions() {
-      const list = document.getElementById("missionList");
-      if (!list) return;
-      list.innerHTML = "";
-      const missions = generateMissions();
-      missions.forEach((text, index) => {
-        const li = document.createElement("li");
-        li.className = "mission";
-        const icon = document.createElement("div");
-        icon.className = "mission-icon";
-        icon.textContent = index === 0 ? "★" : "✓";
-        const body = document.createElement("div");
-        body.innerHTML = `<span class="mission-text-strong">Mission ${index + 1}:</span> ${text}`;
-        li.appendChild(icon);
-        li.appendChild(body);
-        list.appendChild(li);
-      });
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const btn = document.getElementById("newMissionsBtn");
-      if (btn) btn.addEventListener("click", renderMissions);
-      renderMissions();
-    });
-  </script>
 </body>
 </html>

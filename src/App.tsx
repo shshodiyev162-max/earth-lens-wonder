@@ -1,89 +1,74 @@
-import { Toaster } from "@/components/ui/toaster";
+import { lazy, Suspense, type ReactNode } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { RequireAuth } from "./components/RequireAuth";
 import { AuthProvider } from "./context/AuthContext";
-import { RegionProvider } from "./context/RegionContext";
+import { WorkspaceProvider } from "./context/WorkspaceContext";
 import Landing from "./pages/Landing";
-import ExplorePage from "./pages/Explore";
-import SplitView from "./pages/SplitView";
-import SyncView from "./pages/SyncView";
-import Analysis from "./pages/Analysis";
-import Missions from "./pages/Missions";
-import Tracker from "./pages/Tracker";
-import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+
+const Explore = lazy(() => import("./pages/Explore"));
+const SplitView = lazy(() => import("./pages/SplitView"));
+const SyncView = lazy(() => import("./pages/SyncView"));
+const Analysis = lazy(() => import("./pages/Analysis"));
+const Login = lazy(() => import("./pages/Login"));
 
 const queryClient = new QueryClient();
 
+function PageLoader() {
+  return (
+    <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-[#02070d]">
+      <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading" />
+    </div>
+  );
+}
+
+function PageError() {
+  return (
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col items-center justify-center gap-3 px-6 text-center">
+      <h1 className="text-xl font-semibold text-white">Something went wrong on this page</h1>
+      <p className="max-w-md text-sm text-slate-400">Reload the page to try again. If it keeps happening, check your internet connection — the maps and data come live from NASA.</p>
+      <button type="button" onClick={() => window.location.reload()} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
+        Reload
+      </button>
+    </div>
+  );
+}
+
+function Page({ children, protectedRoute }: { children: ReactNode; protectedRoute?: boolean }) {
+  const content = (
+    <ErrorBoundary fallback={<PageError />}>
+      <Suspense fallback={<PageLoader />}>{children}</Suspense>
+    </ErrorBoundary>
+  );
+  return protectedRoute ? <RequireAuth>{content}</RequireAuth> : content;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+    <TooltipProvider delayDuration={250}>
+      <Sonner theme="dark" position="bottom-right" richColors closeButton />
       <AuthProvider>
-        <RegionProvider>
+        <WorkspaceProvider>
           <BrowserRouter>
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<Landing />} />
-                <Route
-                  path="/map"
-                  element={
-                    <RequireAuth>
-                      <ExplorePage />
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/split"
-                  element={
-                    <RequireAuth>
-                      <SplitView />
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/sync"
-                  element={
-                    <RequireAuth>
-                      <SyncView />
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/analysis"
-                  element={
-                    <RequireAuth>
-                      <Analysis />
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/missions"
-                  element={
-                    <RequireAuth>
-                      <Missions />
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/tracker"
-                  element={
-                    <RequireAuth>
-                      <Tracker />
-                    </RequireAuth>
-                  }
-                />
-                <Route path="/login" element={<Login />} />
+                <Route path="/map" element={<Page protectedRoute><Explore /></Page>} />
+                <Route path="/split" element={<Page protectedRoute><SplitView /></Page>} />
+                <Route path="/sync" element={<Page protectedRoute><SyncView /></Page>} />
+                <Route path="/analysis" element={<Page protectedRoute><Analysis /></Page>} />
+                <Route path="/login" element={<Page><Login /></Page>} />
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>
           </BrowserRouter>
-        </RegionProvider>
+        </WorkspaceProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

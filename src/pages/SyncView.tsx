@@ -1,351 +1,246 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
-import { MAP_LAYERS, getDefaultDate, formatDateForGIBS, getSafeDate, getTileUrl } from "@/lib/map-layers";
-import { CalendarDays, ChevronDown, Columns2, Globe2, Info, Layers3, LayoutGrid, Map as MapIcon, MapPin, Search, X } from "lucide-react";
-import { QUICK_REGIONS } from "@/lib/layerCatalog";
-import LayerScaleOverlay from "@/components/LayerScaleOverlay";
-import SelectedAreasPanel from "@/components/SelectedAreasPanel";
-import { renderSelectedAreas, setupDrawControl } from "@/lib/mapDrawing";
-import { useRegion } from "@/context/RegionContext";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { Link2, Link2Off, Search } from "lucide-react";
+import type { LeafletEvent, Map as LeafletMap, ZoomAnimEvent } from "leaflet";
+import BaseMap from "@/components/map/BaseMap";
+import LayerStack from "@/components/map/LayerStack";
+import ReferenceOverlays from "@/components/map/ReferenceOverlays";
+import AreasLayer from "@/components/map/AreasLayer";
+import DrawTools, { type DrawMode } from "@/components/map/DrawTools";
+import DrawToolbar from "@/components/map/DrawToolbar";
+import FlyTo from "@/components/map/FlyTo";
+import PlaceOutline from "@/components/map/PlaceOutline";
+import ValueProbe from "@/components/map/ValueProbe";
+import LayerPicker, { LayerPickerLabel } from "@/components/map/LayerPicker";
+import DateControl from "@/components/map/DateControl";
+import AreasPanel from "@/components/map/AreasPanel";
+import SelectedPlaceCard from "@/components/map/SelectedPlaceCard";
+import LayerLegend from "@/components/map/LayerLegend";
+import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
+import PlaceSearch from "@/components/search/PlaceSearch";
+import { useWorkspace, type AreaKind, type SavedArea } from "@/context/WorkspaceContext";
+import { useLayerDate } from "@/hooks/useLayerDate";
+import { usePlaceSelection } from "@/hooks/usePlaceSelection";
+import { useRouteFocusPlace } from "@/hooks/useRouteFocusPlace";
+import { DEFAULT_COMPARE_LAYER_ID, DEFAULT_LAYER_ID, getLayerOrDefault, isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
+import { formatDate, isIsoDate } from "@/lib/gibs/time";
+import { formatArea, type PolygonGeometry } from "@/lib/geo/geometry";
+import { analysisHrefForArea } from "@/lib/links";
+import { cn } from "@/lib/utils";
 
-const VIEW_TABS = [
-  { id: "explore", label: "Explore", icon: MapIcon, to: "/map" },
-  { id: "split", label: "Split", icon: Columns2, to: "/split" },
-  { id: "sync", label: "Sync", icon: LayoutGrid, to: "/sync" },
-];
-
-declare const L: typeof import("leaflet");
-declare const window: Window & { L: typeof import("leaflet") };
-
-const earthLayers = MAP_LAYERS.filter((layer) => layer.world === "earth").map((layer) => ({
-  ...layer,
-  title: layer.name,
-}));
+/** Keeps two Leaflet maps in lock-step (pan, zoom and zoom animation). */
+function useLinkedMaps(a: LeafletMap | null, b: LeafletMap | null) {
+  useEffect(() => {
+    if (!a || !b) return;
+    let locked = false;
+    const link = (source: LeafletMap, target: LeafletMap) => {
+      const onMove = () => {
+        if (locked) return;
+        const animating = (source as unknown as { _animatingZoom?: boolean })._animatingZoom || (target as unknown as { _animatingZoom?: boolean })._animatingZoom;
+        if (animating) return;
+        locked = true;
+        target.setView(source.getCenter(), source.getZoom(), { animate: false });
+        locked = false;
+      };
+      const onZoomAnim = (event: LeafletEvent) => {
+        if (locked) return;
+        const { center, zoom } = event as ZoomAnimEvent;
+        locked = true;
+        target.setView(center, zoom, { animate: true });
+        locked = false;
+      };
+      source.on("move", onMove);
+      source.on("moveend", onMove);
+      source.on("zoomanim", onZoomAnim);
+      return () => {
+        source.off("move", onMove);
+        source.off("moveend", onMove);
+        source.off("zoomanim", onZoomAnim);
+      };
+    };
+    b.setView(a.getCenter(), a.getZoom(), { animate: false });
+    const unlinkAB = link(a, b);
+    const unlinkBA = link(b, a);
+    return () => {
+      unlinkAB();
+      unlinkBA();
+    };
+  }, [a, b]);
+}
 
 export default function SyncView() {
-  const leftMapRef = useRef<HTMLDivElement>(null);
-  const rightMapRef = useRef<HTMLDivElement>(null);
-  const leftMapInstance = useRef<L.Map | null>(null);
-  const rightMapInstance = useRef<L.Map | null>(null);
-  const leftLayerRef = useRef<L.TileLayer | null>(null);
-  const rightLayerRef = useRef<L.TileLayer | null>(null);
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const workspace = useWorkspace();
+  const [initialView] = useState(() => workspace.view);
+  const [leftMap, setLeftMap] = useState<LeafletMap | null>(null);
+  const [rightMap, setRightMap] = useState<LeafletMap | null>(null);
+  const leftLayer = useMemo(() => getLayerOrDefault(params.get("left"), DEFAULT_LAYER_ID), [params]);
+  const rightLayer = useMemo(() => getLayerOrDefault(params.get("right"), DEFAULT_COMPARE_LAYER_ID), [params]);
+  const linkDates = params.get("link") !== "0";
+  const leftRequested = isIsoDate(params.get("leftDate")) ? (params.get("leftDate") as string) : null;
+  const rightRequested = linkDates ? leftRequested : isIsoDate(params.get("rightDate")) ? (params.get("rightDate") as string) : null;
+  const leftDate = useLayerDate(leftLayer, leftRequested);
+  const rightDate = useLayerDate(rightLayer, rightRequested);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [drawMode, setDrawMode] = useState<DrawMode | null>(null);
+  const [vertexCount, setVertexCount] = useState(0);
+  const [finishSignal, setFinishSignal] = useState(0);
+  const [undoSignal, setUndoSignal] = useState(0);
+  const left = usePlaceSelection();
+  const { selection, select, clear } = left;
 
-  // Drawing refs
-  const drawnItemsLeftRef = useRef<L.FeatureGroup | null>(null);
-  const drawnItemsRightRef = useRef<L.FeatureGroup | null>(null);
-  const drawControlRef = useRef<any>(null);
+  useLinkedMaps(leftMap, rightMap);
+  useRouteFocusPlace(select);
 
-  const { selectedAreas, addSelectedArea, removeSelectedArea, activeAreaId, setActiveAreaId } = useRegion();
+  const update = useCallback(
+    (changes: Record<string, string | null>) =>
+      setParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          Object.entries(changes).forEach(([key, value]) => (value === null ? next.delete(key) : next.set(key, value)));
+          return next;
+        },
+        { replace: true },
+      ),
+    [setParams],
+  );
 
-  // Live ref so the draw handler always sees the latest areas when naming
-  // new ones sequentially instead of the first render's empty array.
-  const selectedAreasRef = useRef(selectedAreas);
-  selectedAreasRef.current = selectedAreas;
-
-  const [leftLayerId, setLeftLayerId] = useState("VIIRS_NOAA20_CorrectedReflectance_TrueColor");
-  const [rightLayerId, setRightLayerId] = useState("MODIS_Terra_CorrectedReflectance_Bands721");
-  const [date, setDate] = useState(getDefaultDate());
-  const [leftSearch, setLeftSearch] = useState("");
-  const [rightSearch, setRightSearch] = useState("");
-  const [showLeftLayers, setShowLeftLayers] = useState(false);
-  const [showRightLayers, setShowRightLayers] = useState(false);
-  const [mobilePanel, setMobilePanel] = useState(false);
-  const [selectedRegion, setSelectedRegion] = useState(QUICK_REGIONS[0]);
-  const [coords, setCoords] = useState({ lat: 0, lng: 0 });
-
-  const leftLayer = earthLayers.find((l) => l.id === leftLayerId) ?? earthLayers[0];
-  const rightLayer = earthLayers.find((l) => l.id === rightLayerId) ?? earthLayers[0];
-  const safeLeftDate = getSafeDate(leftLayer, date);
-  const safeRightDate = getSafeDate(rightLayer, date);
-
-  const filteredLeftLayers = leftSearch
-    ? earthLayers.filter((l) => l.title.toLowerCase().includes(leftSearch.toLowerCase()) || l.id.toLowerCase().includes(leftSearch.toLowerCase()))
-    : earthLayers;
-
-  const filteredRightLayers = rightSearch
-    ? earthLayers.filter((l) => l.title.toLowerCase().includes(rightSearch.toLowerCase()) || l.id.toLowerCase().includes(rightSearch.toLowerCase()))
-    : earthLayers;
-
-  useEffect(() => {
-    if (!leftMapRef.current || !rightMapRef.current) return;
-    if (leftMapInstance.current || rightMapInstance.current) return;
-
-    const loadLeaflet = () => {
-      if (typeof window !== "undefined" && window.L && (window as any).L.Control?.Draw) {
-        initMaps(window.L);
-      } else {
-        const linkEl = document.createElement("link");
-        linkEl.rel = "stylesheet";
-        linkEl.href = "https://unpkg.com/leaflet/dist/leaflet.css";
-        document.head.appendChild(linkEl);
-
-        const drawLink = document.createElement("link");
-        drawLink.rel = "stylesheet";
-        drawLink.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css";
-        document.head.appendChild(drawLink);
-
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/leaflet/dist/leaflet.js";
-        script.onload = () => {
-          const drawScript = document.createElement("script");
-          drawScript.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js";
-          drawScript.onload = () => initMaps(window.L);
-          document.body.appendChild(drawScript);
-        };
-        document.body.appendChild(script);
-      }
-    };
-
-    loadLeaflet();
-
-    return () => {
-      if (leftMapInstance.current) { leftMapInstance.current.remove(); leftMapInstance.current = null; }
-      if (rightMapInstance.current) { rightMapInstance.current.remove(); rightMapInstance.current = null; }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Shared flag so the two maps stay perfectly locked without ping-ponging
-  const syncingRef = useRef(false);
-
-  const syncMaps = (mapA: L.Map, mapB: L.Map) => {
-    const sync = () => {
-      if (syncingRef.current) return;
-      syncingRef.current = true;
-      mapB.setView(mapA.getCenter(), mapA.getZoom(), { animate: false });
-      syncingRef.current = false;
-    };
-    mapA.on("move zoom moveend zoomend", sync);
-  };
-
-  const initMap = (el: HTMLDivElement, withAttribution: boolean) => {
-    const map = L.map(el, { center: selectedRegion.center, zoom: selectedRegion.zoom, zoomControl: false, attributionControl: withAttribution });
-    L.control.scale({ position: "bottomright", imperial: false, metric: true }).addTo(map);
-    fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
-      .then((r) => r.json())
-      .then((data) => {
-        L.geoJSON(data, { style: { color: "#00ffff", weight: 1, fillOpacity: 0 } }).addTo(map);
-      });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
-      attribution: "© OpenStreetMap, © CARTO",
-      zIndex: 1000,
-    }).addTo(map);
-    return map;
-  };
-
-  const initMaps = (L: typeof import("leaflet")) => {
-    if (!leftMapRef.current || !rightMapRef.current) return;
-    if (leftMapInstance.current || rightMapInstance.current) return;
-
-    leftMapInstance.current = initMap(leftMapRef.current, true);
-    rightMapInstance.current = initMap(rightMapRef.current, false);
-
-    drawnItemsLeftRef.current = new L.FeatureGroup().addTo(leftMapInstance.current);
-    drawnItemsRightRef.current = new L.FeatureGroup().addTo(rightMapInstance.current);
-
-    syncMaps(leftMapInstance.current, rightMapInstance.current);
-    syncMaps(rightMapInstance.current, leftMapInstance.current);
-
-    leftMapInstance.current.on("mousemove", (e) => {
-      setCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
-    });
-
-    setupDrawControls(L, leftMapInstance.current, drawnItemsLeftRef.current);
-    setupDrawControls(L, rightMapInstance.current, drawnItemsRightRef.current);
-
-    loadLeftLayer();
-    loadRightLayer();
-  };
-
-  const setupDrawControls = (L: typeof import("leaflet"), map: L.Map, featureGroup: L.FeatureGroup | null) => {
-    if (!featureGroup) return;
-    setupDrawControl({
-      map: map as any,
-      L,
-      featureGroup: featureGroup as any,
-      layers: [leftLayer as any, rightLayer as any],
-      getSelectedAreas: () => selectedAreasRef.current,
-      onAdd: addSelectedArea,
-      onRemove: removeSelectedArea,
+  const onAreaComplete = (geometry: PolygonGeometry, kind: AreaKind) => {
+    setDrawMode(null);
+    const area = workspace.addArea({ geometry, kind });
+    toast.success(`${area.name} saved`, {
+      description: formatArea(area.areaKm2),
+      action: { label: "Analyze", onClick: () => navigate(analysisHrefForArea(area.id)) },
     });
   };
 
-  // Render labelled selected areas on both synced maps
-  useEffect(() => {
-    if (!leftMapInstance.current || !rightMapInstance.current || !drawnItemsLeftRef.current || !drawnItemsRightRef.current) return;
-    const Lw = window.L;
-    if (!Lw) return;
-    [drawnItemsLeftRef.current, drawnItemsRightRef.current].forEach((group) => {
-      group.clearLayers();
-      renderSelectedAreas({
-        featureGroup: group,
-        L: Lw,
-        selectedAreas,
-        activeAreaId,
-        onActivate: setActiveAreaId,
-      });
-    });
-  }, [selectedAreas, activeAreaId, setActiveAreaId]);
+  const saveSelection = () => {
+    if (!selection?.geometry) return;
+    const area = workspace.addArea({ geometry: selection.geometry, kind: "place", name: selection.place.name });
+    toast.success(`${area.name} saved to your areas`, { description: formatArea(area.areaKm2) });
+  };
 
-  const loadLeftLayer = useCallback(() => {
-    if (!leftMapInstance.current || !window.L) return;
-    const url = getTileUrl(leftLayer, safeLeftDate);
-    if (leftLayerRef.current) leftMapInstance.current.removeLayer(leftLayerRef.current);
-    leftLayerRef.current = L.tileLayer(url, { maxZoom: leftLayer.maxZoom, attribution: "NASA GIBS", crossOrigin: true }).addTo(leftMapInstance.current);
-  }, [leftLayer, safeLeftDate]);
+  const zoomToArea = (area: SavedArea) => left.flyTo({ bbox: area.bbox });
 
-  const loadRightLayer = useCallback(() => {
-    if (!rightMapInstance.current || !window.L) return;
-    const url = getTileUrl(rightLayer, safeRightDate);
-    if (rightLayerRef.current) rightMapInstance.current.removeLayer(rightLayerRef.current);
-    rightLayerRef.current = L.tileLayer(url, { maxZoom: rightLayer.maxZoom, attribution: "NASA GIBS", crossOrigin: true }).addTo(rightMapInstance.current);
-  }, [rightLayer, safeRightDate]);
+  const drawProps = {
+    onComplete: onAreaComplete,
+    onCancel: () => setDrawMode(null),
+    finishSignal,
+    undoSignal,
+    onVertexCount: setVertexCount,
+  };
 
-  useEffect(() => { loadLeftLayer(); }, [loadLeftLayer]);
-  useEffect(() => { loadRightLayer(); }, [loadRightLayer]);
+  const sidebar = (
+    <>
+      <SidebarSection title="Search" icon={<Search className="h-3.5 w-3.5 text-primary" />}>
+        <PlaceSearch onSelect={select} near={workspace.view.center} />
+      </SidebarSection>
+      <div className="space-y-3 rounded-2xl border border-white/10 p-3.5">
+        <LayerPickerLabel>Left map</LayerPickerLabel>
+        <LayerPicker value={leftLayer} onChange={(layer: GibsLayer) => update({ left: layer.id })} label="Left layer" />
+        <DateControl
+          layer={leftLayer}
+          state={leftDate}
+          requested={leftRequested}
+          onChange={(date) => update({ leftDate: date })}
+          label={linkDates ? "Date (both maps)" : "Left date"}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={() => update(linkDates ? { link: "0", rightDate: leftRequested } : { link: null, rightDate: null })}
+        className={cn(
+          "flex w-full items-center justify-center gap-2 rounded-xl border py-2 text-xs font-semibold transition",
+          linkDates ? "border-primary/40 bg-primary/10 text-primary" : "border-white/10 bg-white/[0.03] text-slate-300 hover:text-white",
+        )}
+        aria-pressed={linkDates}
+      >
+        {linkDates ? <Link2 className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
+        {linkDates ? "Dates linked — click to set them separately" : "Dates independent — click to link"}
+      </button>
+      <div className="space-y-3 rounded-2xl border border-white/10 p-3.5">
+        <LayerPickerLabel>Right map</LayerPickerLabel>
+        <LayerPicker value={rightLayer} onChange={(layer: GibsLayer) => update({ right: layer.id })} label="Right layer" />
+        {!linkDates && <DateControl layer={rightLayer} state={rightDate} requested={rightRequested} onChange={(date) => update({ rightDate: date })} label="Right date" />}
+        {linkDates && rightDate.date && rightDate.date !== leftDate.date && (
+          <p className="text-xs text-slate-500">This product publishes on its own schedule — showing {formatDate(rightDate.date)}.</p>
+        )}
+      </div>
+      <AreasPanel layer={isScienceLayer(rightLayer) ? rightLayer : leftLayer} date={isScienceLayer(rightLayer) ? rightDate.date : leftDate.date} dateReady={!rightDate.loading && !leftDate.loading} onZoomTo={zoomToArea} />
+    </>
+  );
 
-  useEffect(() => {
-    const center = selectedRegion.center as [number, number];
-    const zoom = selectedRegion.zoom;
-    if (leftMapInstance.current) leftMapInstance.current.setView(center, zoom);
-    if (rightMapInstance.current) rightMapInstance.current.setView(center, zoom);
-  }, [selectedRegion]);
+  const label = (layer: GibsLayer, date: string | null, side: "left" | "right") => (
+    <div className={cn("absolute top-3 z-[1000] max-w-[calc(50%-1.5rem)] rounded-lg border border-white/10 bg-[#07111d]/85 px-2.5 py-1.5 text-[11px] text-slate-300 backdrop-blur", side === "left" ? "left-3" : "left-[calc(50%+0.75rem)]")}>
+      <span className="font-semibold text-white">{layer.name}</span> · {layer.source.split(" · ")[0]}
+      {date ? ` · ${formatDate(date)}` : ""}
+    </div>
+  );
 
-  const selectLeftLayer = (next: typeof earthLayers[number]) => { setLeftLayerId(next.id); setShowLeftLayers(false); setLeftSearch(""); };
-  const selectRightLayer = (next: typeof earthLayers[number]) => { setRightLayerId(next.id); setShowRightLayers(false); setRightSearch(""); };
+  const overlay = (
+    <>
+      <div className="absolute right-3 top-12 flex flex-col items-end gap-2 lg:right-4">
+        <DrawToolbar
+          mode={drawMode}
+          onModeChange={setDrawMode}
+          vertexCount={vertexCount}
+          onFinish={() => setFinishSignal((n) => n + 1)}
+          onUndo={() => setUndoSignal((n) => n + 1)}
+        />
+      </div>
+      <div className="absolute left-3 top-12 flex max-w-sm flex-col gap-2">
+        <div className="pointer-events-auto lg:hidden">
+          <PlaceSearch onSelect={select} variant="map" near={workspace.view.center} placeholder="Search any place…" />
+        </div>
+        {selection && <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} className="hidden lg:block" />}
+      </div>
+      {selection && (
+        <div className="absolute inset-x-3 bottom-20 flex justify-center lg:hidden">
+          <SelectedPlaceCard selection={selection} onClose={clear} onSave={saveSelection} />
+        </div>
+      )}
+      <div className="absolute bottom-20 left-3 hidden w-56 xl:block">{isScienceLayer(leftLayer) && <LayerLegend layer={leftLayer} compact />}</div>
+      <div className="absolute bottom-20 right-3 hidden w-56 xl:block">{isScienceLayer(rightLayer) && <LayerLegend layer={rightLayer} compact />}</div>
+    </>
+  );
 
   return (
-    <div className="h-[calc(100dvh-4rem)] overflow-hidden bg-[#02070d]">
-      <div className="flex h-full min-h-0 flex-col lg:flex-row">
-        <aside className={`${mobilePanel ? "flex" : "hidden"} absolute inset-x-0 top-16 bottom-0 z-[1200] w-full flex-col overflow-y-auto border-r border-white/10 bg-[#07111d]/98 p-5 backdrop-blur-xl lg:static lg:z-auto lg:flex lg:w-[22rem] lg:shrink-0`}>
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <div>
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-400">Earth observation</p>
-              <h1 className="text-2xl font-bold text-white">Synced maps</h1>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">Two verified GIBS layers in lockstep. Pan, zoom, or jump to a quick region — both views stay perfectly in sync.</p>
-            </div>
-            <button onClick={() => setMobilePanel(false)} className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white lg:hidden" aria-label="Close controls"><X className="h-5 w-5" /></button>
-          </div>
-
-          <section className="mb-5">
-            <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400"><Layers3 className="h-4 w-4 text-cyan-400" /> Left layer</label>
-            <div className="relative">
-              <button onClick={() => setShowLeftLayers((value) => !value)} className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left transition hover:border-cyan-400/40"><span><span className="block text-sm font-semibold text-white">{leftLayer.name}</span><span className="mt-0.5 block text-xs text-slate-500">{leftLayer.cadence ?? "NASA GIBS"} · max zoom {leftLayer.maxZoom}</span></span><ChevronDown className={`h-4 w-4 text-slate-400 transition ${showLeftLayers ? "rotate-180" : ""}`} /></button>
-              {showLeftLayers && (
-                <div className="absolute left-0 right-0 top-full z-[1400] mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#0b1725] shadow-2xl">
-                  <div className="flex items-center border-b border-white/10 px-3">
-                    <Search className="h-4 w-4 text-slate-500" />
-                    <input autoFocus value={leftSearch} onChange={(event) => setLeftSearch(event.target.value)} placeholder="Search layers" className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-600" />
-                  </div>
-                  <div className="max-h-72 overflow-y-auto p-2">
-                    {filteredLeftLayers.map((item) => (
-                      <button key={item.id} onClick={() => selectLeftLayer(item)} className={`w-full rounded-lg px-3 py-2.5 text-left transition ${item.id === leftLayer.id ? "bg-cyan-400/10 text-cyan-300" : "text-slate-200 hover:bg-white/5"}`}>
-                        <span className="block text-sm font-medium">{item.name}</span>
-                        <span className="mt-1 block text-xs leading-relaxed text-slate-500">{item.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="mb-5">
-            <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400"><Layers3 className="h-4 w-4 text-cyan-400" /> Right layer</label>
-            <div className="relative">
-              <button onClick={() => setShowRightLayers((value) => !value)} className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left transition hover:border-cyan-400/40"><span><span className="block text-sm font-semibold text-white">{rightLayer.name}</span><span className="mt-0.5 block text-xs text-slate-500">{rightLayer.cadence ?? "NASA GIBS"} · max zoom {rightLayer.maxZoom}</span></span><ChevronDown className={`h-4 w-4 text-slate-400 transition ${showRightLayers ? "rotate-180" : ""}`} /></button>
-              {showRightLayers && (
-                <div className="absolute left-0 right-0 top-full z-[1400] mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#0b1725] shadow-2xl">
-                  <div className="flex items-center border-b border-white/10 px-3">
-                    <Search className="h-4 w-4 text-slate-500" />
-                    <input autoFocus value={rightSearch} onChange={(event) => setRightSearch(event.target.value)} placeholder="Search layers" className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-600" />
-                  </div>
-                  <div className="max-h-72 overflow-y-auto p-2">
-                    {filteredRightLayers.map((item) => (
-                      <button key={item.id} onClick={() => selectRightLayer(item)} className={`w-full rounded-lg px-3 py-2.5 text-left transition ${item.id === rightLayer.id ? "bg-cyan-400/10 text-cyan-300" : "text-slate-200 hover:bg-white/5"}`}>
-                        <span className="block text-sm font-medium">{item.name}</span>
-                        <span className="mt-1 block text-xs leading-relaxed text-slate-500">{item.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="mb-5">
-            <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400"><CalendarDays className="h-4 w-4 text-cyan-400" /> Observation date</label>
-            {leftLayer.dateDependent || rightLayer.dateDependent ? (
-              <input type="date" value={date} max={formatDateForGIBS(new Date())} onChange={(event) => setDate(event.target.value)} className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white [color-scheme:dark] outline-none focus:border-cyan-400/50" />
-            ) : (
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-400">Static cloud-free composite</div>
-            )}
-            <p className="mt-2 text-xs text-slate-500">Recent dates are clamped to a safe availability window for this {(leftLayer.dateDependent ? leftLayer : rightLayer).cadence} product.</p>
-          </section>
-
-          <section className="mb-5">
-            <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400"><Globe2 className="h-4 w-4 text-cyan-400" /> Quick regions</label>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_REGIONS.map((region) => (
-                <button key={region.id} onClick={() => { setSelectedRegion(region); setMobilePanel(false); }} className={`rounded-lg px-3 py-2 text-xs font-medium transition ${selectedRegion.id === region.id ? "bg-cyan-400 text-slate-950" : "bg-white/5 text-slate-300 hover:bg-white/10"}`}>{region.name}</button>
-              ))}
-            </div>
-          </section>
-
-          <SelectedAreasPanel />
-
-          <section className="mt-auto rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white"><Info className="h-4 w-4 text-cyan-400" /> {leftLayer.name} + {rightLayer.name}</div>
-            <p className="text-xs leading-relaxed text-slate-400">{leftLayer.description}</p>
-            <div className="mt-3 flex gap-2 text-[11px]">
-              <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{leftLayer.unit ?? "NASA"}</span>
-              <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{rightLayer.unit ?? "NASA"}</span>
-            </div>
-          </section>
-        </aside>
-
-        <main className="relative min-h-0 flex-1">
-          <div className="absolute inset-0">
-            <div ref={leftMapRef} className="absolute inset-y-0 left-0 right-1/2" />
-            <div ref={rightMapRef} className="absolute inset-y-0 right-0 left-1/2 border-l border-white/15" />
-            <LayerScaleOverlay layer={leftLayer} position="bottom-20 left-4" />
-            <LayerScaleOverlay layer={rightLayer} position="bottom-20 left-1/2" />
-            <div className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs text-white backdrop-blur">
-              <MapPin className="w-3 h-3 inline mr-1 text-cyan-400" /> Lat: {coords.lat.toFixed(3)}, Lng: {coords.lng.toFixed(3)}
-            </div>
-          </div>
-
-          <div className="absolute left-3 right-3 top-3 z-[1000] flex items-center justify-between gap-3 lg:left-5 lg:right-5">
-            <button onClick={() => setMobilePanel(true)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#07111d]/90 px-3 py-2.5 text-sm font-medium text-white shadow-xl backdrop-blur lg:hidden">
-              <Layers3 className="h-4 w-4 text-cyan-400" /> Controls
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <div className="hidden rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-[11px] text-slate-400 backdrop-blur md:block">{leftLayer.name} + {rightLayer.name}</div>
-              <button onClick={() => { loadLeftLayer(); loadRightLayer(); }} className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs font-medium text-white backdrop-blur transition hover:border-cyan-400/40">Load layers</button>
-            </div>
-          </div>
-
-          {/* Unified Ribbon — Earth Pulse style */}
-          <div className="absolute bottom-0 left-0 right-0 z-[1000] flex items-center justify-center px-4 py-3">
-            <div className="inline-flex items-center gap-0.5 rounded-2xl border border-white/10 bg-[#0a1628]/95 px-1.5 py-1.5 shadow-2xl shadow-cyan-500/10 backdrop-blur-2xl">
-              {VIEW_TABS.map((tab) => {
-                const TabIcon = tab.icon;
-                const isActive = tab.id === "sync";
-                return (
-                  <Link
-                    key={tab.id}
-                    to={tab.to}
-                    className={`relative flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 ${isActive ? "bg-cyan-500/15 text-cyan-300 shadow-sm" : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]"}`}
-                  >
-                    <TabIcon className="h-4 w-4" />
-                    <span>{tab.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </main>
+    <MapPageShell
+      eyebrow="Synchronised maps"
+      title="Side by side"
+      description="Two maps locked together. Pan or zoom either one — the other follows exactly."
+      sidebar={sidebar}
+      overlay={overlay}
+      panelOpen={panelOpen}
+      onPanelOpenChange={setPanelOpen}
+    >
+      <div className="absolute inset-0 grid grid-cols-2">
+        <div className="relative min-w-0">
+          <BaseMap initialView={initialView} onViewChange={workspace.setView} onReady={setLeftMap} zoomControl={false} attribution={false}>
+            <LayerStack layer={leftLayer} date={leftDate.date} />
+            <ReferenceOverlays />
+            <AreasLayer areas={workspace.areas} activeId={workspace.activeAreaId} onSelect={workspace.setActiveAreaId} interactive={!drawMode} />
+            {selection && <PlaceOutline place={selection.place} geometry={selection.geometry} />}
+            <DrawTools mode={drawMode} {...drawProps} />
+            <ValueProbe layers={[{ layer: leftLayer, date: leftDate.date }]} disabled={Boolean(drawMode)} />
+            <FlyTo target={left.flyTarget} />
+          </BaseMap>
+          {label(leftLayer, leftDate.date, "left")}
+        </div>
+        <div className="relative min-w-0 border-l border-white/20">
+          <BaseMap initialView={initialView} onReady={setRightMap}>
+            <LayerStack layer={rightLayer} date={rightDate.date} />
+            <ReferenceOverlays />
+            <AreasLayer areas={workspace.areas} activeId={workspace.activeAreaId} onSelect={workspace.setActiveAreaId} interactive={!drawMode} />
+            {selection && <PlaceOutline place={selection.place} geometry={selection.geometry} />}
+            <DrawTools mode={drawMode} {...drawProps} />
+            <ValueProbe layers={[{ layer: rightLayer, date: rightDate.date }]} disabled={Boolean(drawMode)} />
+          </BaseMap>
+        </div>
+        {label(rightLayer, rightDate.date, "right")}
       </div>
-    </div>
+    </MapPageShell>
   );
 }

@@ -14,7 +14,6 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   optimizeDeps: {
-    force: true,
     include: ["react-leaflet", "@react-leaflet/core", "react", "react-dom"],
   },
   resolve: {
@@ -22,5 +21,8 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
+  },
+  build: {
+    chunkSizeWarningLimit: 1200,
   },
 }));

@@ -24,12 +24,10 @@ import { TextureLoader } from "three";
  * =========================
  */
 
-// Reliable high-res Earth texture (three.js examples CDN, 2048px)
-const EARTH_TEXTURE =
-  "https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg";
-
-const CLOUD_TEXTURE =
-  "https://threejs.org/examples/textures/planets/earth_clouds_1024.png";
+// Earth and cloud textures are bundled with the app (public/textures) so the
+// globe never depends on a third-party CDN being reachable.
+const EARTH_TEXTURE = `${import.meta.env.BASE_URL}textures/earth_atmos_2048.jpg`;
+const CLOUD_TEXTURE = `${import.meta.env.BASE_URL}textures/earth_clouds_1024.png`;
 
 // ── Particle ring shaders (soft blue points, just like the deployed site) ──
 const PARTICLE_VERTEX = `
