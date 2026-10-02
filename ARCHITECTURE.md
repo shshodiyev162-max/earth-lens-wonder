@@ -50,18 +50,27 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 - `components/map`:
   - `BaseMap` is the shared Leaflet setup.
   - `GibsTileLayer` and `LayerStack` show a science layer over a dimmed Blue Marble so gaps still show context.
-  - `ReferenceOverlays` adds the bundled borders and the label tiles.
+  - `ReferenceOverlays` adds the bundled borders and NASA GIBS place labels (`Reference_Labels_15m`, no key).
   - `DrawTools` and `DrawToolbar` provide pointer-based rectangle, circle and polygon drawing, with no plugin.
   - `ValueProbe` handles click-to-read.
   - `SwipeClip` clips Leaflet panes for the comparison divider.
   - Also here: the legend, date control, layer picker and the shared page shell.
 - `components/search`: `PlaceSearch` (an ARIA combobox used on the landing page, map sidebars and the analysis picker) and `GlobalSearch` (the <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> palette for places and layers).
-- `components/analysis`: location picker (search, location, mini map with click-to-pick and drawing, radius, saved areas), period and dataset controls, Recharts charts, and the report panels.
+- `components/analysis`: location picker (search, location, mini map with click-to-pick and drawing, radius, saved areas), period and dataset controls, Recharts charts, the report panels, and `PlaceThumbnail` (a GIBS Blue Marble image of the place with its outline, used in the report header).
 
 ### State
 
 - `WorkspaceContext` holds saved areas and the last map view, persisted to `localStorage` behind safe wrappers (`lib/storage.ts`), so the app still works in private windows.
 - `AuthContext` uses a local "Explorer" profile in demo mode. With `VITE_API_BASE_URL` set, it calls `/auth/*` through `lib/apiClient.ts`.
+
+### Look and feel
+
+The visual language is the original TerraView design: a dark "space" theme, `gradient-hero` backgrounds with soft glows, `glass` cards, `font-display` (Space Grotesk) headings and `gradient-primary` + `glow-primary` buttons.
+
+- Colours are tokens in `src/index.css` (`--primary`, `--card`, `--muted-foreground`, `--earth-*`, `--glow-*`). Components use Tailwind classes built on them, such as `bg-card`, `text-muted-foreground` and `text-earth-green`, never raw hex or palette colours. The token values pass WCAG AA contrast on the dark backgrounds.
+- Shared pieces in `src/index.css`: `panel`, `field` (glass inputs), `menu` (dropdowns), `chip`, `kbd`, `eyebrow`, `section-label`, `btn-primary`, `btn-glass`, `btn-ghost` and `skeleton` (loading placeholders).
+- Pages fade in with an opacity-only animation. Avoid transforms on page wrappers, because they would trap the map pages' fixed phone panels.
+- Motion respects `prefers-reduced-motion`.
 
 ## Design decisions
 
