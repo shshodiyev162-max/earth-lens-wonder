@@ -6,7 +6,7 @@ TerraVision is a single-page React app (Vite, TypeScript, Tailwind, shadcn/ui, r
 
 | Path        | Page                     | What it does                                                         |
 | ----------- | ------------------------ | -------------------------------------------------------------------- |
-| `/`         | `Landing`                | Globe, hero search, entry points                                     |
+| `/`         | `Landing`                | Globe with real day and night (Now / Custom / Auto), entry points    |
 | `/map`      | `Explore`                | One map: layer, date, search, click-to-read values, drawing           |
 | `/split`    | `SplitView` ("Compare")  | One map, two layers or dates, draggable divider                       |
 | `/sync`     | `SyncView` ("Side by side") | Two maps locked together                                          |

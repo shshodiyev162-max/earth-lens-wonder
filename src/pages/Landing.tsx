@@ -1,9 +1,11 @@
-import { lazy, Suspense, type ComponentType } from "react";
+import { lazy, Suspense, useMemo, useState, type ComponentType } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Globe, Map, Columns, GitCompare, BarChart3, PenTool, Search, ArrowRight, Satellite, ScanSearch, CalendarClock, Database } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { openGlobalSearch } from "@/components/search/openSearch";
+import DayNightControl from "@/components/landing/DayNightControl";
+import { createHourStore, utcHours, type DayNightMode } from "@/components/landing/sun";
 
 // The WebGL globe is the heaviest part of the app, so it loads after the page.
 const CinematicEarth = lazy(() => import("@/components/CinematicEarth"));
@@ -107,37 +109,45 @@ function FeatureCard({ feature }: { feature: Feature }) {
   );
 }
 
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+}
+
 export default function Landing() {
+  const [reducedMotion] = useState(prefersReducedMotion);
+  // Auto lets the days pass slowly; people who prefer less motion start on the real time.
+  const [dayNightMode, setDayNightMode] = useState<DayNightMode>(() => (prefersReducedMotion() ? "now" : "auto"));
+  const hourStore = useMemo(() => createHourStore(utcHours(new Date())), []);
+  const [customHour, setCustomHour] = useState(() => hourStore.get());
+
+  const changeDayNightMode = (mode: DayNightMode) => {
+    // Custom starts from the time on screen, rounded to 5 minutes.
+    if (mode === "custom") setCustomHour(Math.round(hourStore.get() * 12) / 12);
+    setDayNightMode(mode);
+  };
+
   return (
     <div className="min-h-screen">
       {/* Hero */}
       {/* The hero shows Earth in space, so it keeps the dark colours in light mode too. */}
-      <section className="dark relative min-h-screen flex items-center justify-center overflow-hidden gradient-hero text-foreground">
+      <section className="dark relative min-h-[calc(100svh-4rem)] flex items-center justify-center overflow-hidden gradient-hero text-foreground">
         {/* Ambient glow */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px] animate-pulse-glow" />
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-glow-blue/5 blur-[100px] animate-pulse-glow" style={{ animationDelay: "1.5s" }} />
 
-        {/* Full-viewport WebGL composition; the planet extends beyond the hero edges. */}
-        <motion.div
-          initial={{ opacity: 0, scale: 1.06 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.5, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          className="pointer-events-auto absolute inset-0 z-0"
-        >
+        {/* Full-viewport WebGL composition; the planet extends beyond the hero edges and fades in by itself. */}
+        <div className="pointer-events-auto absolute inset-0 z-0">
           <ErrorBoundary fallback={null}>
             <Suspense fallback={null}>
-              <CinematicEarth />
+              <CinematicEarth mode={dayNightMode} customHour={customHour} hourStore={hourStore} reducedMotion={reducedMotion} />
             </Suspense>
           </ErrorBoundary>
-        </motion.div>
+        </div>
 
-        {/* Preserve contrast without hiding the illuminated globe. */}
+        {/* A gentle fade at the very bottom into the page below. */}
         <div
-          className="pointer-events-none absolute inset-0 z-[1]"
-          style={{
-            background:
-              "linear-gradient(to bottom, hsl(var(--background) / 0.12), transparent 38%, hsl(var(--background) / 0.62)), radial-gradient(circle at 52% 42%, transparent 0%, hsl(var(--background) / 0.08) 42%, hsl(var(--background) / 0.58) 100%)",
-          }}
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-40"
+          style={{ background: "linear-gradient(to bottom, transparent, hsl(var(--background) / 0.45))" }}
         />
 
         <div className="pointer-events-none relative z-10 max-w-5xl mx-auto px-6 text-center pt-24">
@@ -182,9 +192,16 @@ export default function Landing() {
           </motion.div>
         </div>
 
-        <p className="pointer-events-none absolute inset-x-0 bottom-6 z-10 text-center text-xs tracking-wide text-muted-foreground/75">
-          Drag to explore · Click to turn · Arrow keys to rotate
-        </p>
+        <div className="pointer-events-none absolute inset-x-0 bottom-5 z-10 flex flex-col items-center gap-3 px-4">
+          <p className="hidden text-center text-xs tracking-wide text-muted-foreground/75 sm:block">Drag to explore · Click to turn · Arrow keys to rotate</p>
+          <DayNightControl
+            mode={dayNightMode}
+            onModeChange={changeDayNightMode}
+            customHour={customHour}
+            onCustomHourChange={setCustomHour}
+            hourStore={hourStore}
+          />
+        </div>
       </section>
 
       {/* Features */}

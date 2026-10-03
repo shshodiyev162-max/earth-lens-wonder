@@ -1,81 +1,180 @@
 import {
   Suspense,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
-  useEffect,
   type KeyboardEvent,
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { TextureLoader } from "three";
+import {
+  advanceAuto,
+  dayOfYear,
+  easeHourTowards,
+  latLonToSphere,
+  subsolarPoint,
+  utcHours,
+  type DayNightMode,
+  type HourStore,
+} from "./landing/sun";
 
 /**
- * =========================
- *  HIGH-RES EARTH
- *  Perfect sphere
- *  Real satellite texture
- *  Blue particle ring
- *  Rim glow + halo
- *  Rotating + pulsing
- * =========================
+ * The landing page's Earth: real day and night from the sun's position, dim warm city lights,
+ * a soft even atmosphere that slowly breathes, the blue particle ring and a quiet starfield.
+ * Textures are bundled: the Blue Marble day image (three.js examples), and NASA GIBS night lights
+ * (VIIRS Black Marble) and land/water mask from `npm run data:earth`.
  */
 
-// Earth and cloud textures are bundled with the app (public/textures) so the
-// globe never depends on a third-party CDN being reachable.
-const EARTH_TEXTURE = `${import.meta.env.BASE_URL}textures/earth_atmos_2048.jpg`;
-const CLOUD_TEXTURE = `${import.meta.env.BASE_URL}textures/earth_clouds_1024.png`;
+const BASE = import.meta.env.BASE_URL;
+const TEXTURES = [
+  `${BASE}textures/earth_atmos_2048.jpg`,
+  `${BASE}textures/earth_night_2048.jpg`,
+  `${BASE}textures/earth_water_1024.png`,
+];
 
-// ── Particle ring shaders (soft blue points, just like the deployed site) ──
-const PARTICLE_VERTEX = `
-  attribute float aSize;
+// The look approved in the live previews.
+const LOOK = {
+  daylight: 0.6,
+  ambient: 0.06,
+  highlightSoftening: 0.5,
+  oceanGlint: 0.05,
+  surfaceHaze: 0.4,
+  cityLights: 0.62,
+  atmosphereGlow: 0.27,
+};
+
+const SPIN_SECONDS_PER_TURN = 80;
+const RING_SPIN = 0.04; // radians per second
+const BREATH_SECONDS = 7;
+const ENTRANCE_SECONDS = 2.5;
+const STAR_COUNT = 1000;
+const RING_COUNT = 4000;
+
+// Adds light without touching the canvas alpha, so glows blend softly over the page behind.
+const ADDITIVE = {
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.CustomBlending,
+  blendSrc: THREE.OneFactor,
+  blendDst: THREE.OneFactor,
+  blendSrcAlpha: THREE.ZeroFactor,
+  blendDstAlpha: THREE.OneFactor,
+} as const;
+
+const SPHERE_VERTEX = `
+  uniform vec3 uSun;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vWorld;
+  varying vec3 vSun;
+  void main() {
+    vUv = uv;
+    mat3 m = mat3(modelMatrix);
+    vNormal = normalize(m * normal);
+    vSun = normalize(m * uSun);
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vWorld = world.xyz;
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`;
+
+const EARTH_FRAGMENT = `
+  uniform sampler2D uDay;
+  uniform sampler2D uNight;
+  uniform sampler2D uWater;
+  uniform float uDaylight;
+  uniform float uAmbient;
+  uniform float uSoftening;
+  uniform float uGlint;
+  uniform float uHaze;
+  uniform float uCity;
+  uniform float uFade;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vWorld;
+  varying vec3 vSun;
+  void main() {
+    vec3 N = normalize(vNormal);
+    vec3 V = normalize(cameraPosition - vWorld);
+    float d = dot(N, vSun);
+    float day = smoothstep(-0.18, 0.24, d);
+    vec3 dayColor = texture2D(uDay, vUv).rgb;
+    vec3 color = dayColor * (uAmbient + uDaylight * pow(max(d, 0.0), 1.25));
+    vec3 lights = pow(texture2D(uNight, vUv).rgb, vec3(1.4)) * vec3(1.0, 0.74, 0.42) * uCity;
+    color = mix(lights + dayColor * 0.04, color, day);
+    float water = smoothstep(0.35, 0.45, texture2D(uWater, vUv).r);
+    vec3 H = normalize(vSun + V);
+    color += vec3(0.9, 0.92, 0.95) * pow(max(dot(N, H), 0.0), 24.0) * water * uGlint * day;
+    color += vec3(1.0, 0.45, 0.18) * exp(-pow(d * 7.0, 2.0)) * 0.05;
+    float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+    color += vec3(0.3, 0.6, 1.0) * rim * 0.22 * uHaze;
+    color = mix(color, color / (1.0 + color), uSoftening);
+    gl_FragColor = vec4(color * uFade, uFade);
+  }
+`;
+
+const ATMOSPHERE_FRAGMENT = `
+  uniform float uGlow;
+  uniform float uFade;
+  varying vec3 vNormal;
+  varying vec3 vWorld;
+  void main() {
+    vec3 N = normalize(vNormal);
+    vec3 V = normalize(cameraPosition - vWorld);
+    float r = pow(1.0 - abs(dot(N, V)), 2.2);
+    gl_FragColor = vec4(vec3(0.32, 0.62, 1.0) * r * 0.55 * uGlow * uFade, 1.0);
+  }
+`;
+
+const RING_VERTEX = `
   attribute vec3 aColor;
   varying vec3 vColor;
   void main() {
     vColor = aColor;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * (80.0 / -mvPosition.z);
+    gl_PointSize = 0.5 * (80.0 / -mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
 
-const PARTICLE_FRAGMENT = `
+const RING_FRAGMENT = `
+  uniform float uFade;
   varying vec3 vColor;
   void main() {
     float dist = distance(gl_PointCoord, vec2(0.5));
     if (dist > 0.5) discard;
-    float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-    gl_FragColor = vec4(vColor, alpha * 0.85);
+    float alpha = (1.0 - smoothstep(0.0, 0.5, dist)) * 0.85;
+    gl_FragColor = vec4(vColor * alpha * uFade, 1.0);
   }
 `;
 
-// ── Rim glow sphere shaders ──
-const GLOW_VERTEX = `
-  varying vec3 vNormal;
-  varying vec3 vPosition;
+const STAR_VERTEX = `
+  attribute vec3 aColor;
+  attribute float aPhase;
+  attribute float aSpeed;
+  uniform float uTime;
+  uniform float uScale;
+  uniform float uTwinkle;
+  uniform float uFade;
+  varying vec3 vColor;
   void main() {
-    vNormal = normalize(normalMatrix * normal);
-    vec4 worldPos = modelMatrix * vec4(position, 1.0);
-    vPosition = worldPos.xyz;
-    gl_Position = projectionMatrix * viewMatrix * worldPos;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = 0.11 * uScale / -mvPosition.z;
+    gl_Position = projectionMatrix * mvPosition;
+    float twinkle = 1.0 - uTwinkle * (0.5 + 0.5 * sin(uTime * aSpeed + aPhase));
+    vColor = aColor * 0.75 * twinkle * uFade;
   }
 `;
 
-const GLOW_FRAGMENT = `
-  uniform vec3 glowColor;
-  uniform float time;
-  varying vec3 vNormal;
-  varying vec3 vPosition;
+const STAR_FRAGMENT = `
+  varying vec3 vColor;
   void main() {
-    vec3 viewDir = normalize(cameraPosition - vPosition);
-    float rim = 1.0 - max(0.0, dot(viewDir, vNormal));
-    rim = pow(rim, 3.0);
-    float pulse = sin(time * 1.5) * 0.3 + 0.7;
-    float alpha = rim * (0.3 + 0.5 * pulse);
-    gl_FragColor = vec4(glowColor * (1.0 + 0.5 * pulse), alpha * 0.28);
+    gl_FragColor = vec4(vColor, 1.0);
   }
 `;
 
@@ -95,264 +194,259 @@ interface InteractionState {
   moved: boolean;
 }
 
-interface EarthSceneProps {
-  interaction: MutableRefObject<InteractionState>;
+interface SceneSettings {
+  mode: DayNightMode;
+  customHour: number;
+  reducedMotion: boolean;
 }
 
+// The planet sits 2.4 units behind the focus plane, so it looks this much smaller on screen.
+const DEPTH = -2.4;
+const PERSPECTIVE = 10 / (10 - DEPTH);
+
+/**
+ * Where the planet sits, in scene units at the camera's focus distance. Wide screens use the
+ * framing tuned in the previews. Tall screens are sized from the width, with the top of the
+ * planet just under the headline so the title stays over dark space.
+ */
 function getEarthTransform(viewport: { width: number; height: number }) {
-  const isPortrait = viewport.height > viewport.width * 1.08;
-  const radius = isPortrait
-    ? Math.max(viewport.height * 0.58, viewport.width * 0.96)
-    : Math.max(viewport.height * 0.68, viewport.width * 0.4);
-  const position: [number, number, number] = isPortrait
-    ? [viewport.width * 0.1, -viewport.height * 0.23, -2.4]
-    : [viewport.width * 0.16, -viewport.height * 0.19, -2.4];
-  return { isPortrait, radius, position };
+  const { width, height } = viewport;
+  const aspect = width / height;
+  if (aspect >= 1 / 1.08) {
+    return { radius: height * 0.76, position: [width * 0.24, -height * 0.43, DEPTH] as [number, number, number] };
+  }
+  // On-screen targets, as shares of the hero's width and height.
+  const radiusOfWidth = 1.2 - 0.5 * aspect;
+  const top = 0.5 + 0.15 * aspect;
+  const centreX = 0.7;
+  const centreY = top + radiusOfWidth * aspect;
+  return {
+    radius: (radiusOfWidth * width) / PERSPECTIVE,
+    position: [((centreX - 0.5) * width) / PERSPECTIVE, ((0.5 - centreY) * height) / PERSPECTIVE, DEPTH] as [number, number, number],
+  };
 }
 
-function EarthScene({ interaction }: EarthSceneProps) {
-  const groupRef = useRef<THREE.Group>(null!);
-  const cloudRef = useRef<THREE.Mesh>(null!);
-  const glowRef = useRef<THREE.Mesh>(null!);
-  const pointsRef = useRef<THREE.Points>(null!);
-  const { viewport } = useThree();
-  const timeRef = useRef(0);
+/** 0 → 1 → 0 every BREATH_SECONDS, eased at both ends. */
+function breath(seconds: number) {
+  return 0.5 - 0.5 * Math.cos((seconds * 2 * Math.PI) / BREATH_SECONDS);
+}
 
-  // Load textures
-  const earthTexture = useLoader(TextureLoader, EARTH_TEXTURE);
-  const cloudTexture = useLoader(TextureLoader, CLOUD_TEXTURE);
-
-  // Configure for crisp rendering
+function useEarthTextures() {
+  const textures = useLoader(TextureLoader, TEXTURES);
+  const maxAnisotropy = useThree((state) => state.gl.capabilities.getMaxAnisotropy());
   useEffect(() => {
-    [earthTexture, cloudTexture].forEach((t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 16;
-      t.minFilter = THREE.LinearMipmapLinearFilter;
-      t.magFilter = THREE.LinearFilter;
-      t.generateMipmaps = true;
-    });
-  }, [earthTexture, cloudTexture]);
-
-  // ── Particle ring: 4000 soft blue points orbiting the planet ──
-  const [particlePositions, particleColors] = useMemo(() => {
-    const COUNT = 4000;
-    const positions = new Float32Array(COUNT * 3);
-    const colors = new Float32Array(COUNT * 3);
-
-    for (let i = 0; i < COUNT; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 1.25 + Math.random() * 0.8;
-      const spread = (Math.random() - 0.5) * 0.4;
-
-      positions[i * 3] = Math.cos(angle) * radius;
-      positions[i * 3 + 1] = spread;
-      positions[i * 3 + 2] = Math.sin(angle) * radius;
-
-      const t = Math.random();
-      colors[i * 3] = 0.3 + t * 0.7;
-      colors[i * 3 + 1] = 0.4 + (1 - t) * 0.4;
-      colors[i * 3 + 2] = 0.6 + t * 0.4;
+    // Colours are used as stored (no colour-space conversion), exactly like the previews.
+    for (const texture of textures) {
+      texture.anisotropy = Math.min(8, maxAnisotropy);
+      texture.needsUpdate = true;
     }
-
-    return [
-      new THREE.BufferAttribute(positions, 3),
-      new THREE.BufferAttribute(colors, 3),
-    ];
-  }, []);
-
-  const smallSizes = useMemo(
-    () => new THREE.BufferAttribute(new Float32Array(4000).fill(0.5), 1),
-    [],
-  );
-
-  const { radius, position } = getEarthTransform(viewport);
-
-  const glowUniforms = useMemo(
-    () => ({ glowColor: { value: new THREE.Color("#4488ff") }, time: { value: 0 } }),
-    [],
-  );
-
-  useFrame((_, delta) => {
-    const controls = interaction.current;
-    timeRef.current += delta;
-
-    if (!controls.dragging) {
-      controls.baseRotationY += delta * 0.15;
-      controls.baseRotationX = THREE.MathUtils.clamp(
-        controls.baseRotationX + controls.velocityX * delta, -0.62, 0.62
-      );
-      controls.baseRotationY += controls.velocityY * delta;
-      controls.velocityX = THREE.MathUtils.damp(controls.velocityX, 0, 5.2, delta);
-      controls.velocityY = THREE.MathUtils.damp(controls.velocityY, 0, 5.2, delta);
-    }
-
-    const targetX = THREE.MathUtils.clamp(controls.baseRotationX, -0.68, 0.68);
-    const targetY = controls.baseRotationY;
-
-    groupRef.current.rotation.x = THREE.MathUtils.damp(groupRef.current.rotation.x, targetX, 6.5, delta);
-    groupRef.current.rotation.y = THREE.MathUtils.damp(groupRef.current.rotation.y, targetY, 6.5, delta);
-
-    if (cloudRef.current) cloudRef.current.rotation.y += delta * 0.006;
-
-    if (glowRef.current) {
-      const pulse = Math.sin(timeRef.current * 1.2) * 0.05 + 1;
-      glowRef.current.scale.setScalar(pulse * 1.08);
-    }
-
-    if (pointsRef.current) pointsRef.current.rotation.y += delta * 0.15;
-  });
-
-  useFrame(() => {
-    glowUniforms.time.value = timeRef.current;
-  });
-
-  return (
-    <group position={position} scale={radius}>
-      <group ref={groupRef} rotation={[0.08, -1.05, -0.16]}>
-        {/* === PERFECT SPHERE EARTH === */}
-        <mesh>
-          <sphereGeometry args={[1, 84, 64]} />
-          <meshPhongMaterial
-            map={earthTexture}
-            emissive="#0a1a3a"
-            emissiveIntensity={0.08}
-            shininess={20}
-            specular="#335577"
-          />
-        </mesh>
-
-        {/* === CLOUDS === */}
-        <mesh ref={cloudRef} scale={1.006}>
-          <sphereGeometry args={[1, 48, 48]} />
-          <meshPhongMaterial
-            map={cloudTexture}
-            transparent
-            opacity={0.35}
-            depthWrite={false}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-
-        {/* === PULSING RIM GLOW === */}
-        <mesh ref={glowRef} scale={1.08}>
-          <sphereGeometry args={[1, 48, 48]} />
-          <shaderMaterial
-            uniforms={glowUniforms}
-            vertexShader={GLOW_VERTEX}
-            fragmentShader={GLOW_FRAGMENT}
-            transparent
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-
-        {/* === FAINT HALO === */}
-        <mesh scale={1.15}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <meshBasicMaterial
-            color="#2255cc"
-            transparent
-            opacity={0.06}
-            side={THREE.BackSide}
-            depthWrite={false}
-          />
-        </mesh>
-
-      </group>
-
-      {/* === BLUE PARTICLE RING (4000 soft points) === */}
-      <points ref={pointsRef} rotation={[0, 0, 0.3]}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            count={particlePositions.count}
-            array={particlePositions.array}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-aColor"
-            count={particleColors.count}
-            array={particleColors.array}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-aSize"
-            count={smallSizes.count}
-            array={smallSizes.array}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          uniforms={{}}
-          vertexShader={PARTICLE_VERTEX}
-          fragmentShader={PARTICLE_FRAGMENT}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </points>
-    </group>
-  );
+  }, [textures, maxAnisotropy]);
+  return textures;
 }
 
-function LoadingPlanet() {
-  const { viewport } = useThree();
-  return (
-    <mesh position={[viewport.width * 0.14, -viewport.height * 0.2, -2.4]} scale={Math.max(viewport.height * 0.62, viewport.width * 0.38)}>
-      <sphereGeometry args={[1, 48, 48]} />
-      <meshBasicMaterial color="#2255aa" wireframe transparent opacity={0.3} />
-    </mesh>
-  );
-}
-
-function StarField() {
-  const pointsRef = useRef<THREE.Points>(null!);
-  const positions = useMemo(() => {
-    const values = new Float32Array(2500 * 3);
-    const colors = new Float32Array(2500 * 3);
-    for (let i = 0; i < 2500; i++) {
-      values[i * 3] = (Math.random() - 0.5) * 50;
-      values[i * 3 + 1] = (Math.random() - 0.5) * 30;
-      values[i * 3 + 2] = -3 - Math.random() * 18;
-      const b = 0.4 + Math.random() * 0.6;
-      if (Math.random() > 0.7) {
-        colors[i * 3] = b; colors[i * 3 + 1] = b * 0.8; colors[i * 3 + 2] = b;
-      } else {
-        colors[i * 3] = b; colors[i * 3 + 1] = b * 0.9; colors[i * 3 + 2] = b * 0.7;
-      }
+function Stars({ uniforms }: { uniforms: Record<string, THREE.IUniform> }) {
+  const attributes = useMemo(() => {
+    const positions = new Float32Array(STAR_COUNT * 3);
+    const colors = new Float32Array(STAR_COUNT * 3);
+    const phases = new Float32Array(STAR_COUNT);
+    const speeds = new Float32Array(STAR_COUNT);
+    for (let i = 0; i < STAR_COUNT; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 90;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 55;
+      positions[i * 3 + 2] = -20 - Math.random() * 40;
+      const b = Math.pow(Math.random(), 2.2) * 0.85 + 0.15;
+      const warm = Math.random() > 0.7;
+      colors.set(warm ? [b, b * 0.9, b * 0.75] : [b * 0.9, b * 0.95, b], i * 3);
+      phases[i] = Math.random() * Math.PI * 2;
+      speeds[i] = 0.15 + Math.random() * 0.3;
     }
-    return {
-      positions: new THREE.BufferAttribute(values, 3),
-      colors: new THREE.BufferAttribute(colors, 3),
-    };
+    return { positions, colors, phases, speeds };
   }, []);
 
-  useFrame((_, delta) => { pointsRef.current.rotation.y += delta * 0.001; });
-
   return (
-    <points ref={pointsRef}>
+    <points renderOrder={0}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={positions.positions.count} array={positions.positions.array} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={positions.colors.count} array={positions.colors.array} itemSize={3} />
+        <bufferAttribute attach="attributes-position" count={STAR_COUNT} array={attributes.positions} itemSize={3} />
+        <bufferAttribute attach="attributes-aColor" count={STAR_COUNT} array={attributes.colors} itemSize={3} />
+        <bufferAttribute attach="attributes-aPhase" count={STAR_COUNT} array={attributes.phases} itemSize={1} />
+        <bufferAttribute attach="attributes-aSpeed" count={STAR_COUNT} array={attributes.speeds} itemSize={1} />
       </bufferGeometry>
-      <pointsMaterial size={0.035} vertexColors transparent opacity={0.8} sizeAttenuation depthWrite={false} />
+      <shaderMaterial uniforms={uniforms} vertexShader={STAR_VERTEX} fragmentShader={STAR_FRAGMENT} {...ADDITIVE} />
     </points>
   );
 }
 
-function Lighting() {
+function EarthScene({
+  interaction,
+  settings,
+  hourStore,
+}: {
+  interaction: MutableRefObject<InteractionState>;
+  settings: MutableRefObject<SceneSettings>;
+  hourStore: HourStore;
+}) {
+  const earthGroup = useRef<THREE.Group>(null!);
+  const atmosphere = useRef<THREE.Mesh>(null!);
+  const ringLift = useRef<THREE.Group>(null!);
+  const ring = useRef<THREE.Points>(null!);
+  const starField = useRef<THREE.Group>(null!);
+  const elapsed = useRef(0);
+  const lastPublished = useRef(-1);
+  const clock = useRef({ shown: hourStore.get(), auto: hourStore.get() });
+
+  const viewport = useThree((state) => state.viewport);
+  const size = useThree((state) => state.size);
+  const [dayTexture, nightTexture, waterTexture] = useEarthTextures();
+  const { radius, position } = getEarthTransform(viewport);
+
+  const sun = useMemo(() => new THREE.Vector3(1, 0, 0), []);
+  const fade = useMemo(() => ({ value: 0 }), []);
+  const earthUniforms = useMemo(
+    () => ({
+      uSun: { value: sun },
+      uDay: { value: dayTexture },
+      uNight: { value: nightTexture },
+      uWater: { value: waterTexture },
+      uDaylight: { value: LOOK.daylight },
+      uAmbient: { value: LOOK.ambient },
+      uSoftening: { value: LOOK.highlightSoftening },
+      uGlint: { value: LOOK.oceanGlint },
+      uHaze: { value: LOOK.surfaceHaze },
+      uCity: { value: LOOK.cityLights },
+      uFade: fade,
+    }),
+    [sun, dayTexture, nightTexture, waterTexture, fade],
+  );
+  const atmosphereUniforms = useMemo(() => ({ uSun: { value: sun }, uGlow: { value: LOOK.atmosphereGlow }, uFade: fade }), [sun, fade]);
+  const ringUniforms = useMemo(() => ({ uFade: fade }), [fade]);
+  const starUniforms = useMemo(
+    () => ({ uTime: { value: 0 }, uScale: { value: 1 }, uTwinkle: { value: 0.18 }, uFade: fade }),
+    [fade],
+  );
+
+  // Soft blue points orbiting the planet, as on the original site.
+  const ringAttributes = useMemo(() => {
+    const positions = new Float32Array(RING_COUNT * 3);
+    const colors = new Float32Array(RING_COUNT * 3);
+    for (let i = 0; i < RING_COUNT; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 1.25 + Math.random() * 0.8;
+      positions.set([Math.cos(angle) * r, (Math.random() - 0.5) * 0.4, Math.sin(angle) * r], i * 3);
+      const t = Math.random();
+      colors.set([0.3 + t * 0.7, 0.4 + (1 - t) * 0.4, 0.6 + t * 0.4], i * 3);
+    }
+    return { positions, colors };
+  }, []);
+
+  useFrame((_, rawDelta) => {
+    // A long pause (tab hidden, scrolled away) must not make everything jump.
+    const delta = Math.min(rawDelta, 0.05);
+    const { mode, customHour, reducedMotion } = settings.current;
+    elapsed.current += delta;
+    const t = elapsed.current;
+
+    // Soft entrance.
+    const entrance = Math.min(1, t / ENTRANCE_SECONDS);
+    fade.value = 1 - Math.pow(1 - entrance, 3);
+
+    // Day and night.
+    const now = new Date();
+    const c = clock.current;
+    if (mode === "auto") {
+      c.auto = advanceAuto(c.auto, delta);
+      c.shown = c.auto;
+    } else {
+      c.shown = easeHourTowards(c.shown, mode === "now" ? utcHours(now) : customHour, delta);
+      c.auto = c.shown;
+    }
+    // The clock label only needs a few updates a second.
+    if (t - lastPublished.current >= 0.1) {
+      lastPublished.current = t;
+      hourStore.set(c.shown);
+    }
+    const { lat, lon } = subsolarPoint(dayOfYear(now), c.shown);
+    sun.set(...latLonToSphere(lat, lon));
+
+    // Spin, drag and inertia.
+    const controls = interaction.current;
+    if (!controls.dragging) {
+      if (!reducedMotion) controls.baseRotationY += (delta * 2 * Math.PI) / SPIN_SECONDS_PER_TURN;
+      controls.baseRotationX = THREE.MathUtils.clamp(controls.baseRotationX + controls.velocityX * delta, -0.62, 0.62);
+      controls.baseRotationY += controls.velocityY * delta;
+      controls.velocityX = THREE.MathUtils.damp(controls.velocityX, 0, 5.2, delta);
+      controls.velocityY = THREE.MathUtils.damp(controls.velocityY, 0, 5.2, delta);
+    }
+    const group = earthGroup.current;
+    group.rotation.x = THREE.MathUtils.damp(group.rotation.x, THREE.MathUtils.clamp(controls.baseRotationX, -0.68, 0.68), 6.5, delta);
+    group.rotation.y = THREE.MathUtils.damp(group.rotation.y, controls.baseRotationY, 6.5, delta);
+
+    // One shared breath: the atmosphere swells and brightens, the ring rises a touch.
+    const b = reducedMotion ? 0.5 : breath(t);
+    atmosphere.current.scale.setScalar(1.12 * (1 + 0.025 * b));
+    atmosphereUniforms.uGlow.value = LOOK.atmosphereGlow * (0.86 + 0.14 * b);
+    ringLift.current.position.y = 0.03 * b;
+    ringLift.current.scale.setScalar(1 + 0.008 * b);
+    if (!reducedMotion) ring.current.rotation.y += delta * RING_SPIN;
+
+    // Quiet stars.
+    starUniforms.uTime.value = t;
+    starUniforms.uTwinkle.value = reducedMotion ? 0 : 0.18;
+    starUniforms.uScale.value = size.height * viewport.dpr * 0.5;
+    if (!reducedMotion) starField.current.rotation.y = Math.sin(t / 60) * 0.03;
+  });
+
   return (
     <>
-      <ambientLight intensity={0.18} color="#224466" />
-      <directionalLight position={[6, 3, 8]} intensity={1.2} color="#fff5e8" />
-      <directionalLight position={[-5, -1, 2]} intensity={0.15} color="#4488ff" />
+      <group ref={starField}>
+        <Stars uniforms={starUniforms} />
+      </group>
+      <group position={position} scale={radius}>
+        <group ref={earthGroup} rotation={[0.08, -1.05, -0.16]}>
+          <mesh renderOrder={1}>
+            <sphereGeometry args={[1, 96, 96]} />
+            <shaderMaterial uniforms={earthUniforms} vertexShader={SPHERE_VERTEX} fragmentShader={EARTH_FRAGMENT} />
+          </mesh>
+          <mesh ref={atmosphere} scale={1.12} renderOrder={2}>
+            <sphereGeometry args={[1, 64, 64]} />
+            <shaderMaterial
+              uniforms={atmosphereUniforms}
+              vertexShader={SPHERE_VERTEX}
+              fragmentShader={ATMOSPHERE_FRAGMENT}
+              side={THREE.BackSide}
+              {...ADDITIVE}
+            />
+          </mesh>
+        </group>
+
+        <group ref={ringLift}>
+          <points ref={ring} rotation={[0, 0, 0.3]} renderOrder={3}>
+            <bufferGeometry>
+              <bufferAttribute attach="attributes-position" count={RING_COUNT} array={ringAttributes.positions} itemSize={3} />
+              <bufferAttribute attach="attributes-aColor" count={RING_COUNT} array={ringAttributes.colors} itemSize={3} />
+            </bufferGeometry>
+            <shaderMaterial uniforms={ringUniforms} vertexShader={RING_VERTEX} fragmentShader={RING_FRAGMENT} {...ADDITIVE} />
+          </points>
+        </group>
+      </group>
     </>
   );
 }
 
-export default function CinematicEarth() {
+interface CinematicEarthProps {
+  mode: DayNightMode;
+  customHour: number;
+  hourStore: HourStore;
+  reducedMotion: boolean;
+}
+
+export default function CinematicEarth({ mode, customHour, hourStore, reducedMotion }: CinematicEarthProps) {
   const [dragging, setDragging] = useState(false);
+  const [onScreen, setOnScreen] = useState(true);
+  const container = useRef<HTMLDivElement>(null);
+  const settings = useRef<SceneSettings>({ mode, customHour, reducedMotion });
+  useEffect(() => {
+    settings.current = { mode, customHour, reducedMotion };
+  }, [mode, customHour, reducedMotion]);
   const interaction = useRef<InteractionState>({
     hovered: false, dragging: false,
     pointerX: 0, pointerY: 0,
@@ -360,6 +454,17 @@ export default function CinematicEarth() {
     velocityX: 0, velocityY: 0,
     startX: 0, startY: 0, lastX: 0, lastY: 0, moved: false,
   });
+
+  // Stop drawing while the hero is scrolled out of view.
+  useEffect(() => {
+    const element = container.current;
+    if (!element || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), { threshold: 0 });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const coarsePointer = useMemo(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches, []);
 
   const updatePointer = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -415,6 +520,7 @@ export default function CinematicEarth() {
 
   return (
     <div
+      ref={container}
       className="h-full w-full touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60"
       role="application"
       aria-label="Interactive Earth. Drag to explore."
@@ -429,20 +535,13 @@ export default function CinematicEarth() {
       style={{ cursor: dragging ? "grabbing" : "grab" }}
     >
       <Canvas
-        camera={{ position: [0, 0, 10], fov: 42, near: 0.1, far: 80 }}
-        dpr={[1, 1.75]}
-        gl={{
-          alpha: true,
-          antialias: true,
-          powerPreference: "high-performance",
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.0,
-        }}
+        camera={{ position: [0, 0, 10], fov: 42, near: 0.1, far: 120 }}
+        dpr={[1, coarsePointer ? 1.25 : 1.5]}
+        frameloop={onScreen ? "always" : "never"}
+        gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
       >
-        <Lighting />
-        <StarField />
-        <Suspense fallback={<LoadingPlanet />}>
-          <EarthScene interaction={interaction} />
+        <Suspense fallback={null}>
+          <EarthScene interaction={interaction} settings={settings} hourStore={hourStore} />
         </Suspense>
       </Canvas>
     </div>

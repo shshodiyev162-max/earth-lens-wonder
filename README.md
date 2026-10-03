@@ -62,7 +62,7 @@ Never put secrets (model API keys, database credentials) in `VITE_` variables �
 | Climate                  | [NASA POWER](https://power.larc.nasa.gov/) monthly and climatology point API                     |
 | Place search, boundaries | [OpenStreetMap](https://www.openstreetmap.org/copyright) via [Photon](https://photon.komoot.io/) and [Nominatim](https://nominatim.org/) |
 | Country outlines         | [Natural Earth](https://www.naturalearthdata.com/) 1:50m borders and coastlines (bundled in `public/data`, rebuilt with `npm run data:borders`) |
-| Globe textures           | three.js examples (bundled in `public/textures`)                                                 |
+| Globe textures           | Day: Blue Marble image from the three.js examples. Night lights (VIIRS Black Marble) and land/water mask: NASA GIBS, rebuilt with `npm run data:earth`. All bundled in `public/textures` |
 
 Nominatim is limited to one request per second; the app queues its calls accordingly. Near-real-time GIBS layers can be incomplete for the most recent day, and the newest months of MERRA-2 and of POWER's sunshine data appear with a delay. The app shows the latest available date in each case.
 
@@ -75,7 +75,8 @@ src/
 │   ├── analysis/            # Location picker, period and dataset controls, charts, report panels
 │   ├── map/                 # Base map, GIBS tile layers, drawing, legends, date control, swipe clip…
 │   ├── search/              # Inline place search and the Ctrl/⌘+K palette
-│   ├── CinematicEarth.tsx   # Three.js globe on the landing page
+│   ├── CinematicEarth.tsx   # Three.js globe on the landing page (real day and night, breathing atmosphere)
+│   ├── landing/             # Day and night control and the sun-position helpers
 │   ├── Layout.tsx, Navbar.tsx, ErrorBoundary.tsx, RequireAuth.tsx
 │   └── ui/                  # shadcn/ui primitives
 ├── context/

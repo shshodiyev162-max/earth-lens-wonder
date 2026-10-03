@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "data:borders": "node scripts/build-borders.mjs"
+    "data:borders": "node scripts/build-borders.mjs",
+    "data:earth": "node scripts/build-earth-textures.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
