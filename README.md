@@ -61,7 +61,7 @@ Never put secrets (model API keys, database credentials) in `VITE_` variables â€
 | Satellite layers         | [NASA EOSDIS GIBS](https://www.earthdata.nasa.gov/gibs) (WMTS tiles, WMS, colormaps, time domains) |
 | Climate                  | [NASA POWER](https://power.larc.nasa.gov/) monthly and climatology point API                     |
 | Place search, boundaries | [OpenStreetMap](https://www.openstreetmap.org/copyright) via [Photon](https://photon.komoot.io/) and [Nominatim](https://nominatim.org/) |
-| Country borders          | [Natural Earth](https://www.naturalearthdata.com/) 1:50m (bundled in `public/data`)             |
+| Country outlines         | [Natural Earth](https://www.naturalearthdata.com/) 1:50m borders and coastlines (bundled in `public/data`, rebuilt with `npm run data:borders`) |
 | Globe textures           | three.js examples (bundled in `public/textures`)                                                 |
 
 Nominatim is limited to one request per second; the app queues its calls accordingly. Near-real-time GIBS layers can be incomplete for the most recent day, and the newest months of MERRA-2 and of POWER's sunshine data appear with a delay. The app shows the latest available date in each case.
