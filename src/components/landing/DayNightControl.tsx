@@ -25,7 +25,7 @@ export default function DayNightControl({ mode, onModeChange, customHour, onCust
   const custom = mode === "custom";
 
   // One glass pill. With Custom, the time slider sits between the modes and the clock;
-  // on phones it takes its own line above them.
+  // on phones it opens on its own line underneath, so the buttons stay where they were tapped.
   return (
     <div
       className={`pointer-events-auto glass flex flex-wrap items-center justify-center gap-1 p-1 text-xs sm:flex-nowrap ${
@@ -52,8 +52,9 @@ export default function DayNightControl({ mode, onModeChange, customHour, onCust
           </RadioGroup.Item>
         ))}
       </RadioGroup.Root>
+      <span className="min-w-[5.5rem] pl-1 pr-3 text-center tabular-nums text-muted-foreground sm:order-last">{formatUtc(shownHour)}</span>
       {custom && (
-        <div className="order-first flex basis-full items-center justify-center gap-2 px-3 pt-1 sm:order-none sm:basis-auto sm:px-2 sm:pt-0">
+        <div className="flex basis-full items-center justify-center gap-2 px-3 pb-1 sm:basis-auto sm:px-2 sm:pb-0">
           <label htmlFor={sliderId} className="text-muted-foreground">
             Time
           </label>
@@ -70,7 +71,6 @@ export default function DayNightControl({ mode, onModeChange, customHour, onCust
           />
         </div>
       )}
-      <span className="min-w-[5.5rem] pl-1 pr-3 text-center tabular-nums text-muted-foreground">{formatUtc(shownHour)}</span>
     </div>
   );
 }

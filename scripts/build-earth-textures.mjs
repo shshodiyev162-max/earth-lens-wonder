@@ -1,6 +1,7 @@
-// Downloads the landing globe's night-side and water textures from NASA GIBS
-// (WMS, whole-world equirectangular images, no key needed) into public/textures.
-// The day texture (earth_atmos_2048.jpg, a Blue Marble image from the three.js examples) is already bundled.
+// Downloads the landing globe's night-lights texture from NASA GIBS
+// (WMS, a whole-world equirectangular image, no key needed) into public/textures.
+// The day and cloud textures (earth_atmos_2048.jpg, earth_clouds_1024.png, from the
+// three.js examples) are already bundled.
 //
 // Run: npm run data:earth
 import { writeFileSync } from "node:fs";
@@ -11,8 +12,6 @@ const WMS = "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi";
 const TEXTURES = [
   // City lights at night (VIIRS Black Marble).
   { layer: "VIIRS_Black_Marble", width: 2048, height: 1024, format: "image/jpeg", file: "earth_night_2048.jpg" },
-  // Land/water mask: water is light grey, land dark grey. Used for a faint sun glint on the oceans.
-  { layer: "OSM_Land_Water_Map", width: 1024, height: 512, format: "image/png", file: "earth_water_1024.png" },
 ];
 
 for (const texture of TEXTURES) {
