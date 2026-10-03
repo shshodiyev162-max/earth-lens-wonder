@@ -63,6 +63,7 @@ Never put secrets (model API keys, database credentials) in `VITE_` variables â€
 | Place search, boundaries | [OpenStreetMap](https://www.openstreetmap.org/copyright) via [Photon](https://photon.komoot.io/) and [Nominatim](https://nominatim.org/) |
 | Country outlines         | [Natural Earth](https://www.naturalearthdata.com/) 1:50m borders and coastlines (bundled in `public/data`, rebuilt with `npm run data:borders`) |
 | Globe textures           | Day and clouds: three.js examples. Night lights: NASA GIBS VIIRS Black Marble, rebuilt with `npm run data:earth`. All bundled in `public/textures` |
+| Time zone cities         | [IANA tz database](https://www.iana.org/time-zones) (public domain), used to mark the visitor's part of the world on the landing globe from their browser's time zone (nothing is asked or sent). Rebuilt with `npm run data:timezones` |
 
 Nominatim is limited to one request per second; the app queues its calls accordingly. Near-real-time GIBS layers can be incomplete for the most recent day, and the newest months of MERRA-2 and of POWER's sunshine data appear with a delay. The app shows the latest available date in each case.
 

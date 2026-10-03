@@ -132,6 +132,10 @@ export default {
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "gradient-drift": {
+          from: { backgroundPosition: "0% 50%" },
+          to: { backgroundPosition: "100% 50%" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -141,6 +145,7 @@ export default {
         // Opacity only: a transform here would trap the map pages' fixed panels.
         "page-in": "page-in 0.35s ease-out both",
         "rise-in": "rise-in 0.4s ease-out both",
+        "gradient-drift": "gradient-drift 9s ease-in-out infinite alternate",
       },
     },
   },

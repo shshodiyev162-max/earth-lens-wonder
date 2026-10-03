@@ -66,13 +66,18 @@ export function easeHourTowards(shown: number, target: number, seconds: number):
   return wrapHours(shown + hourDelta(shown, target) * Math.min(1, seconds * EASE_RATE));
 }
 
-/** "14:05 UTC" */
-export function formatUtc(hours: number): string {
+/** "14:05" */
+export function formatClock(hours: number): string {
   // The tiny nudge keeps 110/60 h showing as 01:50, not 01:49.
   const totalMinutes = Math.floor(wrapHours(hours) * 60 + 1e-6) % (24 * 60);
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} UTC`;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** "14:05 UTC" */
+export function formatUtc(hours: number): string {
+  return `${formatClock(hours)} UTC`;
 }
 
 /** A tiny store for the time the globe is showing, so only the clock label re-renders. */

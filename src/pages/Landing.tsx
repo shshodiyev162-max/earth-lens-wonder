@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState, type ComponentType } from "react";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Globe, Map, Columns, GitCompare, BarChart3, PenTool, Search, ArrowRight, Satellite, ScanSearch, CalendarClock, Database } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -120,6 +120,13 @@ export default function Landing() {
   const hourStore = useMemo(() => createHourStore(utcHours(new Date())), []);
   const [customHour, setCustomHour] = useState(() => hourStore.get());
 
+  // Scrolling away: the planet lingers and fades slowly while the words lift off first.
+  const { scrollY } = useScroll();
+  const globeY = useTransform(scrollY, [0, 900], [0, 260]);
+  const globeOpacity = useTransform(scrollY, [0, 800], [1, 0.3]);
+  const textY = useTransform(scrollY, [0, 600], [0, -70]);
+  const textOpacity = useTransform(scrollY, [0, 480], [1, 0]);
+
   const changeDayNightMode = (mode: DayNightMode) => {
     // Custom starts from the time on screen, rounded to 5 minutes.
     if (mode === "custom") setCustomHour(Math.round(hourStore.get() * 12) / 12);
@@ -136,18 +143,23 @@ export default function Landing() {
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-glow-blue/5 blur-[100px] animate-pulse-glow" style={{ animationDelay: "1.5s" }} />
 
         {/* Full-viewport WebGL composition; the planet extends beyond the hero edges. */}
-        <motion.div
-          initial={{ opacity: 0, scale: 1.06 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.5, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          className="pointer-events-auto absolute inset-0 z-0"
-        >
-          <ErrorBoundary fallback={null}>
-            <Suspense fallback={null}>
-              <CinematicEarth mode={dayNightMode} customHour={customHour} hourStore={hourStore} reducedMotion={reducedMotion} />
-            </Suspense>
-          </ErrorBoundary>
-        </motion.div>
+        {/* The planet melts into the page at the bottom edge instead of being cut off. */}
+        <div className="absolute inset-0 z-0 [mask-image:linear-gradient(to_bottom,black_86%,transparent)]">
+          <motion.div className="absolute inset-0" style={reducedMotion ? undefined : { y: globeY, opacity: globeOpacity }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 1.06 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.5, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="pointer-events-auto absolute inset-0"
+            >
+              <ErrorBoundary fallback={null}>
+                <Suspense fallback={null}>
+                  <CinematicEarth mode={dayNightMode} customHour={customHour} hourStore={hourStore} reducedMotion={reducedMotion} />
+                </Suspense>
+              </ErrorBoundary>
+            </motion.div>
+          </motion.div>
+        </div>
 
         {/* Preserve contrast without hiding the illuminated globe. */}
         <div
@@ -158,7 +170,10 @@ export default function Landing() {
           }}
         />
 
-        <div className="pointer-events-none relative z-10 max-w-5xl mx-auto px-6 text-center pt-24">
+        <motion.div
+          className="pointer-events-none relative z-10 max-w-5xl mx-auto px-6 text-center pt-24"
+          style={reducedMotion ? undefined : { y: textY, opacity: textOpacity }}
+        >
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -173,7 +188,7 @@ export default function Landing() {
             <h1 className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6">
               <span className="text-foreground">See Earth Like</span>
               <br />
-              <span className="bg-gradient-to-r from-primary to-glow-blue bg-clip-text text-transparent">Never Before</span>
+              <span className="bg-gradient-to-r from-primary via-glow-blue to-primary bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-drift">Never Before</span>
             </h1>
 
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
@@ -210,7 +225,7 @@ export default function Landing() {
               />
             </div>
           </motion.div>
-        </div>
+        </motion.div>
 
         <p className="pointer-events-none absolute inset-x-0 bottom-6 z-10 text-center text-xs tracking-wide text-muted-foreground/75">
           Drag to explore · Click to turn · Arrow keys to rotate
