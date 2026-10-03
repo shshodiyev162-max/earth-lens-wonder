@@ -3,12 +3,20 @@ import { useMap } from "react-leaflet";
 import L from "leaflet";
 import { bboxPolygon, circlePolygon, closeRing, type PolygonGeometry, type Position } from "@/lib/geo/geometry";
 import type { AreaKind } from "@/context/WorkspaceContext";
+import CountryPickTool from "./CountryPickTool";
 
-export type DrawMode = "rectangle" | "polygon" | "circle";
+/** Drawing tools, plus "country": click a country to use its whole outline. */
+export type DrawMode = "rectangle" | "polygon" | "circle" | "country";
+
+/** Extra details when the area is a picked country. */
+export interface PickedCountry {
+  name: string;
+  countryId: string;
+}
 
 interface DrawToolsProps {
   mode: DrawMode | null;
-  onComplete: (geometry: PolygonGeometry, kind: AreaKind) => void;
+  onComplete: (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => void;
   onCancel: () => void;
   /** Increment to finish the polygon being drawn. */
   finishSignal?: number;
@@ -58,7 +66,7 @@ export default function DrawTools({ mode, onComplete, onCancel, finishSignal = 0
   const polygonApi = useRef<{ finish: () => void; undo: () => void } | null>(null);
 
   useEffect(() => {
-    if (!mode) return;
+    if (!mode || mode === "country") return;
     const container = map.getContainer();
     container.classList.add("map-drawing");
     const dragging = map.dragging.enabled();
@@ -238,5 +246,16 @@ export default function DrawTools({ mode, onComplete, onCancel, finishSignal = 0
     if (undoSignal) polygonApi.current?.undo();
   }, [undoSignal]);
 
+  if (mode === "country") {
+    return (
+      <CountryPickTool
+        onPick={(country) => {
+          swallowTrailingClicks();
+          callbacks.current.onComplete(country.geometry, "place", { name: country.name, countryId: country.id });
+        }}
+        onCancel={() => callbacks.current.onCancel()}
+      />
+    );
+  }
   return null;
 }

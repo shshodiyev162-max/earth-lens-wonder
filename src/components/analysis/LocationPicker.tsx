@@ -5,7 +5,7 @@ import { LocateFixed, Loader2, MousePointerClick, Square } from "lucide-react";
 import BaseMap from "@/components/map/BaseMap";
 import GibsTileLayer from "@/components/map/GibsTileLayer";
 import ReferenceOverlays from "@/components/map/ReferenceOverlays";
-import DrawTools, { type DrawMode } from "@/components/map/DrawTools";
+import DrawTools, { type DrawMode, type PickedCountry } from "@/components/map/DrawTools";
 import DrawToolbar, { DrawHint } from "@/components/map/DrawToolbar";
 import FlyTo, { type FlyTarget } from "@/components/map/FlyTo";
 import ZoomLimit from "@/components/map/ZoomLimit";
@@ -34,7 +34,7 @@ interface LocationPickerProps {
   loading: boolean;
   onPlace: (place: PlaceResult) => void;
   onPoint: (point: LatLng, radiusKm: number) => void;
-  onDrawn: (geometry: PolygonGeometry, kind: AreaKind) => void;
+  onDrawn: (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => void;
   onArea: (id: string) => void;
 }
 
@@ -87,7 +87,7 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
             Use my location
           </button>
           <span className="inline-flex items-center gap-1.5">
-            <MousePointerClick className="h-3.5 w-3.5" /> or click / draw on the map
+            <MousePointerClick className="h-3.5 w-3.5" /> or click, draw or pick a country on the map
           </span>
         </div>
         {locateError && <p className="mt-2 text-xs text-earth-yellow">{locateError}</p>}
@@ -109,9 +109,9 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
           )}
           <DrawTools
             mode={drawMode}
-            onComplete={(geometry, kind) => {
+            onComplete={(geometry, kind, country) => {
               setDrawMode(null);
-              onDrawn(geometry, kind);
+              onDrawn(geometry, kind, country);
             }}
             onCancel={() => setDrawMode(null)}
             finishSignal={finishSignal}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { GeoJSON, Pane } from "react-leaflet";
 import { canvas } from "leaflet";
 import type { GeoJsonObject } from "geojson";
+import { loadCountries } from "@/lib/geo/countries";
 
 // No place-label tiles: CARTO's now print "API KEY REQUIRED", and NASA's
 // Reference_Labels_15m tiles come back as solid black images that cover the imagery.
@@ -9,19 +10,9 @@ import type { GeoJsonObject } from "geojson";
 
 const PANE = "reference-borders";
 
-let bordersRequest: Promise<GeoJsonObject | null> | null = null;
-
 /** Natural Earth 1:50m country outlines (borders + coastlines), bundled. See scripts/build-borders.mjs. */
 function loadBorders(): Promise<GeoJsonObject | null> {
-  if (!bordersRequest) {
-    bordersRequest = fetch(`${import.meta.env.BASE_URL}data/countries-50m.json`)
-      .then((response) => (response.ok ? (response.json() as Promise<GeoJsonObject>) : null))
-      .catch(() => {
-        bordersRequest = null;
-        return null;
-      });
-  }
-  return bordersRequest;
+  return loadCountries().then((index) => index?.collection ?? null);
 }
 
 function BorderLines({ data }: { data: GeoJsonObject }) {

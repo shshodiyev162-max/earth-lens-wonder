@@ -1,6 +1,7 @@
 // Builds public/data/countries-50m.json: Natural Earth 1:50m country outlines
-// (borders and coastlines), public domain. Properties are dropped and coordinates
-// rounded to 3 decimals (~100 m) to keep the file small.
+// (borders and coastlines), public domain. Each country keeps only its name and
+// 3-letter code (so it can be picked on the map); coordinates are rounded to
+// 3 decimals (~100 m) to keep the file small.
 //
 // Run: npm run data:borders
 import { writeFileSync } from "node:fs";
@@ -30,7 +31,7 @@ const collection = {
   properties: { source: "Natural Earth 1:50m admin-0 countries (public domain)", url: SOURCE },
   features: source.features.map((feature) => ({
     type: "Feature",
-    properties: {},
+    properties: { id: feature.properties.ADM0_A3, name: feature.properties.ADMIN },
     geometry: { type: feature.geometry.type, coordinates: slim(feature.geometry.coordinates) },
   })),
 };

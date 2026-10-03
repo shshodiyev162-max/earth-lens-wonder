@@ -8,6 +8,7 @@ import { DatasetPicker, PeriodPicker } from "@/components/analysis/AnalysisContr
 import { ChartCard, RainChart, SingleSeriesChart, SoilChart, TemperatureChart, VegetationChart } from "@/components/analysis/Charts";
 import { FindingsList, InsightPanel, KpiGrid, Methodology, ResultsHeader } from "@/components/analysis/ResultsPanels";
 import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
+import type { PickedCountry } from "@/components/map/DrawTools";
 import { useAnalysisRun } from "@/hooks/useAnalysisRun";
 import { useAnalysisTarget } from "@/hooks/useAnalysisTarget";
 import { DATASETS } from "@/lib/analysis/run";
@@ -18,7 +19,7 @@ import type { LatLng, PolygonGeometry } from "@/lib/geo/geometry";
 import { formatMonth } from "@/lib/gibs/time";
 import { cn } from "@/lib/utils";
 
-const TARGET_KEYS = ["area", "osm", "lat", "lon", "r", "bbox", "name", "ctx"];
+const TARGET_KEYS = ["area", "osm", "country", "lat", "lon", "r", "bbox", "name", "ctx"];
 const ALL_DATASETS = DATASETS.map((d) => d.id);
 
 function parseDatasets(value: string | null): DatasetId[] {
@@ -209,9 +210,13 @@ export default function Analysis() {
     });
   };
 
-  const onDrawn = (geometry: PolygonGeometry, kind: AreaKind) => {
-    const area = workspace.addArea({ geometry, kind });
-    setTargetParams({ area: area.id });
+  const onDrawn = (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => {
+    if (country) {
+      setTargetParams({ country: country.countryId });
+    } else {
+      const area = workspace.addArea({ geometry, kind });
+      setTargetParams({ area: area.id });
+    }
     revealResults();
   };
 

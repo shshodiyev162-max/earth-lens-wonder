@@ -7,7 +7,7 @@ import BaseMap from "@/components/map/BaseMap";
 import LayerStack from "@/components/map/LayerStack";
 import ReferenceOverlays from "@/components/map/ReferenceOverlays";
 import AreasLayer from "@/components/map/AreasLayer";
-import DrawTools, { type DrawMode } from "@/components/map/DrawTools";
+import DrawTools, { type DrawMode, type PickedCountry } from "@/components/map/DrawTools";
 import DrawToolbar from "@/components/map/DrawToolbar";
 import FlyTo from "@/components/map/FlyTo";
 import ZoomLimit from "@/components/map/ZoomLimit";
@@ -111,9 +111,9 @@ export default function SyncView() {
     [setParams],
   );
 
-  const onAreaComplete = (geometry: PolygonGeometry, kind: AreaKind) => {
+  const onAreaComplete = (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => {
     setDrawMode(null);
-    const area = workspace.addArea({ geometry, kind });
+    const area = workspace.addArea({ geometry, kind, name: country?.name });
     toast.success(`${area.name} saved`, {
       description: formatArea(area.areaKm2),
       action: { label: "Analyze", onClick: () => navigate(analysisHrefForArea(area.id)) },

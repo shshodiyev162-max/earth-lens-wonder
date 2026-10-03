@@ -8,10 +8,10 @@ Everything runs in the browser against public NASA and OpenStreetMap services �
 
 - **Explore** — 17 NASA GIBS layers (true color, false color, vegetation, land surface temperature, aerosols, carbon monoxide, precipitation, sea surface temperature, chlorophyll, snow, night lights). Every layer and its maximum zoom were checked against GIBS. The date picker snaps to days that actually exist for that product, legends come from NASA's own colormaps, and clicking the map reads the real value at that spot.
 - **Search everywhere** — places, regions, countries, lakes, deserts and coordinates (`39.77, 64.42`, `39.77N 64.42E`, `lat: 40.7 lon: -74`). Search-as-you-type in every map and on the landing page, plus a global palette with <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> (or <kbd>/</kbd>) that also finds NASA layers. Selected places are outlined with their real boundary.
-- **Draw and measure** — rectangle, polygon and circle tools. Saved areas show live statistics of the active layer (mean, 10th–90th percentile range, share of the area measured) and stay on the device.
+- **Draw and measure** — rectangle, polygon and circle tools, plus **Pick a country**: point at a country to see its name and click to select the whole country. Saved areas show live statistics of the active layer (mean, 10th–90th percentile range, share of the area measured) and stay on the device.
 - **Compare** — one map with a draggable divider: two layers, or one layer on two dates.
 - **Side by side** — two maps locked together for pan and zoom, with dates linked or independent.
-- **Analysis** — pick a searched place, a saved or freshly drawn area, a clicked point with a radius, or your location. TerraVision pulls up to 10 years of monthly NASA data for that exact outline and explains what changed in plain language: headline, concern level, indicators with sparklines, charts, findings with their thresholds, and a methodology section. Reports are shareable links and can be downloaded as CSV.
+- **Analysis** — pick a searched place, a country picked on the map, a saved or freshly drawn area, a clicked point with a radius, or your location. TerraVision pulls up to 10 years of monthly NASA data for that exact outline and explains what changed in plain language: headline, concern level, indicators with sparklines, charts, findings with their thresholds, and a methodology section. Reports are shareable links and can be downloaded as CSV.
 
 ## How the analysis works
 

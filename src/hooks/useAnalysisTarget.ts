@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { isAbortError } from "@/lib/async";
+import { findCountry, loadCountries } from "@/lib/geo/countries";
 import { lookupOsm, reverseGeocode } from "@/lib/geo/geocode";
-import { areaKm2, bboxOf, bboxPolygon, centroidOf, circlePolygon, formatLatLng, type BBox } from "@/lib/geo/geometry";
+import { areaKm2, bboxOf, bboxPolygon, centroidOf, circlePolygon, formatLatLng, interiorPoint, type BBox } from "@/lib/geo/geometry";
 import type { AnalysisTarget } from "@/lib/analysis/types";
 
 export interface TargetState {
@@ -13,11 +14,12 @@ export interface TargetState {
 
 const num = (value: string | null) => (value === null || value.trim() === "" ? NaN : Number(value));
 
-/** Resolves the URL (?area=, ?osm=, ?lat&lon&r=, ?bbox=) into an analysis target. */
+/** Resolves the URL (?area=, ?osm=, ?country=, ?lat&lon&r=, ?bbox=) into an analysis target. */
 export function useAnalysisTarget(params: URLSearchParams): TargetState {
   const { getArea } = useWorkspace();
   const areaId = params.get("area");
   const osm = params.get("osm");
+  const countryId = params.get("country");
   const lat = num(params.get("lat"));
   const lon = num(params.get("lon"));
   const radius = num(params.get("r"));
@@ -110,6 +112,43 @@ export function useAnalysisTarget(params: URLSearchParams): TargetState {
     return () => controller.abort();
   }, [direct, osm, name, context]);
 
+  // A country picked on the map: its outline comes from the bundled Natural Earth borders.
+  const [countryState, setCountryState] = useState<{ key: string; target: AnalysisTarget | null; error: string | null } | null>(null);
+
+  useEffect(() => {
+    if (direct || osm || !countryId) return;
+    let active = true;
+    loadCountries().then((index) => {
+      if (!active) return;
+      const country = index ? findCountry(index, countryId) : null;
+      if (!country) {
+        setCountryState({
+          key: countryId,
+          target: null,
+          error: index ? "That country is not in TerraVision's map." : "Couldn't load the country outlines. Check your connection and try again.",
+        });
+        return;
+      }
+      setCountryState({
+        key: countryId,
+        error: null,
+        target: {
+          name: name ?? country.name,
+          context: context ?? "Country",
+          geometry: country.geometry,
+          bbox: country.bbox,
+          center: interiorPoint(country.geometry),
+          areaKm2: areaKm2(country.geometry),
+          kind: "place",
+          ref: { type: "country", id: country.id },
+        },
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [direct, osm, countryId, name, context]);
+
   // Give dropped points a human-readable name.
   const [pointName, setPointName] = useState<{ key: string; name: string } | null>(null);
   const pointKey = direct?.kind === "point" && !name ? `${lat},${lon}` : null;
@@ -132,6 +171,10 @@ export function useAnalysisTarget(params: URLSearchParams): TargetState {
   if (osm) {
     if (!osmState || osmState.key !== osm) return { target: null, loading: true, error: null };
     return { target: osmState.target, loading: !osmState.target && !osmState.error, error: osmState.error };
+  }
+  if (countryId) {
+    if (!countryState || countryState.key !== countryId) return { target: null, loading: true, error: null };
+    return { target: countryState.target, loading: false, error: countryState.error };
   }
   return { target: null, loading: false, error: null };
 }

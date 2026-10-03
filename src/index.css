@@ -350,6 +350,19 @@
   cursor: crosshair !important;
 }
 
+/* Picking a country: a hand to click with, a closed hand while dragging the map. */
+.map-picking .leaflet-grab {
+  cursor: pointer;
+}
+
+.map-picking.leaflet-dragging .leaflet-grab {
+  cursor: grabbing;
+}
+
+.country-pick-tip {
+  font-weight: 600;
+}
+
 /* ── Additions that don't change the look ── */
 
 /* Keyboard users get a visible focus ring; mouse clicks don't show it.
