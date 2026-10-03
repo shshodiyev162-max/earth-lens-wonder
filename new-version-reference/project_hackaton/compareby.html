@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeoRisk Studio – Dual Daily Viewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    :root {
+      --bg:#020617;
+      --shell:#020617;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --card:rgba(15,23,42,0.98);
+      --ring:rgba(148,163,184,0.45);
+      --accent:#38bdf8;
+      --accent-soft:rgba(56,189,248,0.12);
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; background:var(--bg); color:var(--text); }
+    .shell {
+      min-height:100vh;
+      background:
+        radial-gradient(circle at top left,rgba(56,189,248,0.12),transparent 55%),
+        radial-gradient(circle at top right,rgba(52,211,153,0.12),transparent 60%),
+        var(--shell);
+      display:flex;
+      flex-direction:column;
+    }
+    .topbar {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 18px;
+      border-bottom:1px solid rgba(15,23,42,0.85);
+      background:linear-gradient(to right,rgba(15,23,42,0.98),rgba(15,23,42,0.9));
+      backdrop-filter:blur(16px);
+    }
+    .topbar-left{display:flex;align-items:center;gap:10px;}
+    .topbar-logo{width:26px;height:26px;border-radius:10px;background:conic-gradient(from 160deg,#22c55e,#38bdf8,#6366f1,#22c55e);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#020617;}
+    .topbar-title{font-size:14px;font-weight:600;}
+    .topbar-sub{font-size:11px;color:var(--muted);}
+    .topbar-right a{font-size:11px;color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.45);background:rgba(15,23,42,0.85);}
+
+    .container { max-width: 1180px; margin: 0 auto; padding: 14px 16px 20px; flex:1; }
+    h1 { font-size: 20px; margin: 0 0 6px; }
+    p.sub { margin: 0 0 16px; color: var(--muted); font-size:13px; }
+    .grid { display:grid; grid-template-columns: 1fr; gap:12px; }
+    @media (min-width: 980px){ .grid { grid-template-columns: 1fr 1fr; } }
+    .card { background:var(--card); border:1px solid var(--ring); border-radius:16px; padding:12px; box-shadow: 0 18px 40px rgba(0,0,0,.75); }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; align-items:end; position:relative; z-index:2; }
+    .controls label { font-size: 12px; color: var(--muted); display:block; margin-bottom:4px; }
+    .controls select, .controls input[type="date"], .controls input[type="text"], .controls button { border:1px solid var(--ring); border-radius:999px; padding:7px 10px; background:#020617; font-size:13px; color:var(--text); }
+    .controls .spacer { flex:1 1 auto; }
+    .mapwrap { height: 50vh; min-height: 360px; }
+    .legend { font-size:12px; color:#cbd5f5; }
+    .legend .bar { height:10px; border-radius:6px; margin-top:6px; }
+    .footer { margin-top: 14px; font-size: 12px; color: var(--muted); }
+    .row { display:flex; gap:8px; }
+    .row > .grow { flex:1; }
+    .badge { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; background:var(--accent-soft); color:#e0f2fe; padding:2px 6px; border-radius:999px; }
+    .tips li { margin: 6px 0; }
+    .toggles { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .toggles label { display:flex; gap:6px; align-items:center; font-size: 13px; }
+
+    .analysis-card{margin-top:12px;padding:9px 10px 11px;border-radius:14px;border:1px solid var(--ring);background:rgba(15,23,42,0.94);display:grid;grid-template-columns: minmax(0,1.4fr) minmax(0,1.6fr);gap:10px;font-size:12px;}
+    @media(max-width:800px){.analysis-card{grid-template-columns:1fr;}}
+    .analysis-title{font-size:12px;font-weight:600;}
+    #riskSummary{font-weight:500;}
+    #riskDetails{font-size:11px;color:var(--muted);}
+    #chatLog{max-height:140px;overflow-y:auto;border-radius:8px;background:rgba(15,23,42,0.7);padding:6px 8px;border:1px solid rgba(148,163,184,0.4);font-size:11px;}
+    .msg{margin-bottom:4px;padding:4px 6px;border-radius:6px;}
+    .msg.user{background:rgba(56,189,248,0.15);align-self:flex-end;}
+    .msg.assistant{background:rgba(52,211,153,0.12);}
+    #chatControls{display:flex;gap:6px;margin-top:4px;}
+    #chatInput{flex:1;border-radius:999px;border:1px solid var(--ring);padding:6px 9px;background:#020617;color:var(--text);}
+    #chatSend{border-radius:999px;border:none;padding:6px 10px;background:linear-gradient(to right,#38bdf8,#6366f1);color:#020617;font-size:11px;font-weight:500;cursor:pointer;}
+  </style>
+</head>
+  <body>
+  <div class="shell">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-logo">G</div>
+        <div>
+          <div class="topbar-title">Dual daily viewer</div>
+          <div class="topbar-sub">Show the same place with two daily layers, then click anywhere to analyse risk with AI help.</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <a href="index.html">Back to GeoRisk Studio</a>
+      </div>
+    </div>
+
+    <div class="container">
+      <h1>Dual daily viewer</h1>
+      <p class="sub">Side-by-side NASA GIBS imagery with synced view, date/layer pickers, search, labels & borders, plus qualitative risk analysis.</p>
+
+      <!-- Search / View controls -->
+      <div class="card">
+      <div class="row" style="align-items:flex-end;">
+        <div class="grow">
+          <label style="font-size:12px;color:#64748b;">Search place or paste coordinates</label>
+          <div class="row">
+            <input id="q" type="text" placeholder="e.g. Tashkent or 41.2995, 69.2401" class="grow" />
+            <button id="go">Search</button>
+            <button id="reset">Reset View</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:#64748b;">Date (UTC)</div>
+          <input id="dateLeft" type="date">
+        </div>
+        <div>
+          <div style="font-size:12px;color:#64748b;">Date (UTC)</div>
+          <input id="dateRight" type="date">
+        </div>
+      </div>
+      <div class="toggles" style="margin-top:10px;">
+        <label><input id="chkLabels" type="checkbox" checked> Show labels</label>
+        <label><input id="chkBorders" type="checkbox" checked> Show borders</label>
+      </div>
+      </div>
+
+      <!-- Maps -->
+      <div class="grid" style="margin-top:12px;">
+        <div class="card">
+        <div class="controls">
+          <div>
+            <label>Layer (Left)</label>
+            <select id="layerLeft"></select>
+          </div>
+          <div class="spacer"></div>
+          <div style="min-width:220px"><div id="legendLeft" class="legend"></div></div>
+        </div>
+        <div id="mapLeft" class="mapwrap"></div>
+        </div>
+
+        <div class="card">
+        <div class="controls">
+          <div>
+            <label>Layer (Right)</label>
+            <select id="layerRight"></select>
+          </div>
+          <div class="spacer"></div>
+          <div style="min-width:220px"><div id="legendRight" class="legend"></div></div>
+        </div>
+        <div id="mapRight" class="mapwrap"></div>
+        </div>
+      </div>
+
+      <div class="analysis-card">
+        <div>
+          <div class="badge">Analysis</div>
+          <div class="analysis-title" style="margin-top:4px;">Click‑based analysis &amp; future risk</div>
+          <div id="riskSummary" style="margin-top:6px;">Click on either map to inspect a point using the current layer and date.</div>
+          <div id="riskDetails"></div>
+        </div>
+        <div>
+          <div class="badge">AI assistant</div>
+          <div style="margin-top:4px;font-size:12px;">Ask about differences or risk for the current click/context.</div>
+          <div id="chatLog" style="margin-top:6px;"></div>
+          <div id="chatControls">
+            <input id="chatInput" type="text" placeholder="Ask e.g. 'What hazards here next month?'" />
+            <button id="chatSend">Ask</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">NASA GIBS imagery via WMTS. Experimental qualitative analysis only – always confirm with official forecasts.</div>
+    </div>
+  </div>
+
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+  // ------------------ Config ------------------
+  var LAYERS = [
+    { key:'truecolor_viirs', label:'True Color (VIIRS SNPP)', gibsId:'VIIRS_SNPP_CorrectedReflectance_TrueColor', format:'jpg', minZoom:1, maxZoom:9, legend:{ type:'note', html:'Natural color composite (R=I1, G=I2, B=I3).' } },
+    { key:'truecolor_modis_terra', label:'True Color (MODIS Terra)', gibsId:'MODIS_Terra_CorrectedReflectance_TrueColor', format:'jpg', minZoom:1, maxZoom:9, legend:{ type:'note', html:'MODIS Terra true color composite.' } },
+    { key:'truecolor_modis_aqua', label:'True Color (MODIS Aqua)', gibsId:'MODIS_Aqua_CorrectedReflectance_TrueColor', format:'jpg', minZoom:1, maxZoom:9, legend:{ type:'note', html:'MODIS Aqua true color composite.' } },
+
+    /* Properly named: False Color vegetation product */
+    { key:'bands721_modis_terra',
+      label:'False Color (Vegetation) – Bands 7-2-1 (MODIS Terra)',
+      gibsId:'MODIS_Terra_CorrectedReflectance_Bands721',
+      format:'jpg', minZoom:1, maxZoom:9,
+      legend:{ type:'note', html:'False Color 7-2-1 highlights vegetation (green), snow/ice (cyan), and bare ground (magenta/brown).' }
+    },
+
+    // Dust (Day hardened) & Night
+    { key:'dust_airs_day', label:'Dust (AIRS Dust Score – Day)', gibsId:'AIRS_Dust_Score_Day', format:'png', minZoom:1, maxZoom:6, daysDelay:5, backfillMax:30,
+      legend:{ type:'gradient', rangeLabel:'Dust Score', stops:[
+        {v:0,color:'#000004'},{v:50,color:'#2c115f'},{v:100,color:'#721f81'},{v:150,color:'#b73779'},
+        {v:200,color:'#f1605d'},{v:250,color:'#fe9f6d'},{v:300,color:'#fcfdbf'}
+      ] }
+    },
+    { key:'dust_airs_night', label:'Dust (AIRS Dust Score – Night)', gibsId:'AIRS_Dust_Score_Night', format:'png', minZoom:1, maxZoom:6, daysDelay:3, backfillMax:14,
+      legend:{ type:'gradient', rangeLabel:'Dust Score', stops:[
+        {v:0,color:'#000004'},{v:50,color:'#2c115f'},{v:100,color:'#721f81'},{v:150,color:'#b73779'},
+        {v:200,color:'#f1605d'},{v:250,color:'#fe9f6d'},{v:300,color:'#fcfdbf'}
+      ] }
+    },
+
+    // Night lights
+    { key:'night_viirs_dnb', label:'Night Lights (VIIRS DNB Radiance)', gibsId:'VIIRS_SNPP_DayNightBand_At_Sensor_Radiance', format:'jpg', minZoom:1, maxZoom:8, backfillMax:10,
+      legend:{ type:'note', html:'At-sensor radiance (nW·cm⁻²·sr⁻¹). Urban areas appear bright at night.' }
+    },
+
+    // Monthly mosaic
+    { key:'bluemarble', label:'Blue Marble (monthly)', gibsId:'BlueMarble_ShadedRelief', format:'jpg', minZoom:1, maxZoom:8, monthly:true,
+      legend:{ type:'note', html:'Global mosaic; pick a month (uses 1st of month).' }
+    }
+  ];
+
+  var GIBS_URL = 'https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{time}/{matrix}/{z}/{y}/{x}.{format}';
+  var SUBS = ['a','b','c'];
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function toGibsDate(d){ if(!(d instanceof Date) || isNaN(d)) return '1970-01-01'; return d.getUTCFullYear()+'-'+pad2(d.getUTCMonth()+1)+'-'+pad2(d.getUTCDate()); }
+  function defaultGibsDate(){ var d=new Date(); d.setUTCDate(d.getUTCDate()-1); return toGibsDate(d); }
+  function isIso(s){ return typeof s==='string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
+  function safeDate(s){ return isIso(s)? s : defaultGibsDate(); }
+  function getLayerConf(key){ for (var i=0;i<LAYERS.length;i++){ if (LAYERS[i].key===key) return LAYERS[i]; } return LAYERS[0]; }
+
+  function matrixSetFor(conf){
+    var mz = Number((conf && conf.maxZoom) != null ? conf.maxZoom : 9);
+    if (mz <= 6) return 'GoogleMapsCompatible_Level6';
+    if (mz <= 8) return 'GoogleMapsCompatible_Level8';
+    return 'GoogleMapsCompatible_Level9';
+  }
+
+  // Normalize date per layer (handle monthly products and delayed availability)
+  function normalizeDateForLayer(conf, date){
+    var base = new Date((safeDate(date) || defaultGibsDate())+'T00:00:00Z');
+    if (conf && conf.monthly){ base.setUTCDate(1); }
+    var delay = (conf && conf.daysDelay) ? Number(conf.daysDelay) : 0;
+    if (delay>0){ base.setUTCDate(base.getUTCDate()-delay); }
+    return toGibsDate(base);
+  }
+
+  function buildTileUrl(conf, date){
+    var eff = normalizeDateForLayer(conf, date);
+    return GIBS_URL
+      .replace('{layer}', conf.gibsId)
+      .replace('{time}', eff)
+      .replace('{matrix}', matrixSetFor(conf))
+      .replace('{format}', conf.format);
+  }
+
+  // Legend renderer
+  function renderLegend(el, conf){
+    if (!el) return; el.innerHTML=''; if(!conf||!conf.legend) return;
+    if (conf.legend.type==='note'){
+      var div=document.createElement('div'); div.textContent=conf.legend.html||''; el.appendChild(div); return;
+    }
+    if (conf.legend.type==='gradient'){
+      var stops=conf.legend.stops||[]; var grad=[];
+      for(var i=0;i<stops.length;i++){
+        var pct=(i/Math.max(1,stops.length-1))*100; grad.push(stops[i].color+' '+pct+'%');
+      }
+      var wrap=document.createElement('div'); var label=document.createElement('div'); label.textContent=conf.legend.rangeLabel||'Legend';
+      var bar=document.createElement('div'); bar.className='bar'; bar.style.background='linear-gradient(90deg,'+grad.join(',')+')';
+      var ticks=document.createElement('div'); ticks.style.display='flex'; ticks.style.justifyContent='space-between'; ticks.style.fontSize='10px'; ticks.style.marginTop='4px';
+      var tickSrc=stops.length?stops:[{v:'min'},{v:'max'}];
+      for(var j=0;j<tickSrc.length;j++){ var s=tickSrc[j]; var sp=document.createElement('span'); sp.textContent=String(s.v); ticks.appendChild(sp); }
+      wrap.appendChild(label); wrap.appendChild(bar); wrap.appendChild(ticks); el.appendChild(wrap);
+    }
+  }
+
+  // Load a tile layer with watchdog + backfill
+  function createBackfilledTileLayer(urlBuilder, conf, date, opts){
+    var currDate = normalizeDateForLayer(conf, date);
+    var errors = 0, backfills = 0, loadedTiles = 0; var watchdog = null;
+    var maxBackfill = Math.max(1, Number(conf && conf.backfillMax || 2));
+    var layer = L.tileLayer(urlBuilder(conf, currDate), opts);
+
+    function armWatchdog(){
+      if (watchdog) clearTimeout(watchdog);
+      watchdog = setTimeout(function(){
+        if (loadedTiles === 0) { tryBackfill(); }
+      }, 2500);
+    }
+
+    function tryBackfill(){
+      if (backfills >= maxBackfill || (conf && conf.key) === 'bluemarble') return false;
+      var d = new Date(currDate+'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate()-1);
+      currDate = toGibsDate(d);
+      backfills++; errors = 0; loadedTiles = 0;
+      layer.setUrl(urlBuilder(conf, currDate));
+      armWatchdog();
+      console.warn('Backfilled to', currDate, 'for', conf.key, '('+backfills+'/'+maxBackfill+')');
+      return true;
+    }
+
+    function onTileError(){ errors++; if (errors >= 3){ tryBackfill(); } }
+    function onTileLoad(){ errors = 0; loadedTiles++; }
+
+    layer.on('tileerror', onTileError);
+    layer.on('tileload', onTileLoad);
+    layer.on('loading', armWatchdog);
+    layer.on('remove', function(){
+      layer.off('tileerror', onTileError);
+      layer.off('tileload', onTileLoad);
+      layer.off('loading', armWatchdog);
+      if (watchdog) clearTimeout(watchdog);
+    });
+    armWatchdog();
+    return layer;
+  }
+
+  // ------------------ Init refs ------------------
+  var layerLeftSel=document.getElementById('layerLeft');
+  var layerRightSel=document.getElementById('layerRight');
+  var dateLeft=document.getElementById('dateLeft');
+  var dateRight=document.getElementById('dateRight');
+  var legendLeft=document.getElementById('legendLeft');
+  var legendRight=document.getElementById('legendRight');
+
+  // ------------------ Create maps FIRST ------------------
+  var mapLeft=L.map('mapLeft',{zoomControl:false});
+  var mapRight=L.map('mapRight',{zoomControl:false});
+  mapLeft.setView([20,0],3); mapRight.setView([20,0],3);
+  L.control.zoom({position:'bottomright'}).addTo(mapLeft);
+  L.control.zoom({position:'bottomright'}).addTo(mapRight);
+
+  // panes for overlay order
+  mapLeft.createPane('labelsPane'); mapLeft.getPane('labelsPane').style.zIndex=650;
+  mapRight.createPane('labelsPane'); mapRight.getPane('labelsPane').style.zIndex=650;
+  mapLeft.createPane('bordersPane'); mapLeft.getPane('bordersPane').style.zIndex=640;
+  mapRight.createPane('bordersPane'); mapRight.getPane('bordersPane').style.zIndex=640;
+
+  var tileLeft=null, tileRight=null;
+  var lastContext=null;
+
+  // Labels (transparent)
+  var labelUrl='https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png';
+  var labelsLeft=L.tileLayer(labelUrl,{subdomains:['a','b','c','d'],pane:'labelsPane',opacity:0.95});
+  var labelsRight=L.tileLayer(labelUrl,{subdomains:['a','b','c','d'],pane:'labelsPane',opacity:0.95});
+
+  // Borders via GeoJSON
+  var borders=null; // {left:LayerGroup,right:LayerGroup}
+  async function ensureBorders(){
+    if (borders) return borders;
+    var sources=[
+      'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json',
+      'https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json'
+    ];
+    for (var si=0; si<sources.length; si++){
+      try{
+        var res=await fetch(sources[si]); if(!res.ok) continue; var geo=await res.json();
+        var halo={color:'#ffffff',weight:3,opacity:0.9,fill:false};
+        var stroke={color:'#111827',weight:1,opacity:1,fill:false};
+        var haloLeft=L.geoJSON(geo,{style:halo,pane:'bordersPane',interactive:false,renderer:L.canvas()});
+        var strokeLeft=L.geoJSON(geo,{style:stroke,pane:'bordersPane',interactive:false,renderer:L.canvas()});
+        var haloRight=L.geoJSON(geo,{style:halo,pane:'bordersPane',interactive:false,renderer:L.canvas()});
+        var strokeRight=L.geoJSON(geo,{style:stroke,pane:'bordersPane',interactive:false,renderer:L.canvas()});
+        borders={left:L.layerGroup([haloLeft,strokeLeft]), right:L.layerGroup([haloRight,strokeRight])};
+        return borders;
+      }catch(e){ /* try next */ }
+    }
+    borders={left:L.layerGroup(), right:L.layerGroup()}; return borders;
+  }
+
+  // Overlays toggle
+  async function updateOverlaysVisibility(){
+    var chkLabelsEl=document.getElementById('chkLabels');
+    var chkBordersEl=document.getElementById('chkBorders');
+    var labelsOn=!!(chkLabelsEl?chkLabelsEl.checked:true);
+    var bordersOn=!!(chkBordersEl?chkBordersEl.checked:true);
+    if (mapLeft && mapRight){
+      if(labelsOn){ if(labelsLeft && !mapLeft.hasLayer(labelsLeft)) labelsLeft.addTo(mapLeft); if(labelsRight && !mapRight.hasLayer(labelsRight)) labelsRight.addTo(mapRight); }
+      else { if(labelsLeft && mapLeft.hasLayer(labelsLeft)) mapLeft.removeLayer(labelsLeft); if(labelsRight && mapRight.hasLayer(labelsRight)) mapRight.removeLayer(labelsRight); }
+      if(bordersOn){ var g=await ensureBorders(); if(g){ if(!mapLeft.hasLayer(g.left)) g.left.addTo(mapLeft); if(!mapRight.hasLayer(g.right)) g.right.addTo(mapRight);} }
+      else if(borders){ if(mapLeft.hasLayer(borders.left)) mapLeft.removeLayer(borders.left); if(mapRight.hasLayer(borders.right)) mapRight.removeLayer(borders.right); }
+    }
+  }
+
+  // Apply a layer to one side (with Dust-Day zoom clamp)
+  function applyLayer(side){
+    var isLeft=(side==='left');
+    var conf=getLayerConf(isLeft?layerLeftSel.value:layerRightSel.value);
+    var date=isLeft?dateLeft.value:dateRight.value;
+
+    // Clamp zoom for Dust Day to Level 6 to avoid 400s
+    if (conf && conf.key === 'dust_airs_day'){
+      var m = isLeft ? mapLeft : mapRight;
+      if (m && m.getZoom() > 6) m.setZoom(6, {animate:false});
+    }
+
+    var opts={subdomains:SUBS,minZoom:conf.minZoom,maxZoom:conf.maxZoom,crossOrigin:true};
+    var layer=createBackfilledTileLayer(buildTileUrl,conf,date,opts);
+    if (isLeft){
+      if (tileLeft && mapLeft){ mapLeft.removeLayer(tileLeft); }
+      tileLeft = layer;
+      if (mapLeft){ tileLeft.addTo(mapLeft); }
+      renderLegend(legendLeft,conf);
+    } else {
+      if (tileRight && mapRight){ mapRight.removeLayer(tileRight); }
+      tileRight = layer;
+      if (mapRight){ tileRight.addTo(mapRight); }
+      renderLegend(legendRight,conf);
+    }
+    updateOverlaysVisibility();
+  }
+
+  // Populate layer menus & defaults
+  function populateLayerMenus(){
+    try{
+      layerLeftSel.innerHTML=''; layerRightSel.innerHTML='';
+      for(var i=0;i<LAYERS.length;i++){
+        var l=LAYERS[i];
+        var o1=document.createElement('option'); o1.value=l.key; o1.textContent=l.label; layerLeftSel.appendChild(o1);
+        var o2=document.createElement('option'); o2.value=l.key; o2.textContent=l.label; layerRightSel.appendChild(o2);
+      }
+      layerLeftSel.disabled=false; layerLeftSel.style.pointerEvents='auto';
+      layerRightSel.disabled=false; layerRightSel.style.pointerEvents='auto';
+
+      // Left defaults to True Color VIIRS; Right defaults to the first layer in the catalog
+      var leftDefault='truecolor_viirs';
+      var rightDefault = (layerRightSel.options[0] ? layerRightSel.options[0].value
+                        : (LAYERS[0] ? LAYERS[0].key : ''));
+
+      layerLeftSel.value = (layerLeftSel.querySelector('option[value="'+leftDefault+'"]')? leftDefault : (layerLeftSel.options[0]? layerLeftSel.options[0].value : ''));
+      layerRightSel.value = (layerRightSel.querySelector('option[value="'+rightDefault+'"]')? rightDefault : (layerRightSel.options[0]? layerRightSel.options[0].value : ''));
+
+      dateLeft.value = defaultGibsDate();
+      dateRight.value = defaultGibsDate();
+
+      console.assert(layerLeftSel.options.length>0,'Left menu populated');
+      console.assert(layerRightSel.options.length>0,'Right menu populated');
+    }catch(e){ console.error('Populate menus failed', e); }
+  }
+
+  populateLayerMenus();
+  applyLayer('left');
+  applyLayer('right');
+
+  // Overlay toggles
+  var chkLabels=document.getElementById('chkLabels'); if(chkLabels) chkLabels.addEventListener('change', updateOverlaysVisibility);
+  var chkBorders=document.getElementById('chkBorders'); if(chkBorders) chkBorders.addEventListener('change', updateOverlaysVisibility);
+  updateOverlaysVisibility();
+
+  // Sync maps
+  var syncing=false; function sync(from,to){ if(syncing) return; syncing=true; to.setView(from.getCenter(), from.getZoom(), {animate:false}); syncing=false; }
+  mapLeft.on('moveend zoomend', function(){ sync(mapLeft,mapRight); });
+  mapRight.on('moveend zoomend', function(){ sync(mapRight,mapLeft); });
+
+  // Events
+  layerLeftSel.addEventListener('change', function(){ applyLayer('left'); });
+  layerRightSel.addEventListener('change', function(){ applyLayer('right'); });
+  dateLeft.addEventListener('change', function(){ applyLayer('left'); });
+  dateRight.addEventListener('change', function(){ applyLayer('right'); });
+  document.getElementById('reset').addEventListener('click', function(){ mapLeft.setView([0,0],2); mapRight.setView([0,0],2); });
+  document.getElementById('go').addEventListener('click', doSearch);
+  document.getElementById('q').addEventListener('keydown', function(e){ if(e.key==='Enter') doSearch(); });
+
+  async function doSearch(){
+    var q=document.getElementById('q').value.trim();
+    var m=q.match(/^\s*(-?\d+(?:\.[\d]+)?)\s*,\s*(-?\d+(?:\.[\d]+)?)\s*$/);
+    if(m){ var lat=parseFloat(m[1]), lon=parseFloat(m[2]); if(isFinite(lat)&&isFinite(lon)){ mapLeft.setView([lat,lon],8); mapRight.setView([lat,lon],8);} return; }
+    if(!q) return;
+    try{
+      var url='https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(q);
+      var res=await fetch(url,{headers:{'Accept-Language':'en'}});
+      var data=await res.json();
+      if(Object.prototype.toString.call(data)==='[object Array]'&&data.length){
+        var lat2=parseFloat(data[0].lat), lon2=parseFloat(data[0].lon);
+        if(isFinite(lat2)&&isFinite(lon2)){ mapLeft.setView([lat2,lon2],8); mapRight.setView([lat2,lon2],8); }
+      }
+    }catch(e){ console.warn('Search failed', e); }
+  }
+
+  // ------------------ Risk model + assistant helpers ------------------
+  function estimateDisasterRisk(ctx){
+    var layerId = ctx && ctx.layerId || "";
+    var avgR = ctx && ctx.avgR;
+    var avgG = ctx && ctx.avgG;
+    var avgB = ctx && ctx.avgB;
+    var score = 25;
+    var drivers = [];
+
+    if (typeof avgR === "number" && typeof avgG === "number" && typeof avgB === "number") {
+      var sum = avgR + avgG + avgB || 1;
+      var greenRatio = avgG / sum;
+      var redRatio = avgR / sum;
+
+      if (layerId.indexOf("Bands721") !== -1) {
+        if (greenRatio < 0.25) { score += 55; drivers.push("very low vegetation (drought / erosion risk)"); }
+        else if (greenRatio < 0.45) { score += 35; drivers.push("moderate vegetation stress"); }
+        else { score += 10; drivers.push("healthy vegetation cover (buffer against hazards)"); }
+      } else if (layerId.indexOf("Aerosol") !== -1) {
+        var dustIntensity = redRatio;
+        if (dustIntensity > 0.65) { score += 55; drivers.push("very high dust / aerosol loading (air-quality and storm risk)"); }
+        else if (dustIntensity > 0.4) { score += 35; drivers.push("elevated dust / aerosol levels"); }
+        else { score += 10; drivers.push("generally clear atmosphere"); }
+      } else if (layerId.indexOf("Chlorophyll") !== -1) {
+        var chlorRatio = avgG / 255;
+        if (chlorRatio > 0.65) { score += 40; drivers.push("very high chlorophyll (potential harmful bloom conditions)"); }
+        else if (chlorRatio > 0.35) { score += 25; drivers.push("moderately elevated chlorophyll"); }
+        else { score += 10; drivers.push("low / normal chlorophyll"); }
+      } else if (layerId.indexOf("Radiance") !== -1 || layerId.toLowerCase().indexOf("night") !== -1) {
+        var brightness = (avgR + avgG + avgB) / (3 * 255);
+        if (brightness > 0.7) { score += 35; drivers.push("dense urban lighting (heat / infrastructure exposure)"); }
+        else if (brightness > 0.4) { score += 20; drivers.push("moderately lit settlements"); }
+        else { score += 5; drivers.push("sparsely populated or dark area"); }
+      }
+    } else if (layerId) {
+      if (layerId.indexOf("Aerosol") !== -1) { score += 35; drivers.push("aerosol / dust layer selected"); }
+      else if (layerId.indexOf("Bands721") !== -1) { score += 25; drivers.push("vegetation false-color layer selected"); }
+      else if (layerId.indexOf("Chlorophyll") !== -1) { score += 25; drivers.push("ocean chlorophyll layer selected"); }
+      else if (layerId.indexOf("Radiance") !== -1 || layerId.toLowerCase().indexOf("night") !== -1) { score += 20; drivers.push("night-time lights layer selected"); }
+    }
+
+    if (score > 100) score = 100;
+    if (score < 0) score = 0;
+
+    var level = "Low";
+    if (score >= 66) level = "High";
+    else if (score >= 33) level = "Medium";
+
+    var narrativeBase = "This is a qualitative, exploratory risk score only – it does not replace official hazard forecasts.";
+    var narrativeDrivers = drivers.length ? "Main drivers: " + drivers.join(", ") + "." : "Drivers could not be identified from the current layer.";
+    return { score: score, level: level, drivers: drivers, narrative: narrativeDrivers + " " + narrativeBase };
+  }
+
+  function updateAnalysisPanel(context){
+    var summaryEl = document.getElementById("riskSummary");
+    var detailsEl = document.getElementById("riskDetails");
+    if (!summaryEl || !detailsEl || !context) return;
+    lastContext = context;
+    var scoreText = Math.round(context.risk.score);
+    summaryEl.innerHTML = (context.title || "Selected point") + ": <b>" + context.risk.level + " risk</b> (score " + scoreText + "/100)";
+
+    var sideLine = "<b>Side:</b> " + (context.side || "Left");
+    var layerLine = "<br><b>Layer:</b> " + context.layerTitle + " <span style=\"opacity:0.8;\">(" + context.layerId + ")</span>";
+    var dateLine = context.date ? "<br><b>Date:</b> " + context.date : "";
+    var locLine = context.center ? "<br><b>Location:</b> " + context.center.lat.toFixed(3) + ", " + context.center.lng.toFixed(3) : "";
+
+    detailsEl.innerHTML = sideLine + layerLine + dateLine + locLine + "<br><br>" + context.risk.narrative;
+  }
+
+  function appendAssistantMessage(role, text){
+    var log = document.getElementById("chatLog");
+    if (!log) return;
+    var div = document.createElement("div");
+    div.className = "msg " + (role === "user" ? "user" : "assistant");
+    div.innerHTML = text;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function buildLocalAssistantAnswer(question, context){
+    var q = (question || "").toLowerCase();
+    var base = "I do not have access to a full numerical forecast model, but I can help interpret what these layers show for the clicked point.";
+
+    if (!context || !context.risk) {
+      return base + " Click on one of the maps first – I will then use the current layer, date and location to give a more tailored explanation.";
+    }
+
+    var risk = context.risk;
+    var side = context.side || "Left";
+    var layerTitle = context.layerTitle;
+    var date = context.date;
+    var center = context.center;
+    var where = center ? "around " + center.lat.toFixed(2) + ", " + center.lng.toFixed(2) : "in this area";
+
+    var focus = "environmental stress and exposure.";
+    if (context.layerId && context.layerId.indexOf("Bands721") !== -1) focus = "vegetation health, drought and wildfire potential.";
+    else if (context.layerId && context.layerId.indexOf("Aerosol") !== -1) focus = "dust / aerosol loading and air-quality risk.";
+    else if (context.layerId && context.layerId.indexOf("Chlorophyll") !== -1) focus = "ocean productivity and possible harmful algal blooms.";
+    else if (context.layerId && (context.layerId.indexOf("Radiance") !== -1 || context.layerId.toLowerCase().indexOf("night") !== -1)) focus = "night-time exposure of cities and infrastructure.";
+
+    var horizon = "in the coming weeks";
+    if (q.indexOf("month") !== -1 || q.indexOf("30") !== -1) horizon = "over roughly the next month";
+    if (q.indexOf("year") !== -1 || q.indexOf("12 months") !== -1) horizon = "over the coming year (very approximate)";
+
+    return ""
+      + "I am analysing the <b>" + side.toLowerCase() + "</b> map using layer <b>" + layerTitle + "</b> on <b>" + (date || "the selected date") + "</b> " + where + "."
+      + "<br><br>The heuristic risk score is <b>" + risk.level + "</b> (" + Math.round(risk.score) + "/100). " + risk.narrative
+      + "<br><br>This layer is particularly useful for highlighting <b>" + focus + "</b>"
+      + "<br><br>For a more robust forecast " + horizon + ", you would typically combine:"
+      + "<ul>"
+      + "<li>Time series of this and related layers (anomalies vs climatology).</li>"
+      + "<li>Weather forecasts (precipitation, temperature, wind) from models such as GEOS or GFS.</li>"
+      + "<li>Information on local vulnerability (population, infrastructure, land use, historical events).</li>"
+      + "</ul>"
+      + "Treat this view as an early‑warning or situational‑awareness tool, not as an official forecast.";
+  }
+
+  async function askAssistant(question){
+    var q = (question || "").trim();
+    if (!q) return;
+    appendAssistantMessage("user", q);
+    try{
+      var res = await fetch("/api/geo-assistant", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ question:q, context:lastContext, mode:"dual-viewer" })
+      });
+      if (!res.ok) throw new Error("Assistant HTTP " + res.status);
+      var data = await res.json();
+      var answer = data.answer || data.message || "";
+      if (answer){
+        appendAssistantMessage("assistant", answer);
+        return;
+      }
+      throw new Error("Empty answer");
+    } catch(e){
+      console.warn("Assistant backend not available, using local explanation.", e);
+      var fallback = buildLocalAssistantAnswer(q, lastContext);
+      appendAssistantMessage("assistant", fallback);
+    }
+  }
+
+  function analyseClick(side, latlng){
+    var isLeft = side === "Left";
+    var confSel = isLeft ? layerLeftSel : layerRightSel;
+    var dateSel = isLeft ? dateLeft : dateRight;
+    if (!confSel || !confSel.value) return;
+    var conf = getLayerConf(confSel.value);
+    var risk = estimateDisasterRisk({ layerId: conf.gibsId, avgR:null, avgG:null, avgB:null });
+    var context = {
+      title:"Clicked point",
+      side:side,
+      center:latlng,
+      layerId:conf.gibsId,
+      layerTitle:conf.label,
+      date:dateSel && dateSel.value,
+      risk:risk
+    };
+    updateAnalysisPanel(context);
+  }
+
+  // Click analysis hooks
+  mapLeft.on("click", function(e){ analyseClick("Left", e.latlng); });
+  mapRight.on("click", function(e){ analyseClick("Right", e.latlng); });
+
+  // Assistant controls
+  var chatInput = document.getElementById("chatInput");
+  var chatSend = document.getElementById("chatSend");
+  if (chatInput && chatSend){
+    chatSend.addEventListener("click", function(){
+      askAssistant(chatInput.value);
+      chatInput.value = "";
+      chatInput.focus();
+    });
+    chatInput.addEventListener("keydown", function(ev){
+      if (ev.key === "Enter" && !ev.shiftKey){
+        ev.preventDefault();
+        chatSend.click();
+      }
+    });
+  }
+
+  // ------------------ Dev sanity tests (console) ------------------
+  ;(function devTests(){
+    try{
+      console.assert(/\d{4}-\d{2}-\d{2}/.test(defaultGibsDate()), 'default date ISO');
+      console.assert(getLayerConf('truecolor_viirs').gibsId==='VIIRS_SNPP_CorrectedReflectance_TrueColor', 'TrueColor present');
+      console.assert(getLayerConf('bands721_modis_terra').gibsId==='MODIS_Terra_CorrectedReflectance_Bands721', 'False Color (Vegetation) Bands 7-2-1 present');
+      console.assert(getLayerConf('dust_airs_day').gibsId==='AIRS_Dust_Score_Day', 'Dust Day present');
+      console.assert(getLayerConf('dust_airs_night').gibsId==='AIRS_Dust_Score_Night', 'Dust Night present');
+      console.assert(getLayerConf('night_viirs_dnb').gibsId==='VIIRS_SNPP_DayNightBand_At_Sensor_Radiance', 'DNB present');
+      console.assert(matrixSetFor({maxZoom:6})==='GoogleMapsCompatible_Level6', 'matrix L6');
+      console.assert(matrixSetFor({maxZoom:8})==='GoogleMapsCompatible_Level8', 'matrix L8');
+      console.assert(matrixSetFor({maxZoom:9})==='GoogleMapsCompatible_Level9', 'matrix L9');
+      var dd = defaultGibsDate();
+      console.assert(buildTileUrl(getLayerConf('dust_airs_day'), dd).indexOf('GoogleMapsCompatible_Level6')!==-1, 'dust L6 in URL');
+      var t=document.createElement('div'); renderLegend(t, getLayerConf('bands721_modis_terra')); console.assert(t.innerHTML.length>=1, 'legend renders');
+      try { applyLayer('left'); applyLayer('right'); console.assert(true, 'applyLayer ok'); } catch(e){ console.error('applyLayer threw', e); }
+    }catch(e){ console.warn('Dev tests failed:', e); }
+  })();
+  </script>
+</body>
+</html>

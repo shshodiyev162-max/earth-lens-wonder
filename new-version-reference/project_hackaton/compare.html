@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GeoRisk Studio – Slider Compare</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<style>
+  :root{
+    --bg:#020617;
+    --panel:rgba(15,23,42,0.98);
+    --panel-soft:rgba(15,23,42,0.9);
+    --border-subtle:rgba(148,163,184,0.45);
+    --accent:#38bdf8;
+    --accent-soft:rgba(56,189,248,0.12);
+    --text-main:#e5e7eb;
+    --text-muted:#9ca3af;
+  }
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#020617;color:var(--text-main);}
+  body{display:flex;flex-direction:column;}
+  .shell{display:grid;grid-template-rows:auto minmax(0,1fr);height:100vh;background:
+    radial-gradient(circle at top left,rgba(56,189,248,0.12),transparent 55%),
+    radial-gradient(circle at top right,rgba(52,211,153,0.12),transparent 60%),
+    var(--bg);}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid rgba(15,23,42,0.85);background:linear-gradient(to right,rgba(15,23,42,0.98),rgba(15,23,42,0.9));backdrop-filter:blur(16px);}
+  .topbar-left{display:flex;align-items:center;gap:10px;}
+  .topbar-logo{width:26px;height:26px;border-radius:10px;background:conic-gradient(from 160deg,#22c55e,#38bdf8,#6366f1,#22c55e);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#020617;}
+  .topbar-title{font-size:14px;font-weight:600;}
+  .topbar-sub{font-size:11px;color:var(--text-muted);}
+  .topbar-right a{font-size:11px;color:var(--text-muted);text-decoration:none;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.45);background:rgba(15,23,42,0.85);}
+
+  #app{display:grid;grid-template-columns:340px minmax(0,1fr);min-height:0;}
+  @media(max-width:900px){#app{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);}}
+  .panel{padding:14px 14px 16px;background:var(--panel);border-right:1px solid rgba(15,23,42,0.9);overflow:auto;box-shadow:10px 0 40px rgba(0,0,0,0.7);}
+  .panel h2{margin:0 0 4px;font-size:15px;}
+  .note{font-size:12px;color:var(--text-muted);margin-bottom:10px;}
+  label{font-size:11px;color:var(--text-muted);display:block;margin-top:6px;margin-bottom:2px;}
+  input,select,button{width:100%;padding:7px 9px;border-radius:999px;border:1px solid var(--border-subtle);box-sizing:border-box;font-size:12px;background:#020617;color:var(--text-main);}
+  .btn{background:linear-gradient(to right,#38bdf8,#6366f1);color:#020617;border:none;cursor:pointer;font-weight:500;}
+  .ghost{background:transparent;border-color:var(--border-subtle);color:var(--text-main);}
+  .search-results{max-height:140px;overflow:auto;margin-top:4px;border:1px solid var(--border-subtle);border-radius:10px;background:#020617;}
+  .result{padding:7px 9px;cursor:pointer;font-size:12px;}
+  .result:hover{background:rgba(56,189,248,0.18);}
+  a.home{display:inline-block;margin-top:10px;text-decoration:none;color:var(--accent);font-size:12px;}
+
+  #mapwrap{position:relative;}
+  #map, #mapTop {position:absolute;top:0;bottom:0;left:0;right:0}
+  #map{z-index:0}
+  #mapTop{z-index:800; clip-path:inset(0 50% 0 0)}
+  .compare-ui{position:absolute;left:50%;transform:translateX(-50%);top:12px;background:rgba(15,23,42,0.98);padding:6px 10px;border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,0.7);z-index:900;font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;border:1px solid var(--border-subtle);}
+  #coords{position:absolute;bottom:10px;left:10px;z-index:1000;background:rgba(15,23,42,0.9);padding:4px 8px;border-radius:6px;font-size:11px;color:#e5e7eb;border:1px solid rgba(15,23,42,0.9);}
+
+  .analysis-panel{margin-top:12px;padding:9px 10px 11px;border-radius:12px;border:1px solid var(--border-subtle);background:var(--panel-soft);font-size:12px;display:flex;flex-direction:column;gap:6px;}
+  .analysis-title{font-size:12px;font-weight:600;}
+  .analysis-summary{font-weight:500;}
+  .analysis-detail{font-size:11px;color:var(--text-muted);}
+
+  .assistant{margin-top:10px;padding:9px 10px 11px;border-radius:12px;border:1px solid var(--border-subtle);background:var(--panel-soft);display:flex;flex-direction:column;gap:6px;font-size:12px;}
+  #chatLog{max-height:140px;overflow-y:auto;border-radius:8px;background:rgba(15,23,42,0.7);padding:6px 8px;border:1px solid rgba(148,163,184,0.4);}
+  .msg{margin-bottom:4px;padding:4px 6px;border-radius:6px;font-size:11px;}
+  .msg.user{background:rgba(56,189,248,0.15);align-self:flex-end;}
+  .msg.assistant{background:rgba(52,211,153,0.12);}
+  #chatControls{display:flex;gap:6px;margin-top:4px;}
+  #chatInput{flex:1;}
+</style>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.geometryutil/0.9.3/leaflet.geometryutil.min.js"></script>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">G</div>
+      <div>
+        <div class="topbar-title">Slider comparison</div>
+        <div class="topbar-sub">Load two layers or worlds, then drag the slider to reveal change and analyse drawn areas.</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <a href="index.html">Back to GeoRisk Studio</a>
+    </div>
+  </div>
+
+  <div id="app">
+    <div class="panel">
+      <h2>Compare NASA Maps</h2>
+      <div class="note">Right side is the top map, left side is the bottom map. Both can use different worlds and layers.</div>
+
+      <!-- Left side -->
+      <label>Right - World</label>
+    <select id="leftWorld">
+      <option value="earth">Earth</option>
+      <option value="moon">Moon</option>
+      <option value="mars">Mars</option>
+      <option value="custom">Custom</option>
+    </select>
+    <label>Right - Layer</label>
+    <input id="leftSearch" placeholder="Search (MODIS, VIIRS...)" />
+    <div id="leftResults" class="search-results"></div>
+    <label id="leftDateLabel">Right - Date</label>
+    <input id="leftDate" type="date"/>
+
+      <!-- Right side -->
+      <label style="margin-top:12px">Left - World</label>
+    <select id="rightWorld">
+      <option value="earth">Earth</option>
+      <option value="moon">Moon</option>
+      <option value="mars">Mars</option>
+      <option value="custom">Custom</option>
+    </select>
+    <label>Left - Layer</label>
+    <input id="rightSearch" placeholder="Search (MODIS, VIIRS...)" />
+    <div id="rightResults" class="search-results"></div>
+    <label id="rightDateLabel">Left - Date</label>
+    <input id="rightDate" type="date"/>
+
+      <!-- Custom tiles -->
+      <label style="margin-top:12px">Custom tile URL</label>
+    <input id="customTile" placeholder="https://.../{z}/{x}/{y}.png" />
+
+      <button id="loadBoth" class="btn" style="margin-top:10px">Load Selected</button>
+      <button id="resetView" class="ghost" style="margin-top:6px">Reset View</button>
+
+      <a class="home" href="index.html">← Back to GeoRisk landing</a>
+
+      <div class="analysis-panel">
+        <div class="analysis-title">Area analysis &amp; future risk</div>
+        <div id="riskSummary">Draw and click a shape on either map to see a qualitative risk score.</div>
+        <div id="riskDetails" class="analysis-detail"></div>
+      </div>
+
+      <div class="assistant">
+        <div class="analysis-title">AI Disaster Assistant</div>
+        <div id="chatLog"></div>
+        <div id="chatControls">
+          <input id="chatInput" type="text" placeholder="Ask about this comparison, e.g. 'Where is risk increasing?'" />
+          <button id="chatSend" class="btn" style="width:auto;padding-inline:10px;">Ask</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="mapwrap">
+      <div id="map"></div>
+      <div id="mapTop"></div>
+
+      <div class="compare-ui" id="compareUI" style="display:none">
+        <span>Compare</span>
+        <input id="slider" type="range" min="0" max="100" value="50" />
+        <span id="sliderValue">50%</span>
+      </div>
+      <div id="coords"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- Fallback lists ---------------- */
+// Curated layers that are known to work with NASA GIBS / Trek tiles
+const fallbackEarth = [
+  { id: "VIIRS_NOAA20_CorrectedReflectance_TrueColor", title: "VIIRS NOAA-20 True Color (Optical)" },
+  { id: "MODIS_Terra_CorrectedReflectance_Bands721", title: "False Color (Vegetation) – MODIS Terra Bands 7-2-1" },
+  { id: "MODIS_Terra_Aerosol", title: "Atmosphere Dust (Aerosol Optical Depth, MODIS Terra)" },
+  { id: "MODIS_Aqua_L2_Chlorophyll_A_v2018.0_STD", title: "Ocean Chlorophyll (MODIS Aqua)" },
+  { id: "VIIRS_SNPP_DayNightBand_At_Sensor_Radiance", title: "Nighttime Lights (VIIRS Radiance)" }
+];
+const moonList = [
+  { id:"LROC_WAC_Mosaic_Global_303ppd", title:"LROC WAC Global Mosaic", url:"https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd/{z}/{x}/{y}.jpg" },
+  { id:"LRO_WAC_Mosaic_Global_100ppd", title:"LRO Color Shaded Relief", url:"https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_100ppd/{z}/{x}/{y}.jpg" }
+];
+const marsList = [
+  { id:"Mars_Viking_MDIM21_ClrMosaic_global_232m", title:"Viking Global Mosaic", url:"https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/{z}/{x}/{y}.jpg" },
+  { id:"Mars_MGS_MOLA_Hillshade_global_463m", title:"MOLA Hillshade", url:"https://trek.nasa.gov/tiles/Mars/EQ/Mars_MGS_MOLA_Hillshade_global_463m/{z}/{x}/{y}.jpg" }
+];
+
+/* ---------------- Maps ---------------- */
+const map = L.map('map', { center:[20,-30], zoom:2 });
+const mapTop = L.map('mapTop', { center:[20,-30], zoom:2, zoomControl:false, attributionControl:false });
+L.control.scale({position:'bottomright', imperial:false}).addTo(map);
+L.control.scale({position:'bottomright', imperial:false}).addTo(mapTop);
+
+const drawnItemsLeft = new L.FeatureGroup(); map.addLayer(drawnItemsLeft);
+const drawnItemsRight = new L.FeatureGroup(); mapTop.addLayer(drawnItemsRight);
+
+let leftLayer=null, rightLayer=null;
+let currentMetaLeft=null, currentMetaRight=null;
+let lastContext = null;
+
+/* ---------------- Draw Controls ---------------- */
+const drawControlLeft = new L.Control.Draw({
+  draw: { polygon:{allowIntersection:false, shapeOptions:{color:"#00FFFF"}}, rectangle:{shapeOptions:{color:"#FFD700"}}, circle:{shapeOptions:{color:"#00FF00"}}, polyline:{shapeOptions:{color:"#FF00FF"}}, marker:true },
+  edit: { featureGroup: drawnItemsLeft }
+});
+map.addControl(drawControlLeft);
+
+const drawControlRight = new L.Control.Draw({
+  draw: { polygon:{allowIntersection:false, shapeOptions:{color:"#00FFFF"}}, rectangle:{shapeOptions:{color:"#FFD700"}}, circle:{shapeOptions:{color:"#00FF00"}}, polyline:{shapeOptions:{color:"#FF00FF"}}, marker:true },
+  edit: { featureGroup: drawnItemsRight }
+});
+mapTop.addControl(drawControlRight);
+
+/* ---------------- Draw Events + analysis ---------------- */
+function attachAnalysisToLayer(layer, side){
+  if(!(layer instanceof L.Polygon || layer instanceof L.Rectangle)) return;
+  layer.on("click", function(){
+    analyzeDrawnArea(layer, side);
+  });
+}
+
+function setupDrawEvents(mapInstance, featureGroup, side){
+  mapInstance.on(L.Draw.Event.CREATED, function(event){
+    const layer = event.layer;
+    featureGroup.addLayer(layer);
+    let label = prompt("Enter label for this feature:", "My Label");
+    if(label){
+      if(event.layerType==="marker"){
+        layer.bindPopup(label).openPopup();
+      } else {
+        const center = layer.getBounds().getCenter();
+        L.marker(center,{icon:L.divIcon({className:"country-label", html:label})}).addTo(featureGroup);
+        if(layer instanceof L.Polygon || layer instanceof L.Rectangle){
+          const area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+          layer.bindPopup(`Label: ${label}<br>Area: ${area.toFixed(2)} m²`).openPopup();
+        }
+      }
+    }
+    attachAnalysisToLayer(layer, side);
+  });
+}
+setupDrawEvents(map, drawnItemsLeft, "left");
+setupDrawEvents(mapTop, drawnItemsRight, "right");
+
+/* ---------------- Mouse Coordinates ---------------- */
+const coordBox = document.getElementById('coords');
+map.on('mousemove', e=>coordBox.textContent=`Lat: ${e.latlng.lat.toFixed(3)}, Lng: ${e.latlng.lng.toFixed(3)}`);
+mapTop.on('mousemove', e=>coordBox.textContent=`Lat: ${e.latlng.lat.toFixed(3)}, Lng: ${e.latlng.lng.toFixed(3)}`);
+
+/* ---------------- Country borders ---------------- */
+function addBorders(mapInstance){
+  fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
+  .then(r=>r.json())
+  .then(data=>{ L.geoJSON(data,{style:{color:"#00ffff",weight:1,fillOpacity:0}}).addTo(mapInstance); });
+}
+addBorders(map); addBorders(mapTop);
+
+/* ---------------- Labels ---------------- */
+const labelLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap, © CARTO' });
+labelLayer.addTo(map); labelLayer.addTo(mapTop);
+
+const layerScales = {
+  "MODIS_Terra_CorrectedReflectance_Bands721": {
+    name:"Vegetation",
+    colors:["#004400","#00FF00","#AAFFAA"],
+    values:[0, 50, 100] // numeric scale
+  },
+  "MODIS_Terra_Aerosol": {
+    name:"Dust & Aerosols",
+    colors:["#FFFFE0","#FFD700","#FF8C00","#FF0000"],
+    values:[0.0, 0.3, 0.6, 1.0]
+  },
+  "MODIS_Aqua_L2_Chlorophyll_A_v2018.0_STD": {
+    name:"Ocean Chlorophyll",
+    colors:["#001970","#0066FF","#00FF00","#FFFF00","#FF6600","#FF0000"],
+    values:[20, 10, 5, 1, 0.1, 0.01]
+  },
+  "VIIRS_NOAA20_CorrectedReflectance_TrueColor": {
+    name:"Optical True Color",
+    colors:[],
+    values:[]
+  },
+  "VIIRS_SNPP_DayNightBand_At_Sensor_Radiance": {
+    name:"Night Lights",
+    colors:["#AAAAAA","#FFFFFF"],
+    values:[0, 1000] // radiance value
+  }
+};
+
+
+function addLegend(mapInstance, layerId, position){
+  const legend = L.control({position:position});
+  legend.onAdd = function(){
+    const div = L.DomUtil.create('div','info legend');
+    div.style.background = "white";
+    div.style.padding = "6px";
+    div.style.borderRadius = "6px";
+    div.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+    const scale = layerScales[layerId];
+    if(scale && scale.colors.length>0){
+      div.innerHTML = `<b>${scale.name}</b><br>`;
+      scale.colors.forEach((c,i)=>{
+        const value = scale.values[i] !== undefined ? scale.values[i] : "";
+        div.innerHTML += `<i style="background:${c};width:18px;height:18px;display:inline-block;margin-right:4px"></i> ${value}<br>`;
+      });
+    } else { div.innerHTML="<b>No legend available</b>"; }
+    return div;
+  };
+  legend.addTo(mapInstance);
+  return legend;
+}
+
+
+/* ---------------- Sync Maps ---------------- */
+function syncMaps(a,b){ a.on('move zoom', ()=>{ if(!b._moving){ b._moving=true; b.setView(a.getCenter(),a.getZoom(),{animate:false}); b._moving=false; }});}
+syncMaps(map,mapTop); syncMaps(mapTop,map);
+
+/* ---------------- List Rendering ---------------- */
+function listFor(world, query){
+  const q = (query||"").toLowerCase();
+  let list = [];
+  if(world==="earth") list = fallbackEarth;
+  else if(world==="moon") list = moonList;
+  else if(world==="mars") list = marsList;
+  if(q) list = list.filter(l => (l.title||"").toLowerCase().includes(q) || l.id.toLowerCase().includes(q));
+  return list;
+}
+function renderList(side){
+  const world = (side==='left'? leftWorld.value : rightWorld.value);
+  const query = (side==='left'? leftSearch.value : rightSearch.value);
+  const target = (side==='left'? leftResults : rightResults);
+  target.innerHTML="";
+  listFor(world, query).forEach(item=>{
+    const d=document.createElement("div");
+    d.className="result"; d.textContent=item.title;
+    d.onclick=()=>{ target.dataset.selected=JSON.stringify(item); [...target.querySelectorAll('.result')].forEach(x=>x.style.background=""); d.style.background="#d0e9ff"; };
+    target.appendChild(d);
+  });
+}
+
+/* ---------------- Toggle Date ---------------- */
+function toggleDateField(side){
+  const world = (side==='left'? leftWorld.value : rightWorld.value);
+  const lbl = (side==='left'? leftDateLabel : rightDateLabel);
+  const inp = (side==='left'? leftDate : rightDate);
+  if(world==='earth'){ lbl.style.display="block"; inp.style.display="block"; } else { lbl.style.display="none"; inp.style.display="none"; }
+}
+
+/* ---------------- Event Listeners ---------------- */
+leftWorld.onchange = ()=>{ renderList('left'); toggleDateField('left'); };
+rightWorld.onchange = ()=>{ renderList('right'); toggleDateField('right'); };
+leftSearch.oninput = ()=>renderList('left');
+rightSearch.oninput = ()=>renderList('right');
+renderList('left'); renderList('right'); toggleDateField('left'); toggleDateField('right');
+
+/* ---------------- Load Selected ---------------- */
+function buildEarthUrl(layerId, date){
+  const epsg4326Layers = new Set([
+    "MODIS_Terra_Aerosol",
+    "MODIS_Aqua_L2_Chlorophyll_A_v2018.0_STD",
+    "VIIRS_SNPP_DayNightBand_At_Sensor_Radiance"
+  ]);
+  if (epsg4326Layers.has(layerId)) {
+    return `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/${layerId}/default/${date}/250m/{z}/{y}/{x}.jpg`;
+  }
+  return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layerId}/default/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`;
+}
+function loadSelected(side){
+  const resultsEl = (side==='left'? leftResults : rightResults);
+  const world = (side==='left'? leftWorld.value : rightWorld.value);
+  const sel = resultsEl.dataset.selected? JSON.parse(resultsEl.dataset.selected):null;
+  const date = (side==='left'? leftDate.value : rightDate.value);
+  const custom = document.getElementById('customTile').value.trim();
+  let layer;
+  if(world==='custom'){ if(!custom){alert("Enter custom URL"); return;} layer=L.tileLayer(custom,{maxZoom:12}); }
+  else if(world==='earth'){
+    if(!sel||!date){alert("Pick layer + date"); return;}
+    const epsg4326Layers = new Set([
+      "MODIS_Terra_Aerosol",
+      "MODIS_Aqua_L2_Chlorophyll_A_v2018.0_STD",
+      "VIIRS_SNPP_DayNightBand_At_Sensor_Radiance"
+    ]);
+    const mz = epsg4326Layers.has(sel.id) ? 8 : 9;
+    layer=L.tileLayer(buildEarthUrl(sel.id,date),{maxZoom:mz, attribution:"NASA GIBS", crossOrigin:true});
+  }
+  else if(world==='moon'){ if(!sel||!sel.url){alert("Pick a Moon layer"); return;} layer=L.tileLayer(sel.url,{maxZoom:8, attribution:"NASA Moon Trek"}); }
+  else if(world==='mars'){ if(!sel||!sel.url){alert("Pick a Mars layer"); return;} layer=L.tileLayer(sel.url,{maxZoom:8, attribution:"NASA Mars Trek"}); }
+
+  const meta = sel ? { id: sel.id, title: sel.title, date, world } : { id: world==="custom" ? "custom" : "unknown", title: world==="custom" ? "Custom tiles" : "Unknown layer", date, world };
+
+  if(side==='left'){
+    if(leftLayer) map.removeLayer(leftLayer);
+    leftLayer=layer.addTo(map);
+    currentMetaLeft = meta;
+  } else {
+    if(rightLayer) mapTop.removeLayer(rightLayer);
+    rightLayer=layer.addTo(mapTop);
+    currentMetaRight = meta;
+  }
+
+  if(leftLayer && rightLayer) compareUI.style.display="flex";
+}
+
+// Default date inputs to yesterday so GIBS tiles exist.
+(() => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const iso = d.toISOString().slice(0, 10);
+  if (leftDate && !leftDate.value) leftDate.value = iso;
+  if (rightDate && !rightDate.value) rightDate.value = iso;
+})();
+
+/* ---------------- Simple qualitative risk model ---------------- */
+function estimateDisasterRisk({ layerId, avgR, avgG, avgB }) {
+  let score = 25;
+  const drivers = [];
+
+  if (typeof avgR === "number" && typeof avgG === "number" && typeof avgB === "number") {
+    const sum = avgR + avgG + avgB || 1;
+    const greenRatio = avgG / sum;
+    const redRatio = avgR / sum;
+
+    if (layerId && layerId.includes("Bands721")) {
+      if (greenRatio < 0.25) {
+        score += 55;
+        drivers.push("very low vegetation (drought / erosion risk)");
+      } else if (greenRatio < 0.45) {
+        score += 35;
+        drivers.push("moderate vegetation stress");
+      } else {
+        score += 10;
+        drivers.push("healthy vegetation cover (buffer against hazards)");
+      }
+    } else if (layerId && layerId.includes("Aerosol")) {
+      const dustIntensity = redRatio;
+      if (dustIntensity > 0.65) {
+        score += 55;
+        drivers.push("very high dust / aerosol loading (air-quality and storm risk)");
+      } else if (dustIntensity > 0.4) {
+        score += 35;
+        drivers.push("elevated dust / aerosol levels");
+      } else {
+        score += 10;
+        drivers.push("generally clear atmosphere");
+      }
+    } else if (layerId && layerId.includes("Chlorophyll")) {
+      const chlorRatio = avgG / 255;
+      if (chlorRatio > 0.65) {
+        score += 40;
+        drivers.push("very high chlorophyll (potential harmful bloom conditions)");
+      } else if (chlorRatio > 0.35) {
+        score += 25;
+        drivers.push("moderately elevated chlorophyll");
+      } else {
+        score += 10;
+        drivers.push("low / normal chlorophyll");
+      }
+    } else if (layerId && (layerId.includes("Radiance") || layerId.toLowerCase().includes("night"))) {
+      const brightness = (avgR + avgG + avgB) / (3 * 255);
+      if (brightness > 0.7) {
+        score += 35;
+        drivers.push("dense urban lighting (heat / infrastructure exposure)");
+      } else if (brightness > 0.4) {
+        score += 20;
+        drivers.push("moderately lit settlements");
+      } else {
+        score += 5;
+        drivers.push("sparsely populated or dark area");
+      }
+    }
+  } else if (layerId) {
+    if (layerId.includes("Aerosol")) {
+      score += 35;
+      drivers.push("aerosol / dust layer selected");
+    } else if (layerId.includes("Bands721")) {
+      score += 25;
+      drivers.push("vegetation false-color layer selected");
+    } else if (layerId.includes("Chlorophyll")) {
+      score += 25;
+      drivers.push("ocean chlorophyll layer selected");
+    } else if (layerId.includes("Radiance") || layerId.toLowerCase().includes("night")) {
+      score += 20;
+      drivers.push("night-time lights layer selected");
+    }
+  }
+
+  if (score > 100) score = 100;
+  if (score < 0) score = 0;
+
+  let level = "Low";
+  if (score >= 66) level = "High";
+  else if (score >= 33) level = "Medium";
+
+  const narrativeBase = "This is a qualitative, exploratory risk score only – it does not replace official hazard forecasts.";
+  const narrativeDrivers = drivers.length ? "Main drivers: " + drivers.join(", ") + "." : "Drivers could not be identified from the current layer.";
+  const narrative = `${narrativeDrivers} ${narrativeBase}`;
+
+  return { score, level, drivers, narrative };
+}
+
+function updateAnalysisPanel(context){
+  const summaryEl = document.getElementById("riskSummary");
+  const detailsEl = document.getElementById("riskDetails");
+  if (!summaryEl || !detailsEl || !context) return;
+  lastContext = context;
+  const scoreText = Math.round(context.risk.score);
+  summaryEl.innerHTML = `${context.title}: <b>${context.risk.level} risk</b> (score ${scoreText}/100)`;
+
+  const sideLine = `<b>Side:</b> ${context.sideLabel}`;
+  const layerLine = `<br><b>Layer:</b> ${context.layerTitle} <span style="opacity:0.8;">(${context.layerId})</span>`;
+  const dateLine = context.date ? `<br><b>Date:</b> ${context.date}` : "";
+  const locLine = context.center
+    ? `<br><b>Location:</b> ${context.center.lat.toFixed(3)}, ${context.center.lng.toFixed(3)}`
+    : "";
+
+  detailsEl.innerHTML = `${sideLine}${layerLine}${dateLine}${locLine}<br><br>${context.risk.narrative}`;
+}
+
+function appendAssistantMessage(role, text) {
+  const log = document.getElementById("chatLog");
+  if (!log) return;
+  const div = document.createElement("div");
+  div.className = "msg " + (role === "user" ? "user" : "assistant");
+  div.innerHTML = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function buildLocalAssistantAnswer(question, context) {
+  const q = (question || "").toLowerCase();
+  const base = "I do not have a full numerical forecast model here, but I can help interpret differences between the two layers.";
+
+  if (!context || !context.risk) {
+    return `${base} Draw an area on one of the maps and click it – I will then use the selected layer and date to give a more tailored explanation of potential risks.`;
+  }
+
+  const { risk, sideLabel, layerTitle, date, center, otherSideLayerTitle } = context;
+  const where = center ? `around ${center.lat.toFixed(2)}, ${center.lng.toFixed(2)}` : "in this area";
+  let focus = "environmental stress signals and exposure.";
+
+  if (context.layerId && context.layerId.includes("Bands721")) {
+    focus = "vegetation health, drought, wildfire potential and erosion.";
+  } else if (context.layerId && context.layerId.includes("Aerosol")) {
+    focus = "dust and aerosol loading, which is linked to air-quality and dust-storm risk.";
+  } else if (context.layerId && context.layerId.includes("Chlorophyll")) {
+    focus = "ocean productivity and potential harmful algal blooms.";
+  } else if (context.layerId && (context.layerId.includes("Radiance") || context.layerId.toLowerCase().includes("night"))) {
+    focus = "night-time exposure of cities and infrastructure.";
+  }
+
+  let horizon = "in the coming weeks";
+  if (q.includes("month") || q.includes("30")) horizon = "over roughly the next month";
+  if (q.includes("year") || q.includes("12 months")) horizon = "over the coming year (very approximate)";
+
+  const sidePhrase = sideLabel === "Right" ? "top/right" : "bottom/left";
+
+  return `
+    I’m analysing the <b>${sidePhrase}</b> map using layer <b>${layerTitle}</b> on <b>${date || "the selected date"}</b> ${where}.
+    <br><br>
+    The heuristic risk score is <b>${risk.level}</b> (${Math.round(risk.score)}/100). ${context.risk.narrative}
+    <br><br>
+    This layer is especially good at highlighting <b>${focus}</b>
+    ${otherSideLayerTitle ? `<br><br>Compared with the other side (<b>${otherSideLayerTitle}</b>), focus on where patterns diverge the most along the slider – those are the zones where future change ${horizon} may be more significant.` : ""}
+    <br><br>
+    For operational forecasts ${horizon}, you would normally combine:
+    <ul>
+      <li>Time series of both layers (trend and anomalies vs climatology).</li>
+      <li>Weather forecasts (precipitation, wind, temperature) from models such as GEOS or GFS.</li>
+      <li>Local vulnerability data (population, infrastructure and land use).</li>
+    </ul>
+    Use this slider view as an early-warning or comparison tool, not as a stand‑alone forecast.
+  `;
+}
+
+async function askAssistant(question) {
+  const q = (question || "").trim();
+  if (!q) return;
+  appendAssistantMessage("user", q);
+
+  try {
+    const res = await fetch("/api/geo-assistant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: q, context: lastContext, mode: "slider-compare" })
+    });
+    if (!res.ok) throw new Error("Assistant HTTP " + res.status);
+    const data = await res.json();
+    const answer = data.answer || data.message || "";
+    if (answer) {
+      appendAssistantMessage("assistant", answer);
+      return;
+    }
+    throw new Error("Empty answer");
+  } catch (err) {
+    console.warn("Assistant backend not available, using local explanation.", err);
+    const fallback = buildLocalAssistantAnswer(q, lastContext);
+    appendAssistantMessage("assistant", fallback);
+  }
+}
+
+function analyzeDrawnArea(layer, side){
+  const bounds = layer.getBounds();
+  const center = bounds.getCenter();
+  const meta = side === "right" ? currentMetaRight : currentMetaLeft;
+  if (!meta) return;
+
+  const risk = estimateDisasterRisk({
+    layerId: meta.id,
+    avgR: null,
+    avgG: null,
+    avgB: null
+  });
+
+  const context = {
+    title: layer.labelText || "Selected area",
+    sideLabel: side === "right" ? "Right" : "Left",
+    center,
+    bounds,
+    layerId: meta.id,
+    layerTitle: meta.title,
+    date: meta.date,
+    risk,
+    otherSideLayerTitle: side === "right" ? (currentMetaLeft && currentMetaLeft.title) : (currentMetaRight && currentMetaRight.title)
+  };
+
+  updateAnalysisPanel(context);
+}
+
+/* ---------------- Assistant controls ---------------- */
+const chatInput = document.getElementById("chatInput");
+const chatSend = document.getElementById("chatSend");
+if (chatInput && chatSend) {
+  chatSend.addEventListener("click", function () {
+    askAssistant(chatInput.value);
+    chatInput.value = "";
+    chatInput.focus();
+  });
+  chatInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      chatSend.click();
+    }
+  });
+}
+
+/* ---------------- Buttons ---------------- */
+document.getElementById('loadBoth').onclick=()=>{ loadSelected('left'); loadSelected('right'); };
+document.getElementById('resetView').onclick=()=>{ map.setView([20,-30],2); mapTop.setView([20,-30],2); };
+slider.oninput=(e)=>{ const v=+e.target.value; mapTop.getContainer().style.clipPath=`inset(0 ${100-v}% 0 0)`; sliderValue.textContent=v+"%"; };
+</script>
+</body>
+</html>

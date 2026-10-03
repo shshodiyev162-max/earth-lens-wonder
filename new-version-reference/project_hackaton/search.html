@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Leaflet Draw CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+
+<head>
+  <meta charset="UTF-8" />
+  <title>GeoRisk Studio – Search &amp; Analysis</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg: radial-gradient(circle at top, #020617 0, #020617 38%, #020617 100%);
+      --shell: #020617;
+      --panel: rgba(15,23,42,0.98);
+      --panel-soft: rgba(15,23,42,0.9);
+      --stroke-subtle: rgba(148,163,184,0.45);
+      --accent: #38bdf8;
+      --accent-soft: rgba(56,189,248,0.12);
+      --danger: #fb7185;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+    }
+    .shell {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      height: 100vh;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.1), transparent 55%),
+                  radial-gradient(circle at top right, rgba(52,211,153,0.12), transparent 60%),
+                  var(--shell);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      border-bottom: 1px solid rgba(15,23,42,0.8);
+      background: linear-gradient(to right, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
+      backdrop-filter: blur(18px);
+    }
+    .topbar-left {
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .topbar-logo {
+      width:28px;
+      height:28px;
+      border-radius:10px;
+      background:conic-gradient(from 160deg,#22c55e,#38bdf8,#6366f1,#22c55e);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:14px;
+      font-weight:700;
+      color:#020617;
+    }
+    .topbar-title {
+      font-size:14px;
+      font-weight:600;
+    }
+    .topbar-sub {
+      font-size:11px;
+      color:var(--text-muted);
+    }
+    .topbar-right a {
+      font-size:11px;
+      color:var(--text-muted);
+      text-decoration:none;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.45);
+      background:rgba(15,23,42,0.85);
+    }
+    .layout {
+      display:grid;
+      grid-template-columns: minmax(0, 3fr) minmax(280px, 360px);
+      min-height: 0;
+      height: 100%;
+    }
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) auto;
+      }
+    }
+    .map-wrapper {
+      position: relative;
+      min-height: 0;
+      height: 100%;
+    }
+    #controls {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 10px 12px;
+      background: rgba(15,23,42,0.96);
+      border-radius: 14px;
+      border: 1px solid var(--stroke-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      box-shadow: 0 18px 42px rgba(0,0,0,0.65);
+      z-index: 1200;
+    }
+    select, input, button {
+      padding: 6px;
+      border-radius: 4px;
+      border: none;
+    }
+    #controls label {
+      font-size: 11px;
+      color: var(--text-muted);
+      display:flex;
+      flex-direction:column;
+      gap:3px;
+    }
+    #controls input,
+    #controls select {
+      min-width: 130px;
+      font-size: 12px;
+      border-radius: 999px;
+      border:1px solid var(--stroke-subtle);
+      background: #020617;
+      color: var(--text-main);
+      padding: 6px 10px;
+    }
+    button {
+      background: linear-gradient(to right,#38bdf8,#6366f1);
+      color: #020617;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight:500;
+      border-radius:999px;
+      padding:6px 12px;
+    }
+    button:hover {
+      opacity:0.9;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+    }
+    #searchBox, #coordLat, #coordLon {
+      min-width: 130px;
+      font-size:12px;
+    }
+    #coordDisplay {
+      background: rgba(0, 0, 0, 0.6);
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .country-label {
+      font-size: 12px;
+      color: #00ffff;
+      text-shadow: 0 0 3px #000;
+      font-weight: bold;
+    }
+    .map-label {
+      color: #ffcc00;
+      font-weight: bold;
+      text-shadow: 0 0 4px #000;
+    }
+    .legend {
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    /* Insight + AI assistant side panel */
+    .side-panel {
+      background: var(--panel);
+      border-left: 1px solid rgba(15,23,42,0.9);
+      box-shadow: -18px 0 40px rgba(0,0,0,0.6);
+      padding: 14px 14px 16px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:0;
+    }
+    #insightPanel {
+      border-radius: 14px;
+      border:1px solid var(--stroke-subtle);
+      padding: 10px 11px 12px;
+      font-size: 13px;
+      background: var(--panel-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+    #insightPanel h3 {
+      margin: 0;
+      font-size: 14px;
+    }
+    #riskSummary {
+      font-weight: bold;
+      color: #e5e7eb;
+    }
+    #riskDetails {
+      font-size: 12px;
+      color: #cbd5f5;
+    }
+    #chatLog {
+      flex: 1;
+      overflow-y: auto;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.7);
+      padding: 6px 8px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      max-height: 210px;
+    }
+    .msg {
+      margin-bottom: 4px;
+      padding: 4px 6px;
+      border-radius: 6px;
+    }
+    .msg.user {
+      background: rgba(56, 189, 248, 0.15);
+      align-self: flex-end;
+    }
+    .msg.assistant {
+      background: rgba(52, 211, 153, 0.12);
+    }
+    #chatControls {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    #chatInput {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #4b5563;
+      font-size: 13px;
+    }
+    #chatSend {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      background: #22c55e;
+      color: #0b0c10;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    #chatSend:hover {
+      background: #4ade80;
+    }
+    @media (max-width: 900px) {
+      #insightPanel {
+        position: static;
+        width: 100%;
+        max-height: 260px;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-logo">G</div>
+        <div>
+          <div class="topbar-title">Search &amp; Analyse</div>
+          <div class="topbar-sub">Choose a layer, date and place – then draw an area to inspect greenery, dust, chlorophyll or lights.</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <a href="index.html">Back to GeoRisk Studio</a>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="map-wrapper">
+        <div id="controls">
+          <label>World
+            <select id="target">
+              <option value="earth">Earth</option>
+              <option value="moon">Moon</option>
+              <option value="mars">Mars</option>
+            </select>
+          </label>
+
+          <label>Layer
+            <select id="layer"></select>
+          </label>
+
+          <label id="dateLabel">Date
+    <input type="date" id="dateInput" />
+          </label>
+
+          <input type="text" id="searchBox" placeholder="Search place…" />
+          <button onclick="searchLocation()">Go</button>
+
+          <input type="number" step="any" id="coordLat" placeholder="Lat" />
+          <input type="number" step="any" id="coordLon" placeholder="Lon" />
+          <button onclick="goToCoordinates()">Center</button>
+
+          <button onclick="loadLayer()">Reload layer</button>
+        </div>
+
+        <div id="map"></div>
+        <div id="coordDisplay">Lat: -- | Lon: --</div>
+      </div>
+
+      <aside class="side-panel">
+        <div id="insightPanel">
+          <h3>Area Insights &amp; Future Risk</h3>
+          <div id="riskSummary">Draw an area or click the map to see a quick risk estimate.</div>
+          <div id="riskDetails"></div>
+        </div>
+
+        <div id="assistantPanel" style="border-radius:14px;border:1px solid var(--stroke-subtle);padding:10px 11px 12px;background:var(--panel-soft);display:flex;flex-direction:column;gap:8px;min-height:0;">
+          <h3>AI Disaster Assistant</h3>
+          <div id="chatLog"></div>
+          <div id="chatControls">
+            <input id="chatInput" type="text" placeholder="Ask about risk here, e.g. 'What hazards in the next month?'" />
+            <button id="chatSend">Ask</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+
+<script>
+/* ======================= YOUR ORIGINAL CONFIG ======================= */
+const layers = {
+  earth: {
+    "VIIRS NOAA-20 True Color (Optical)": "VIIRS_NOAA20_CorrectedReflectance_TrueColor",
+    "Vegetation / Infrared (MODIS Terra, Bands 7-2-1)": "MODIS_Terra_CorrectedReflectance_Bands721",
+    "Atmosphere Dust (Aerosol Optical Depth, MODIS Terra)": "MODIS_Terra_Aerosol",
+    "Ocean Chlorophyll (MODIS Aqua)": "MODIS_Aqua_L2_Chlorophyll_A_v2018.0_STD",
+    "Nighttime Lights (VIIRS Radiance)": "VIIRS_SNPP_DayNightBand_At_Sensor_Radiance"
+  },
+  moon: {
+    "LROC WAC Global Mosaic": "https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd/{z}/{x}/{y}.jpg",
+    "LRO Color Shaded Relief": "https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_100ppd/{z}/{x}/{y}.jpg"
+  },
+  mars: {
+    "Viking Global Mosaic": "https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/{z}/{x}/{y}.jpg",
+    "MOLA Hillshade": "https://trek.nasa.gov/tiles/Mars/EQ/Mars_MGS_MOLA_Hillshade_global_463m/{z}/{x}/{y}.jpg"
+  }
+};
+
+const map = L.map("map").setView([0, 0], 2);
+
+// ===== FIX #4: add scale bar right after map init =====
+L.control.scale({ position: "bottomleft", metric: true }).addTo(map);
+
+let currentLayer, bordersLayer, labelLayer, legendControl, lastContext = null;
+
+/* ----------------- Populate layer options ----------------- */
+function updateLayerOptions(target) {
+  const layerSelect = document.getElementById("layer");
+  layerSelect.innerHTML = "";
+  for (let name in layers[target]) {
+    const opt = document.createElement("option");
+    opt.value = layers[target][name];
+    opt.textContent = name;
+    layerSelect.appendChild(opt);
+  }
+  document.getElementById("dateLabel").style.display = (target === "earth") ? "inline" : "none";
+}
+updateLayerOptions("earth");
+
+/* ----------------- Build GIBS URLs ----------------- */
+function buildEarthUrl(layerId, date) {
+  const epsg4326Layers = [
+    "MODIS_Terra_Aerosol",
+    "MODIS_Aqua_L2_Chlorophyll_A_v2018.0_STD",
+    "VIIRS_SNPP_DayNightBand_At_Sensor_Radiance"
+  ];
+  if (epsg4326Layers.includes(layerId)) {
+    return `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/${layerId}/default/${date}/250m/{z}/{y}/{x}.jpg`;
+  }
+  return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layerId}/default/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`;
+}
+
+/* ----------------- Load selected map layer ----------------- */
+function loadLayer() {
+  const target = document.getElementById("target").value;
+  const layerId = document.getElementById("layer").value;
+  const date = document.getElementById("dateInput").value;
+
+  if (currentLayer) map.removeLayer(currentLayer);
+
+  let url;
+  if (target === "earth") {
+    url = buildEarthUrl(layerId, date);
+  } else {
+    url = layers[target][Object.keys(layers[target]).find(k => layers[target][k] === layerId)];
+  }
+
+  currentLayer = L.tileLayer(url, { maxZoom: target === "earth" ? 9 : 8, crossOrigin: true }).addTo(map);
+  updateLegend(layerId);
+
+  // Lightweight backfill: if a chosen Earth date has no tiles, automatically try earlier days.
+  if (target === "earth") {
+    let loaded = 0;
+    let errors = 0;
+    let backfills = 0;
+    const maxBackfills = 7;
+
+    const onLoad = () => { loaded++; };
+    const onErr = () => {
+      errors++;
+      if (loaded > 0) return;
+      if (errors < 5) return;
+      if (backfills >= maxBackfills) return;
+
+      const d = new Date((document.getElementById("dateInput").value || date) + "T00:00:00Z");
+      if (isNaN(d)) return;
+      d.setUTCDate(d.getUTCDate() - 1);
+      const iso = d.toISOString().slice(0, 10);
+      document.getElementById("dateInput").value = iso;
+      backfills++;
+      errors = 0;
+      currentLayer.setUrl(buildEarthUrl(layerId, iso));
+    };
+
+    currentLayer.on("tileload", onLoad);
+    currentLayer.on("tileerror", onErr);
+  }
+}
+
+/* ----------------- Legend (Scale Bar) ----------------- */
+function updateLegend(layerId) {
+  if (legendControl) { map.removeControl(legendControl); legendControl = null; }
+
+  const legends = {
+    "MODIS_Terra_CorrectedReflectance_Bands721": {
+      title: "Vegetation Index (Bands 7-2-1)",
+      colors: [
+        { color: "#004400", label: "Dense vegetation" },
+        { color: "#228B22", label: "Moderate vegetation" },
+        { color: "#7FFF00", label: "Light vegetation" },
+        { color: "#FFFF00", label: "Bare soil" },
+        { color: "#C0C0C0", label: "Urban/rocky" }
+      ]
+    },
+    "MODIS_Aqua_L2_Chlorophyll_A_v2018.0_STD": {
+      title: "Ocean Chlorophyll (mg/m³)",
+      colors: [
+        { color: "#001970", label: "> 20" },
+        { color: "#0066FF", label: "10" },
+        { color: "#00FF00", label: "5" },
+        { color: "#FFFF00", label: "1" },
+        { color: "#FF6600", label: "0.1" },
+        { color: "#FF0000", label: "< 0.01" }
+      ]
+    },
+    "MODIS_Terra_Aerosol": {
+      title: "Aerosol Optical Depth (Dust)",
+      colors: [
+        { color: "#FFFFE0", label: "0.0 (Clear)" },
+        { color: "#FFD700", label: "0.3 (Light Dust)" },
+        { color: "#FF8C00", label: "0.6 (Moderate Dust)" },
+        { color: "#FF0000", label: "1.0 (Heavy Dust)" }
+      ]
+    }
+  };
+
+  const legend = legends[layerId];
+  if (!legend) return;
+
+  legendControl = L.control({ position: "bottomright" });
+  legendControl.onAdd = function () {
+    const div = L.DomUtil.create("div", "legend");
+    div.innerHTML = `<strong>${legend.title}</strong><br>`;
+    legend.colors.forEach(c => {
+      div.innerHTML += `
+        <div style="display:flex;align-items:center;margin:2px 0;">
+          <span style="background:${c.color};width:20px;height:10px;display:inline-block;margin-right:6px;border:1px solid #000;"></span>${c.label}
+        </div>`;
+    });
+    div.style.background = "rgba(0,0,0,0.6)";
+    div.style.color = "#fff";
+    div.style.padding = "8px";
+    div.style.borderRadius = "8px";
+    div.style.fontSize = "12px";
+    return div;
+  };
+  legendControl.addTo(map);
+}
+
+/* ----------------- Simple risk estimation & insight panel ----------------- */
+function estimateDisasterRisk({ layerId, avgR, avgG, avgB }) {
+  let score = 25;
+  const drivers = [];
+
+  if (typeof avgR === "number" && typeof avgG === "number" && typeof avgB === "number") {
+    const sum = avgR + avgG + avgB || 1;
+    const greenRatio = avgG / sum;
+    const redRatio = avgR / sum;
+
+    if (layerId.includes("Bands721")) {
+      if (greenRatio < 0.25) {
+        score += 55;
+        drivers.push("very low vegetation (drought / erosion risk)");
+      } else if (greenRatio < 0.45) {
+        score += 35;
+        drivers.push("moderate vegetation stress");
+      } else {
+        score += 10;
+        drivers.push("healthy vegetation cover (buffer against hazards)");
+      }
+    } else if (layerId.includes("Aerosol")) {
+      const dustIntensity = redRatio;
+      if (dustIntensity > 0.65) {
+        score += 55;
+        drivers.push("very high dust / aerosol loading (air-quality and storm risk)");
+      } else if (dustIntensity > 0.4) {
+        score += 35;
+        drivers.push("elevated dust / aerosol levels");
+      } else {
+        score += 10;
+        drivers.push("generally clear atmosphere");
+      }
+    } else if (layerId.includes("Chlorophyll")) {
+      const chlorRatio = avgG / 255;
+      if (chlorRatio > 0.65) {
+        score += 40;
+        drivers.push("very high chlorophyll (potential harmful bloom conditions)");
+      } else if (chlorRatio > 0.35) {
+        score += 25;
+        drivers.push("moderately elevated chlorophyll");
+      } else {
+        score += 10;
+        drivers.push("low / normal chlorophyll");
+      }
+    } else if (layerId.includes("Radiance") || layerId.toLowerCase().includes("night")) {
+      const brightness = (avgR + avgG + avgB) / (3 * 255);
+      if (brightness > 0.7) {
+        score += 35;
+        drivers.push("dense urban lighting (heat / infrastructure exposure)");
+      } else if (brightness > 0.4) {
+        score += 20;
+        drivers.push("moderately lit settlements");
+      } else {
+        score += 5;
+        drivers.push("sparsely populated or dark area");
+      }
+    }
+  } else {
+    if (layerId.includes("Aerosol")) {
+      score += 35;
+      drivers.push("aerosol / dust layer selected");
+    } else if (layerId.includes("Bands721")) {
+      score += 25;
+      drivers.push("vegetation false-color layer selected");
+    } else if (layerId.includes("Chlorophyll")) {
+      score += 25;
+      drivers.push("ocean chlorophyll layer selected");
+    } else if (layerId.includes("Radiance") || layerId.toLowerCase().includes("night")) {
+      score += 20;
+      drivers.push("night-time lights layer selected");
+    }
+  }
+
+  if (score > 100) score = 100;
+  if (score < 0) score = 0;
+
+  let level = "Low";
+  if (score >= 66) level = "High";
+  else if (score >= 33) level = "Medium";
+
+  const narrativeBase = "This is a qualitative, exploratory risk score only – it does not replace official hazard forecasts.";
+  const narrativeDrivers = drivers.length ? "Main drivers: " + drivers.join(", ") + "." : "Drivers could not be identified from the current layer.";
+  const narrative = `${narrativeDrivers} ${narrativeBase}`;
+
+  return { score, level, drivers, narrative };
+}
+
+function updateRiskPanel(context) {
+  const summaryEl = document.getElementById("riskSummary");
+  const detailsEl = document.getElementById("riskDetails");
+  if (!summaryEl || !detailsEl || !context) return;
+
+  lastContext = context;
+  const scoreText = Math.round(context.risk.score);
+  summaryEl.innerHTML = `${context.title}: <b>${context.risk.level} risk</b> (score ${scoreText}/100)`;
+
+  const layerLine = `<b>Layer:</b> ${context.layerName} <span style="opacity:0.8;">(${context.layerId})</span>`;
+  const dateLine = context.date ? `<br><b>Date:</b> ${context.date}` : "";
+  const locLine = context.center
+    ? `<br><b>Location:</b> ${context.center.lat.toFixed(3)}, ${context.center.lng.toFixed(3)}`
+    : "";
+
+  detailsEl.innerHTML = `
+    ${layerLine}${dateLine}${locLine}
+    <br><br>${context.risk.narrative}
+  `;
+}
+
+function appendAssistantMessage(role, text) {
+  const log = document.getElementById("chatLog");
+  if (!log) return;
+  const div = document.createElement("div");
+  div.className = "msg " + (role === "user" ? "user" : "assistant");
+  div.innerHTML = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function buildLocalAssistantAnswer(question, context) {
+  const q = (question || "").toLowerCase();
+  const base = "I do not have access to a full physics or ML hazard model here, but I can explain how to interpret this map and what to watch for.";
+
+  if (!context || !context.risk) {
+    return `${base} Try drawing an area on the map first – I will then use the current satellite layer and date to give a more tailored explanation of potential risks.`;
+  }
+
+  const { risk, layerName, date, center } = context;
+  const where = center ? `around ${center.lat.toFixed(2)}, ${center.lng.toFixed(2)}` : "in this area";
+  let focus = "";
+
+  if (context.layerId.includes("Bands721")) {
+    focus = "vegetation health and land-surface conditions (drought, wildfire potential, erosion).";
+  } else if (context.layerId.includes("Aerosol")) {
+    focus = "dust and aerosol loading, which is useful for air-quality and dust-storm risk.";
+  } else if (context.layerId.includes("Chlorophyll")) {
+    focus = "ocean productivity and potential harmful algal blooms.";
+  } else if (context.layerId.includes("Radiance") || context.layerId.toLowerCase().includes("night")) {
+    focus = "exposed infrastructure and populated areas visible in night-time lights.";
+  } else {
+    focus = "general environmental stress signals.";
+  }
+
+  let horizon = "in the coming weeks";
+  if (q.includes("month") || q.includes("30")) horizon = "over roughly the next month";
+  if (q.includes("year") || q.includes("12 months")) horizon = "over the coming year (very approximate)";
+
+  return `
+    I’m using the current satellite layer <b>${layerName}</b> on <b>${date || "the selected date"}</b> to reason about conditions ${where}.
+    <br><br>
+    The heuristic risk score is <b>${risk.level}</b> (${Math.round(risk.score)}/100). ${context.risk.narrative}
+    <br><br>
+    This layer is especially good at highlighting <b>${focus}</b> For a more robust forecast ${horizon}, you would normally combine:
+    <ul>
+      <li>Time series of this and related NASA layers (trend, anomalies vs climatology).</li>
+      <li>Weather forecasts (precipitation, temperature, wind) from models such as GEOS or GFS.</li>
+      <li>Local vulnerability data (population, infrastructure, land use, historical events).</li>
+    </ul>
+    Use this view as an early-warning or screening tool, and always compare with official bulletins from meteorological and disaster-management agencies.
+  `;
+}
+
+async function askAssistant(question) {
+  const q = (question || "").trim();
+  if (!q) return;
+  appendAssistantMessage("user", q);
+
+  // Try calling a backend assistant if available, otherwise fall back to a local heuristic explanation.
+  try {
+    const res = await fetch("/api/geo-assistant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: q, context: lastContext })
+    });
+    if (!res.ok) throw new Error("Assistant HTTP " + res.status);
+    const data = await res.json();
+    const answer = data.answer || data.message || "";
+    if (answer) {
+      appendAssistantMessage("assistant", answer);
+      return;
+    }
+    throw new Error("Empty answer");
+  } catch (err) {
+    console.warn("Assistant backend not available, using local explanation.", err);
+    const fallback = buildLocalAssistantAnswer(q, lastContext);
+    appendAssistantMessage("assistant", fallback);
+  }
+}
+
+/* ----------------- Country Borders + Labels ----------------- */
+async function loadCountryBorders() {
+  try {
+    if (bordersLayer) map.removeLayer(bordersLayer);
+    if (labelLayer) map.removeLayer(labelLayer);
+
+    const res = await fetch("https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson");
+    const geoData = await res.json();
+
+    bordersLayer = L.geoJSON(geoData, {
+      style: { color: "#00ffff", weight: 1, fillOpacity: 0 }
+    }).addTo(map);
+
+    labelLayer = L.layerGroup();
+
+    geoData.features.forEach(feature => {
+      const name = feature.properties.ADMIN || feature.properties.name || feature.properties.NAME || "Unknown";
+      let coords = [];
+      if (feature.geometry.type === "Polygon") {
+        coords = feature.geometry.coordinates[0].map(c => [c[1], c[0]]);
+      } else if (feature.geometry.type === "MultiPolygon") {
+        coords = feature.geometry.coordinates[0][0].map(c => [c[1], c[0]]);
+      }
+      if (coords.length > 0) {
+        const center = L.latLngBounds(coords).getCenter();
+        const marker = L.marker(center, {
+          icon: L.divIcon({
+            className: "country-label",
+            html: name,
+            iconSize: [100, 20]
+          })
+        });
+        labelLayer.addLayer(marker);
+      }
+    });
+
+    labelLayer.addTo(map);
+
+    // Hide labels when zoomed out
+    map.on("zoomend", () => {
+      const zoom = map.getZoom();
+      labelLayer.eachLayer(marker => {
+        const el = marker.getElement();
+        if (el) el.style.display = zoom >= 3 ? "block" : "none";
+      });
+    });
+  } catch (err) {
+    console.error("Error loading borders:", err);
+  }
+}
+
+/* ----------------- Click info (place name + layer-based sim) ----------------- */
+map.on("click", async e => {
+  const { lat, lng } = e.latlng;
+  const layerId = document.getElementById("layer").value;
+
+  let placeName = "Unknown location";
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+    const data = await res.json();
+    placeName = data.display_name || placeName;
+  } catch {
+    console.warn("Reverse geocoding failed.");
+  }
+
+  let info = "";
+  if (layerId.includes("Bands721")) {
+    const vegetation = ["Dense vegetation", "Moderate vegetation", "Sparse vegetation", "Bare soil"][Math.floor(Math.random() * 4)];
+    info = `Vegetation Type: <b>${vegetation}</b>`;
+  } else if (layerId.includes("Aerosol")) {
+    const dust = ["Clear", "Light Dust", "Moderate Dust", "Heavy Dust"][Math.floor(Math.random() * 4)];
+    info = `Aerosol Optical Depth: <b>${dust}</b>`;
+  } else if (layerId.includes("Chlorophyll")) {
+    const chl = (Math.random() * 20).toFixed(2);
+    info = `Chlorophyll Level: <b>${chl} mg/m³</b>`;
+  } else if (layerId.includes("Night") || layerId.includes("Radiance")) {
+    const light = ["Very bright city", "Urban area", "Suburban", "Dark rural"][Math.floor(Math.random() * 4)];
+    info = `Light Intensity: <b>${light}</b>`;
+  } else {
+    info = "No scientific data available for this layer.";
+  }
+
+  const risk = estimateDisasterRisk({
+    layerId,
+    avgR: null,
+    avgG: null,
+    avgB: null
+  });
+
+  updateRiskPanel({
+    title: placeName,
+    center: e.latlng,
+    bounds: null,
+    layerId,
+    layerName: document.getElementById("layer").selectedOptions[0]?.textContent || layerId,
+    date: document.getElementById("dateInput").value,
+    metrics: null,
+    risk
+  });
+
+  L.popup()
+    .setLatLng([lat, lng])
+    .setContent(`<b>${placeName}</b><br>Lat: ${lat.toFixed(4)}, Lon: ${lng.toFixed(4)}<br>${info}`)
+    .openOn(map);
+});
+
+/* ----------------- Target switcher ----------------- */
+document.getElementById("target").addEventListener("change", function () {
+  updateLayerOptions(this.value);
+  if (this.value === "earth") loadCountryBorders();
+  else {
+    if (bordersLayer) map.removeLayer(bordersLayer);
+    if (labelLayer) map.removeLayer(labelLayer);
+  }
+});
+
+/* ----------------- Search ----------------- */
+async function searchLocation() {
+  const query = document.getElementById("searchBox").value.trim();
+  if (!query) return alert("Please enter a place name!");
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.length === 0) return alert("Location not found!");
+    const { lat, lon } = data[0];
+    map.setView([lat, lon], 6);
+    L.marker([lat, lon]).addTo(map).bindPopup(query).openPopup();
+  } catch (err) {
+    alert("Error searching location.");
+  }
+}
+
+/* ----------------- Coordinates display + go-to ----------------- */
+map.on("mousemove", e => {
+  document.getElementById("coordDisplay").textContent = `Lat: ${e.latlng.lat.toFixed(5)} | Lon: ${e.latlng.lng.toFixed(5)}`;
+});
+
+function goToCoordinates() {
+  const lat = parseFloat(document.getElementById("coordLat").value);
+  const lon = parseFloat(document.getElementById("coordLon").value);
+  if (isNaN(lat) || isNaN(lon)) return alert("Enter valid coordinates!");
+  map.setView([lat, lon], 6);
+  L.marker([lat, lon]).addTo(map).bindPopup(`Lat: ${lat}, Lon: ${lon}`).openPopup();
+}
+
+/* ----------------- INITIAL LOAD ----------------- */
+// Default to yesterday (GIBS availability is usually delayed by ~1 day)
+(() => {
+  const el = document.getElementById("dateInput");
+  if (!el) return;
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  el.value = d.toISOString().slice(0, 10);
+})();
+
+loadLayer();
+
+
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+
+const drawControl = new L.Control.Draw({
+  draw: {
+    polygon: { allowIntersection: false, shapeOptions: { color: "#00FFFF" } },
+    rectangle: { shapeOptions: { color: "#FFD700" } },
+    polyline: false,
+    circle: false,
+    marker: true,
+    circlemarker: false
+  },
+  edit: {
+    featureGroup: drawnItems
+  }
+});
+map.addControl(drawControl);
+
+/* Single map.on(L.Draw.Event.CREATED) that prompts for a label and attaches click analysis. */
+map.on(L.Draw.Event.CREATED, function (event) {
+  const layer = event.layer;
+  const shapeType = event.layerType;
+
+  
+  let labelText = prompt(`Add a label for this ${shapeType}:`, "My Label");
+  if (labelText) {
+    // attach a permanent tooltip label on the shape
+    layer.bindTooltip(labelText, { permanent: true, direction: "center", className: "map-label" });
+    layer.labelText = labelText;
+  }
+
+  // add to drawn items
+  drawnItems.addLayer(layer);
+
+  // when user clicks the drawn area later → analyze it
+  layer.on("click", function () {
+    analyzeLabeledArea(layer, document.getElementById("layer").value);
+  });
+});
+
+/* ========== KEEP: analyzeLabeledArea — used when clicking a labeled region ========== */
+async function analyzeLabeledArea(layer, currentLayerId) {
+  if (!layer.getBounds) return;
+  const bounds = layer.getBounds();
+
+  // Center of the shape
+  const center = bounds.getCenter();
+  const zoom = map.getZoom();
+
+  // Get visible tile under that point
+  // NOTE: currentLayer._url is the tile template; we compute simple tile lookup by projection
+  const tilePoint = map.project(center, zoom).divideBy(256).floor();
+  const tileUrl = currentLayer._url
+    .replace("{z}", zoom)
+    .replace("{x}", tilePoint.x)
+    .replace("{y}", tilePoint.y);
+
+  // Fetch and read image pixel data
+  try {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = tileUrl;
+    await img.decode();
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+    let avgR = 0, avgG = 0, avgB = 0, total = 0;
+    for (let i = 0; i < imageData.length; i += 4) {
+      avgR += imageData[i];
+      avgG += imageData[i + 1];
+      avgB += imageData[i + 2];
+      total++;
+    }
+    avgR /= total; avgG /= total; avgB /= total;
+
+    // Interpret data depending on map type
+    let analysisResult = "";
+    if (currentLayerId.includes("Bands721")) {
+      const greenRatio = avgG / (avgR + avgB || 1);
+      analysisResult = `🌿 Vegetation cover: ${(greenRatio * 100).toFixed(1)}%`;
+    } else if (currentLayerId.includes("Aerosol")) {
+      const dustIntensity = avgR / 255;
+      analysisResult = `☁️ Dust intensity: ${(dustIntensity * 100).toFixed(1)}%`;
+    } else if (currentLayerId.includes("Chlorophyll")) {
+      const chlor = avgG / 255;
+      analysisResult = `🌊 Estimated chlorophyll level: ${(chlor * 20).toFixed(2)} mg/m³`;
+    } else if (currentLayerId.includes("Radiance")) {
+      const brightness = (avgR + avgG + avgB) / 3;
+      analysisResult = `💡 Average radiance: ${brightness.toFixed(2)} (relative units)`;
+    } else {
+      analysisResult = "📍 No specific analysis available for this layer.";
+    }
+
+    const risk = estimateDisasterRisk({
+      layerId: currentLayerId,
+      avgR,
+      avgG,
+      avgB
+    });
+
+    const label = layer.labelText ? `<b>${layer.labelText}</b><br>` : "";
+    const plainLabel = layer.labelText || "Selected area";
+
+    updateRiskPanel({
+      title: plainLabel,
+      center,
+      bounds,
+      layerId: currentLayerId,
+      layerName: document.getElementById("layer").selectedOptions[0]?.textContent || currentLayerId,
+      date: document.getElementById("dateInput").value,
+      metrics: { avgR, avgG, avgB },
+      risk
+    });
+
+    L.popup()
+      .setLatLng(center)
+      .setContent(`${label}${analysisResult}`)
+      .openOn(map);
+
+  } catch (err) {
+    console.error("Tile read/analysis failed:", err);
+    L.popup()
+      .setLatLng(bounds.getCenter())
+      .setContent("Analysis failed (tile fetch or CORS).")
+      .openOn(map);
+  }
+}
+
+/* --------- Wire up assistant UI controls --------- */
+const chatInput = document.getElementById("chatInput");
+const chatSend = document.getElementById("chatSend");
+if (chatInput && chatSend) {
+  chatSend.addEventListener("click", function () {
+    askAssistant(chatInput.value);
+    chatInput.value = "";
+    chatInput.focus();
+  });
+  chatInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      chatSend.click();
+    }
+  });
+}
+
+/* ========== Finally, load country borders and keep everything working ========== */
+loadCountryBorders();
+
+</script>
+</body>
+</html>
