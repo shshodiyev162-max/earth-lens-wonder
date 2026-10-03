@@ -9,6 +9,8 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { RequireAuth } from "./components/RequireAuth";
 import { AuthProvider } from "./context/AuthContext";
 import { WorkspaceProvider } from "./context/WorkspaceContext";
+import { ThemeProvider } from "./context/ThemeProvider";
+import { useTheme } from "./context/theme";
 import { ACCOUNTS_ENABLED } from "./config";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
@@ -29,7 +31,7 @@ function PageLoader() {
   if (MAP_ROUTES.includes(pathname)) {
     return (
       <div role="status" aria-label="Loading map" className="flex h-[calc(100dvh-4rem)] bg-[#02070d]">
-        <div className="hidden w-[22rem] shrink-0 space-y-5 border-r border-white/10 bg-[#07111d]/98 p-5 lg:block">
+        <div className="hidden w-[22rem] shrink-0 space-y-5 border-r border-panel-line bg-panel p-5 lg:block">
           <Skeleton className="h-3 w-32" />
           <Skeleton className="h-7 w-48" />
           <Skeleton className="h-12 w-full" />
@@ -79,10 +81,16 @@ function Page({ children, protectedRoute }: { children: ReactNode; protectedRout
   return protectedRoute && ACCOUNTS_ENABLED ? <RequireAuth>{content}</RequireAuth> : content;
 }
 
+function Notifications() {
+  const { theme } = useTheme();
+  return <Sonner theme={theme} position="bottom-right" richColors closeButton />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <ThemeProvider>
     <TooltipProvider delayDuration={250}>
-      <Sonner theme="dark" position="bottom-right" richColors closeButton />
+      <Notifications />
       <AuthProvider>
         <WorkspaceProvider>
           <BrowserRouter>
@@ -101,6 +109,7 @@ const App = () => (
         </WorkspaceProvider>
       </AuthProvider>
     </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

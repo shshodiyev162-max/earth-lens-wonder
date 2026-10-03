@@ -72,6 +72,11 @@ The design is the original TerraView design from the GitHub version, unchanged w
 - The map pages (Explore, Split, Sync) use the original navy-and-cyan sidebar (`bg-[#07111d]`, `border-white/10`, `text-slate-*`, `text-cyan-400`), with the floating top row, Quick regions, the info card, Selected areas, the bottom Explore/Split/Sync ribbon, vertical draw tools and bright cyan country borders.
 - Search lives in the top navigation bar (`components/search/NavSearch.tsx`), where the old "World" picker was. Ctrl/⌘K and "/" focus it; on phones the search icon opens `GlobalSearch`. Both share `useUniversalSearch`.
 - Additions that don't change the look: a keyboard-only focus ring, `prefers-reduced-motion` support, a `skeleton` shimmer for loading placeholders and a fade between pages.
+- **Light and dark mode.** Every visit starts in dark mode (`class="dark"` on `<html>`); the sun/moon button in the navbar switches, and the choice is not saved. `src/context/ThemeProvider.tsx` holds the state; `useTheme()` comes from `src/context/theme.ts`.
+  - Colours are CSS variables: light values in `:root`, the original dark values in `.dark` (`src/index.css`). The map-page chrome uses `panel-*`, `accent-cyan` and `tone-*` tokens (navy/cyan in dark, white/teal in light); map controls use `--lf-*`.
+  - The landing hero keeps the `dark` class in both modes, because it shows Earth in space.
+  - Chart greys come from `useChartColors()` in `components/analysis/Charts.tsx` (SVG attributes can't read CSS variables).
+  - Both modes pass axe WCAG 2.1 AA on every page.
 
 ## Design decisions
 

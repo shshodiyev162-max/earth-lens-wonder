@@ -15,8 +15,8 @@ export type QuickRegion = (typeof QUICK_REGIONS)[number];
 export default function QuickRegions({ activeId, onSelect }: { activeId: string | null; onSelect: (region: QuickRegion) => void }) {
   return (
     <section className="mb-5">
-      <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-        <Globe2 className="h-4 w-4 text-cyan-400" /> Quick regions
+      <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-panel-muted">
+        <Globe2 className="h-4 w-4 text-accent-cyan" /> Quick regions
       </h2>
       <div className="flex flex-wrap gap-2">
         {QUICK_REGIONS.map((region) => (
@@ -25,7 +25,7 @@ export default function QuickRegions({ activeId, onSelect }: { activeId: string 
             type="button"
             aria-pressed={activeId === region.id}
             onClick={() => onSelect(region)}
-            className={`rounded-lg px-3 py-2 text-xs font-medium transition ${activeId === region.id ? "bg-cyan-400 text-slate-950" : "bg-white/5 text-slate-300 hover:bg-white/10"}`}
+            className={`rounded-lg px-3 py-2 text-xs font-medium transition ${activeId === region.id ? "bg-cyan-400 text-slate-950" : "bg-panel-tint-strong text-panel-soft hover:bg-panel-tint-hover"}`}
           >
             {region.name}
           </button>

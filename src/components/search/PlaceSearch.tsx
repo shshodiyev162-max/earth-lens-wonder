@@ -86,9 +86,9 @@ export default function PlaceSearch({
       <div
         className={cn(
           "flex items-center gap-2 border transition-colors focus-within:border-primary/60",
-          variant === "map" && "rounded-xl border-white/10 bg-[#07111d]/90 px-3 shadow-xl backdrop-blur",
+          variant === "map" && "rounded-xl border-panel-line bg-panel/90 px-3 shadow-xl backdrop-blur",
           variant === "panel" && "rounded-xl border-transparent bg-secondary px-4",
-          variant === "hero" && "rounded-2xl border-white/15 bg-[#07111d]/80 px-5 shadow-2xl shadow-black/40 backdrop-blur-xl",
+          variant === "hero" && "rounded-2xl border-panel-line-strong bg-panel/80 px-5 shadow-2xl shadow-black/40 backdrop-blur-xl",
         )}
       >
         <Search className={cn("shrink-0 text-muted-foreground", big ? "h-5 w-5" : "h-4 w-4")} aria-hidden />

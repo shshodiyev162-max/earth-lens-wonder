@@ -66,6 +66,31 @@ export default {
           primary: "hsl(var(--glow-primary))",
           blue: "hsl(var(--glow-blue))",
         },
+        // Map-page chrome (sidebar, floating pills, ribbon, dropdowns): navy in dark mode, white in light.
+        panel: {
+          DEFAULT: "hsl(var(--panel) / <alpha-value>)",
+          raised: "hsl(var(--panel-raised) / <alpha-value>)",
+          ribbon: "hsl(var(--panel-ribbon) / <alpha-value>)",
+          foreground: "hsl(var(--panel-foreground) / <alpha-value>)",
+          soft: "hsl(var(--panel-soft) / <alpha-value>)",
+          muted: "hsl(var(--panel-muted) / <alpha-value>)",
+          line: "rgb(var(--panel-line))",
+          "line-strong": "rgb(var(--panel-line-strong))",
+          tint: "rgb(var(--panel-tint))",
+          "tint-strong": "rgb(var(--panel-tint-strong))",
+          "tint-hover": "rgb(var(--panel-tint-hover))",
+        },
+        "accent-cyan": {
+          DEFAULT: "hsl(var(--accent-cyan) / <alpha-value>)",
+          soft: "hsl(var(--accent-cyan-soft) / <alpha-value>)",
+        },
+        tone: {
+          good: "hsl(var(--tone-good) / <alpha-value>)",
+          warn: "hsl(var(--tone-warn) / <alpha-value>)",
+          bad: "hsl(var(--tone-bad) / <alpha-value>)",
+          info: "hsl(var(--tone-info) / <alpha-value>)",
+        },
+        tile: "hsl(var(--tile))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

@@ -161,7 +161,7 @@ export default function SyncView() {
           label={linkDates ? "Observation date" : "Left date"}
         />
         {linkDates && rightDate.date && rightDate.date !== leftDate.date && (
-          <p className="mt-2 text-xs text-slate-400">The right layer publishes on its own schedule — showing {formatDate(rightDate.date)}.</p>
+          <p className="mt-2 text-xs text-panel-muted">The right layer publishes on its own schedule — showing {formatDate(rightDate.date)}.</p>
         )}
       </SidebarSection>
       {!linkDates && (
@@ -175,7 +175,7 @@ export default function SyncView() {
         aria-pressed={linkDates}
         className={cn(
           "mb-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition",
-          linkDates ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-300" : "border-white/10 bg-white/[0.04] text-slate-200 hover:border-cyan-400/40 hover:text-white",
+          linkDates ? "border-cyan-400/40 bg-cyan-400/10 text-accent-cyan-soft" : "border-panel-line bg-panel-tint text-panel-soft hover:border-cyan-400/40 hover:text-panel-foreground",
         )}
       >
         {linkDates ? <Link2 className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
@@ -186,13 +186,13 @@ export default function SyncView() {
       <AreasPanel layer={isScienceLayer(rightLayer) ? rightLayer : leftLayer} date={isScienceLayer(rightLayer) ? rightDate.date : leftDate.date} dateReady={!rightDate.loading && !leftDate.loading} onZoomTo={zoomToArea} />
 
       <section className="mt-auto rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
-        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
-          <Info className="h-4 w-4 shrink-0 text-cyan-400" /> {leftLayer.name} + {rightLayer.name}
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-panel-foreground">
+          <Info className="h-4 w-4 shrink-0 text-accent-cyan" /> {leftLayer.name} + {rightLayer.name}
         </div>
-        <p className="text-xs leading-relaxed text-slate-400">{leftLayer.description}</p>
+        <p className="text-xs leading-relaxed text-panel-muted">{leftLayer.description}</p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{leftLayer.source}</span>
-          <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{rightLayer.source}</span>
+          <span className="rounded bg-panel-tint-strong px-2 py-1 text-panel-soft">{leftLayer.source}</span>
+          <span className="rounded bg-panel-tint-strong px-2 py-1 text-panel-soft">{rightLayer.source}</span>
         </div>
       </section>
     </>
@@ -202,11 +202,11 @@ export default function SyncView() {
   const phoneLabel = (layer: GibsLayer, date: string | null, side: "left" | "right") => (
     <div
       className={cn(
-        "absolute left-3 z-[1000] max-w-[calc(100%-1.5rem)] truncate rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-1.5 text-[11px] text-slate-300 backdrop-blur sm:hidden",
+        "absolute left-3 z-[1000] max-w-[calc(100%-1.5rem)] truncate rounded-lg border border-panel-line bg-panel/85 px-3 py-1.5 text-[11px] text-panel-soft backdrop-blur sm:hidden",
         side === "left" ? "bottom-3" : "bottom-20",
       )}
     >
-      <span className="font-semibold text-white">{layer.name}</span>
+      <span className="font-semibold text-panel-foreground">{layer.name}</span>
       {date ? ` · ${formatDate(date)}` : ""}
     </div>
   );
@@ -252,7 +252,7 @@ export default function SyncView() {
       description="Two NASA layers in lockstep. Pan, zoom, or jump to a quick region — both views stay perfectly in sync."
       sidebar={sidebar}
       topRight={
-        <div className="hidden max-w-[22rem] truncate rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-[11px] text-slate-400 backdrop-blur md:block">
+        <div className="hidden max-w-[22rem] truncate rounded-lg border border-panel-line bg-panel/85 px-3 py-2 text-[11px] text-panel-muted backdrop-blur md:block">
           {leftLayer.name} + {rightLayer.name}
         </div>
       }
@@ -275,7 +275,7 @@ export default function SyncView() {
           </BaseMap>
           {phoneLabel(leftLayer, leftDate.date, "left")}
         </div>
-        <div className="relative min-h-0 min-w-0 border-t border-white/15 sm:border-l sm:border-t-0">
+        <div className="relative min-h-0 min-w-0 border-t border-panel-line-strong sm:border-l sm:border-t-0">
           <BaseMap initialView={initialView} onReady={setRightMap}>
             <LayerStack layer={rightLayer} date={rightDate.date} />
             <ReferenceOverlays />

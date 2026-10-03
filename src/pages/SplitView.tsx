@@ -131,14 +131,14 @@ export default function SplitView() {
         <DateControl layer={leftLayer} state={leftDate} requested={leftRequested} onChange={(date) => update({ leftDate: date })} label="Left date" />
       </SidebarSection>
       {isScienceLayer(leftLayer) && (
-        <SidebarSection title="Left legend" icon={<Info className="h-4 w-4 text-cyan-400" />}>
-          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+        <SidebarSection title="Left legend" icon={<Info className="h-4 w-4 text-accent-cyan" />}>
+          <div className="rounded-xl border border-panel-line bg-panel-tint p-4">
             <LayerLegend layer={leftLayer} compact />
           </div>
         </SidebarSection>
       )}
 
-      <div className="mb-5 border-t border-white/10" />
+      <div className="mb-5 border-t border-panel-line" />
 
       <SidebarSection>
         <LayerPickerLabel>Right layer</LayerPickerLabel>
@@ -148,8 +148,8 @@ export default function SplitView() {
         <DateControl layer={rightLayer} state={rightDate} requested={rightRequested} onChange={(date) => update({ rightDate: date })} label="Right date" />
       </SidebarSection>
       {isScienceLayer(rightLayer) && (
-        <SidebarSection title="Right legend" icon={<Info className="h-4 w-4 text-cyan-400" />}>
-          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+        <SidebarSection title="Right legend" icon={<Info className="h-4 w-4 text-accent-cyan" />}>
+          <div className="rounded-xl border border-panel-line bg-panel-tint p-4">
             <LayerLegend layer={rightLayer} compact />
           </div>
         </SidebarSection>
@@ -158,24 +158,24 @@ export default function SplitView() {
       <button
         type="button"
         onClick={swap}
-        className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-400/40 hover:text-white"
+        className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-panel-line bg-panel-tint px-4 py-3 text-sm font-medium text-panel-soft transition hover:border-cyan-400/40 hover:text-panel-foreground"
       >
-        <ArrowLeftRight className="h-4 w-4 text-cyan-400" /> Swap sides
+        <ArrowLeftRight className="h-4 w-4 text-accent-cyan" /> Swap sides
       </button>
 
       <QuickRegions activeId={regionId} onSelect={jumpToRegion} />
       <AreasPanel layer={rightLayer} date={rightDate.date} dateReady={!rightDate.loading} onZoomTo={(area: SavedArea) => flyTo({ bbox: area.bbox })} />
 
       <section className="mt-auto rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
-        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
-          <Info className="h-4 w-4 shrink-0 text-cyan-400" /> {leftLayer.name} vs {rightLayer.name}
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-panel-foreground">
+          <Info className="h-4 w-4 shrink-0 text-accent-cyan" /> {leftLayer.name} vs {rightLayer.name}
         </div>
-        <p className="text-xs leading-relaxed text-slate-400">
+        <p className="text-xs leading-relaxed text-panel-muted">
           Drag the slider to compare the two layers. Tip: pick the same layer on both sides with two different dates to see change over time — floods, fires, harvests or snow melt.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{leftLayer.source}</span>
-          <span className="rounded bg-white/5 px-2 py-1 text-slate-300">{rightLayer.source}</span>
+          <span className="rounded bg-panel-tint-strong px-2 py-1 text-panel-soft">{leftLayer.source}</span>
+          <span className="rounded bg-panel-tint-strong px-2 py-1 text-panel-soft">{rightLayer.source}</span>
         </div>
       </section>
     </>
@@ -183,8 +183,8 @@ export default function SplitView() {
 
   const overlay = (
     <>
-      <div className="pointer-events-auto absolute left-1/2 top-[3.75rem] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-[#07111d]/90 px-4 py-2 shadow-xl backdrop-blur">
-        <span className="text-xs text-slate-400">Compare</span>
+      <div className="pointer-events-auto absolute left-1/2 top-[3.75rem] flex -translate-x-1/2 items-center gap-3 rounded-full border border-panel-line bg-panel/90 px-4 py-2 shadow-xl backdrop-blur">
+        <span className="text-xs text-panel-muted">Compare</span>
         <input
           type="range"
           min={2}
@@ -194,7 +194,7 @@ export default function SplitView() {
           className="w-24 accent-cyan-400 sm:w-32"
           aria-label="Comparison position"
         />
-        <span className="w-10 text-xs font-medium text-white">{Math.round(ratio * 100)}%</span>
+        <span className="w-10 text-xs font-medium text-panel-foreground">{Math.round(ratio * 100)}%</span>
       </div>
       <div className="absolute right-3 top-[3.75rem] lg:right-5">
         <DrawToolbar
@@ -237,7 +237,7 @@ export default function SplitView() {
       description="Compare two NASA layers — or one layer on two dates — on a single map with a draggable slider. Draw areas to measure and analyze them."
       sidebar={sidebar}
       topRight={
-        <div className="hidden max-w-[22rem] truncate rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-[11px] text-slate-400 backdrop-blur md:block">
+        <div className="hidden max-w-[22rem] truncate rounded-lg border border-panel-line bg-panel/85 px-3 py-2 text-[11px] text-panel-muted backdrop-blur md:block">
           {sideLabel(leftLayer, leftDate.date)} vs {sideLabel(rightLayer, rightDate.date)}
         </div>
       }
@@ -290,9 +290,9 @@ export default function SplitView() {
             onPointerUp={onHandleUp}
             onPointerCancel={onHandleUp}
             onKeyDown={onHandleKey}
-            className="pointer-events-auto absolute top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-col-resize touch-none items-center justify-center rounded-full border-2 border-cyan-400 bg-[#07111d]/90 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+            className="pointer-events-auto absolute top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-col-resize touch-none items-center justify-center rounded-full border-2 border-cyan-400 bg-panel/90 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
           >
-            <span className="text-lg text-cyan-300" aria-hidden="true">
+            <span className="text-lg text-accent-cyan-soft" aria-hidden="true">
               ⟷
             </span>
           </div>

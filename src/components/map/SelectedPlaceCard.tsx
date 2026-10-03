@@ -20,18 +20,18 @@ export default function SelectedPlaceCard({
 }) {
   const { place, geometry, loadingBoundary } = selection;
   return (
-    <div className={cn("pointer-events-auto w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-white/10 bg-[#07111d]/95 p-4 shadow-2xl backdrop-blur-xl", className)}>
+    <div className={cn("pointer-events-auto w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-panel-line bg-panel/95 p-4 shadow-2xl backdrop-blur-xl", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">{kindLabel(place.kind)}</p>
-          <h3 translate="no" className="truncate text-base font-semibold text-white">{place.name}</h3>
-          <p className="truncate text-xs text-slate-400">{place.context || formatLatLng(place.center)}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent-cyan">{kindLabel(place.kind)}</p>
+          <h3 translate="no" className="truncate text-base font-semibold text-panel-foreground">{place.name}</h3>
+          <p className="truncate text-xs text-panel-muted">{place.context || formatLatLng(place.center)}</p>
         </div>
-        <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" aria-label="Close place">
+        <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-panel-muted transition hover:bg-panel-tint-hover hover:text-panel-foreground" aria-label="Close place">
           <X className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-2 text-[11px] text-slate-400">
+      <p className="mt-2 text-[11px] text-panel-muted">
         {loadingBoundary ? (
           <span className="inline-flex items-center gap-1.5">
             <Loader2 className="h-3 w-3 animate-spin" /> Loading boundary…
@@ -53,7 +53,7 @@ export default function SelectedPlaceCard({
           <button
             type="button"
             onClick={onSave}
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
+            className="flex items-center gap-1.5 rounded-lg border border-panel-line bg-panel-tint-strong px-3 py-2 text-xs font-semibold text-panel-soft transition hover:bg-panel-tint-hover"
           >
             <BookmarkPlus className="h-3.5 w-3.5" /> Save area
           </button>

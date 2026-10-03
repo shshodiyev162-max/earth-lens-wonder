@@ -42,8 +42,10 @@ export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish,
                   aria-pressed={active}
                   aria-label={tool.label}
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-lg border border-[hsl(174_72%_50%/0.9)] text-white shadow-[0_2px_10px_rgb(0_0_0/0.5)] transition-colors",
-                    active ? "bg-[hsl(174_72%_30%)]" : "bg-[hsl(220_20%_12%/0.95)] hover:bg-[hsl(174_72%_30%)]",
+                    "flex h-8 w-8 items-center justify-center rounded-lg border border-primary/90 text-panel-foreground shadow-[0_2px_10px_rgb(0_0_0/0.25)] transition-colors dark:border-[hsl(174_72%_50%/0.9)] dark:shadow-[0_2px_10px_rgb(0_0_0/0.5)]",
+                    active
+                      ? "bg-primary/20 dark:bg-[hsl(174_72%_30%)]"
+                      : "bg-panel/95 hover:bg-primary/15 dark:bg-[hsl(220_20%_12%/0.95)] dark:hover:bg-[hsl(174_72%_30%)]",
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -75,7 +77,7 @@ export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, classN
   return (
     <div
       className={cn(
-        "pointer-events-auto rounded-xl border border-cyan-400/30 bg-[#07111d]/95 px-3 py-2.5 text-xs leading-relaxed text-slate-200 shadow-xl backdrop-blur",
+        "pointer-events-auto rounded-xl border border-cyan-400/30 bg-panel/95 px-3 py-2.5 text-xs leading-relaxed text-panel-soft shadow-xl backdrop-blur",
         className,
       )}
     >
@@ -95,13 +97,13 @@ export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, classN
               type="button"
               onClick={onUndo}
               disabled={vertexCount === 0}
-              className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-slate-200 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-md bg-panel-tint-hover px-2 py-1 text-panel-soft disabled:opacity-40"
             >
               <Undo2 className="h-3 w-3" /> Undo
             </button>
           </>
         )}
-        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-slate-200">
+        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 rounded-md bg-panel-tint-hover px-2 py-1 text-panel-soft">
           <X className="h-3 w-3" /> Cancel
         </button>
       </div>

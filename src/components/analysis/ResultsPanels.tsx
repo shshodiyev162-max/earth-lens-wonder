@@ -14,17 +14,17 @@ import { formatArea, formatLatLng } from "@/lib/geo/geometry";
 import { cn } from "@/lib/utils";
 
 const TONE_STYLE: Record<Tone, { icon: typeof Info; className: string }> = {
-  critical: { icon: AlertTriangle, className: "text-red-400" },
-  warning: { icon: CircleAlert, className: "text-yellow-400" },
-  positive: { icon: BadgeCheck, className: "text-green-400" },
-  neutral: { icon: Info, className: "text-cyan-400" },
+  critical: { icon: AlertTriangle, className: "text-tone-bad" },
+  warning: { icon: CircleAlert, className: "text-tone-warn" },
+  positive: { icon: BadgeCheck, className: "text-tone-good" },
+  neutral: { icon: Info, className: "text-accent-cyan" },
 };
 
 const CONCERN_STYLE: Record<InsightReport["concern"]["level"], string> = {
-  low: "bg-green-500/10 text-green-400 border-green-500/30",
-  moderate: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
-  elevated: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
-  high: "bg-red-500/10 text-red-400 border-red-500/30",
+  low: "bg-green-500/10 text-tone-good border-green-500/30",
+  moderate: "bg-cyan-500/10 text-accent-cyan border-cyan-500/30",
+  elevated: "bg-yellow-500/10 text-tone-warn border-yellow-500/30",
+  high: "bg-red-500/10 text-tone-bad border-red-500/30",
 };
 
 const CONCERN_LABEL: Record<InsightReport["concern"]["level"], string> = {
@@ -100,7 +100,7 @@ export function ResultsHeader({
               <Download className="h-4 w-4" /> Download CSV
             </button>
             <button type="button" onClick={copy} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium glass text-foreground hover:bg-card/80 transition-colors">
-              {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />} {copied ? "Copied" : "Copy link"}
+              {copied ? <Check className="h-4 w-4 text-tone-good" /> : <Copy className="h-4 w-4" />} {copied ? "Copied" : "Copy link"}
             </button>
             <Link to={mapHref} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium glass text-foreground hover:bg-card/80 transition-colors">
               <MapIcon className="h-4 w-4" /> View on map
@@ -162,7 +162,7 @@ export function InsightPanel({ report, result }: { report: InsightReport; result
               {ai.status === "loading" ? "Writing briefing…" : "Write an AI briefing"}
             </button>
           )}
-          {ai.status === "error" && <p className="mt-2 text-xs text-yellow-400">{ai.error}</p>}
+          {ai.status === "error" && <p className="mt-2 text-xs text-tone-warn">{ai.error}</p>}
         </div>
       )}
     </div>
@@ -176,12 +176,12 @@ export function KpiGrid({ kpis }: { kpis: Kpi[] }) {
       <h3 className="text-sm font-semibold text-muted-foreground mb-4">Key numbers</h3>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {kpis.map((kpi) => (
-          <div key={kpi.id} className="bg-slate-800/50 rounded-lg p-4">
+          <div key={kpi.id} className="bg-tile rounded-lg p-4">
             <div className="text-xs text-muted-foreground mb-1">{kpi.label}</div>
             <div
               className={cn(
                 "text-2xl font-bold",
-                kpi.tone === "critical" ? "text-red-400" : kpi.tone === "warning" ? "text-yellow-400" : kpi.tone === "positive" ? "text-green-400" : "text-cyan-400",
+                kpi.tone === "critical" ? "text-tone-bad" : kpi.tone === "warning" ? "text-tone-warn" : kpi.tone === "positive" ? "text-tone-good" : "text-accent-cyan",
               )}
             >
               {kpi.value}
@@ -209,7 +209,7 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
           const style = TONE_STYLE[finding.tone];
           const Icon = style.icon;
           return (
-            <li key={finding.id} className="flex gap-3 rounded-lg bg-slate-800/50 p-3">
+            <li key={finding.id} className="flex gap-3 rounded-lg bg-tile p-3">
               <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", style.className)} />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">{finding.title}</p>

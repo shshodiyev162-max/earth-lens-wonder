@@ -134,7 +134,7 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
           />
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#02070d]/40">
-              <span className="flex items-center gap-2 rounded-full bg-[#07111d]/90 px-3 py-1.5 text-xs text-slate-200">
+              <span className="flex items-center gap-2 rounded-full bg-panel/90 px-3 py-1.5 text-xs text-panel-soft">
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> Loading boundary…
               </span>
             </div>
@@ -179,7 +179,7 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
       {areas.length > 0 && (
         <div>
           <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Square className="w-3 h-3 text-cyan-400" /> Selected areas from map
+            <Square className="w-3 h-3 text-accent-cyan" /> Selected areas from map
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {areas.map((area) => {

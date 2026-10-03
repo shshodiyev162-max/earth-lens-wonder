@@ -42,13 +42,13 @@ function useAreaMeasurement(area: SavedArea | null, layer: GibsLayer | null, dat
 function Measurement({ area, layer, date, ready }: { area: SavedArea; layer: GibsLayer; date: string | null; ready: boolean }) {
   const state = useAreaMeasurement(area, layer, date, ready);
   if (!isScienceLayer(layer)) {
-    return <p className="mt-2 text-[11px] text-slate-400">Switch to a measurable layer (e.g. Vegetation) to read values for this area.</p>;
+    return <p className="mt-2 text-[11px] text-panel-muted">Switch to a measurable layer (e.g. Vegetation) to read values for this area.</p>;
   }
   if (!state || state.status === "loading") {
     return (
       <div role="status" aria-label={`Measuring ${layer.name.toLowerCase()}`} className="mt-2 grid grid-cols-3 gap-1.5">
         {[0, 1, 2].map((cell) => (
-          <div key={cell} className="space-y-1.5 rounded-lg bg-white/[0.04] px-1.5 py-2">
+          <div key={cell} className="space-y-1.5 rounded-lg bg-panel-tint px-1.5 py-2">
             <div className="skeleton mx-auto h-2 w-8" />
             <div className="skeleton mx-auto h-3 w-12" />
           </div>
@@ -56,26 +56,26 @@ function Measurement({ area, layer, date, ready }: { area: SavedArea; layer: Gib
       </div>
     );
   }
-  if (state.status === "error") return <p className="mt-2 text-[11px] text-amber-300/90">Couldn't reach NASA GIBS to measure this area.</p>;
+  if (state.status === "error") return <p className="mt-2 text-[11px] text-tone-warn">Couldn't reach NASA GIBS to measure this area.</p>;
   const stats = state.stats as AreaStats;
   if (stats.count === 0) {
-    return <p className="mt-2 text-[11px] text-slate-400">No valid {layer.name.toLowerCase()} pixels in this area on this date (cloud, water or no overpass).</p>;
+    return <p className="mt-2 text-[11px] text-panel-muted">No valid {layer.name.toLowerCase()} pixels in this area on this date (cloud, water or no overpass).</p>;
   }
   return (
     <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
-      <div className="rounded-lg bg-white/[0.04] px-1.5 py-1.5">
-        <div className="text-[9px] uppercase tracking-wide text-slate-400">Mean</div>
-        <div className="text-xs font-semibold text-white">{formatValue(stats.mean, layer.unit, layer.decimals)}</div>
+      <div className="rounded-lg bg-panel-tint px-1.5 py-1.5">
+        <div className="text-[9px] uppercase tracking-wide text-panel-muted">Mean</div>
+        <div className="text-xs font-semibold text-panel-foreground">{formatValue(stats.mean, layer.unit, layer.decimals)}</div>
       </div>
-      <div className="rounded-lg bg-white/[0.04] px-1.5 py-1.5">
-        <div className="text-[9px] uppercase tracking-wide text-slate-400">Range</div>
-        <div className="text-xs font-semibold text-white">
+      <div className="rounded-lg bg-panel-tint px-1.5 py-1.5">
+        <div className="text-[9px] uppercase tracking-wide text-panel-muted">Range</div>
+        <div className="text-xs font-semibold text-panel-foreground">
           {formatValue(stats.p10, undefined, layer.decimals)}–{formatValue(stats.p90, undefined, layer.decimals)}
         </div>
       </div>
-      <div className="rounded-lg bg-white/[0.04] px-1.5 py-1.5">
-        <div className="text-[9px] uppercase tracking-wide text-slate-400">Measured</div>
-        <div className="text-xs font-semibold text-white">{Math.round(stats.coverage * 100)}%</div>
+      <div className="rounded-lg bg-panel-tint px-1.5 py-1.5">
+        <div className="text-[9px] uppercase tracking-wide text-panel-muted">Measured</div>
+        <div className="text-xs font-semibold text-panel-foreground">{Math.round(stats.coverage * 100)}%</div>
       </div>
     </div>
   );
@@ -103,18 +103,18 @@ export default function AreasPanel({ layer, date, dateReady, onZoomTo, className
   return (
     <section className={cn("mb-5", className)}>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-          <Square className="h-4 w-4 text-cyan-400" /> Selected areas
+        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-panel-muted">
+          <Square className="h-4 w-4 text-accent-cyan" /> Selected areas
         </h2>
-        <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-slate-400">{areas.length}</span>
+        <span className="rounded bg-panel-tint-strong px-1.5 py-0.5 text-[10px] font-mono text-panel-muted">{areas.length}</span>
       </div>
 
-      <p className="mb-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs leading-relaxed text-slate-400">
+      <p className="mb-3 rounded-xl border border-panel-line bg-panel-tint p-3 text-xs leading-relaxed text-panel-muted">
         Use the draw tools at the top-right of the map to outline a rectangle, polygon or circle. Each area shows its size and real values for the active layer, and can be sent to analysis.
       </p>
 
       {areas.length === 0 ? (
-        <p className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-xs leading-relaxed text-slate-400">
+        <p className="rounded-xl border border-panel-line bg-panel-tint p-4 text-xs leading-relaxed text-panel-muted">
           No areas yet. Draw a shape on the map — or search a place and save it — to create an area for analysis. Areas are kept on this device.
         </p>
       ) : (
@@ -122,7 +122,7 @@ export default function AreasPanel({ layer, date, dateReady, onZoomTo, className
           {areas.map((area) => {
             const active = area.id === activeAreaId;
             return (
-              <li key={area.id} className={cn("rounded-xl border p-3 transition-colors", active ? "border-cyan-400/50 bg-cyan-400/[0.06]" : "border-white/10 bg-white/[0.03]")}>
+              <li key={area.id} className={cn("rounded-xl border p-3 transition-colors", active ? "border-cyan-400/50 bg-cyan-400/[0.06]" : "border-panel-line bg-panel-tint")}>
                 {editing === area.id ? (
                   <form
                     className="flex gap-2"
@@ -137,7 +137,7 @@ export default function AreasPanel({ layer, date, dateReady, onZoomTo, className
                       autoFocus
                       onBlur={() => save(area.id)}
                       onKeyDown={(event) => event.key === "Escape" && setEditing(null)}
-                      className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#07111d] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50"
+                      className="min-w-0 flex-1 rounded-lg border border-panel-line bg-panel px-3 py-2 text-sm text-panel-foreground outline-none focus:border-cyan-400/50"
                       aria-label="Area name"
                     />
                     <button type="submit" className="rounded-lg bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950">
@@ -147,7 +147,7 @@ export default function AreasPanel({ layer, date, dateReady, onZoomTo, className
                 ) : (
                   <>
                     <div className="flex items-center justify-between gap-2">
-                      <button type="button" onClick={() => setActiveAreaId(active ? null : area.id)} className="min-w-0 truncate text-left text-sm font-medium text-white" translate="no">
+                      <button type="button" onClick={() => setActiveAreaId(active ? null : area.id)} className="min-w-0 truncate text-left text-sm font-medium text-panel-foreground" translate="no">
                         {area.name}
                       </button>
                       <div className="flex shrink-0 gap-1">
@@ -168,7 +168,7 @@ export default function AreasPanel({ layer, date, dateReady, onZoomTo, className
                         </IconButton>
                       </div>
                     </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-400">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-panel-muted">
                       <span className="capitalize">{area.kind}</span>
                       <span>{formatArea(area.areaKm2)}</span>
                     </div>
@@ -197,7 +197,7 @@ function IconButton({ label, onClick, children, danger }: { label: string; onCli
       title={label}
       aria-label={label}
       onClick={onClick}
-      className={cn("rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5", danger ? "hover:text-red-400" : "hover:text-white")}
+      className={cn("rounded-lg p-1.5 text-panel-muted transition hover:bg-panel-tint-strong", danger ? "hover:text-tone-bad" : "hover:text-panel-foreground")}
     >
       {children}
     </button>

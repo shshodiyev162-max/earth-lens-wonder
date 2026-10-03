@@ -48,7 +48,7 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
               min={EARLIEST_MONTH}
               max={end}
               onChange={(event) => MONTH_RE.test(event.target.value) && onChange("custom", event.target.value, end)}
-              className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground [color-scheme:dark]"
+              className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground"
             />
           </label>
           <label className="flex items-center gap-2 text-muted-foreground">
@@ -59,7 +59,7 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
               min={start}
               max={latest}
               onChange={(event) => MONTH_RE.test(event.target.value) && onChange("custom", start, event.target.value)}
-              className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground [color-scheme:dark]"
+              className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground"
             />
           </label>
           <p className="w-full text-xs text-muted-foreground">Up to 10 years, from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>

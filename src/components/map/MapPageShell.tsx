@@ -29,15 +29,15 @@ export default function MapPageShell({ title, description, sidebar, children, to
       <div className="flex h-full min-h-0 flex-col lg:flex-row">
         <aside
           aria-label={`${title} controls`}
-          className={`${panelOpen ? "flex" : "hidden"} fixed inset-x-0 top-16 bottom-0 z-[1300] w-full flex-col overflow-y-auto border-r border-white/10 bg-[#07111d]/98 p-5 backdrop-blur-xl lg:static lg:z-auto lg:flex lg:w-[22rem] lg:shrink-0`}
+          className={`${panelOpen ? "flex" : "hidden"} fixed inset-x-0 top-16 bottom-0 z-[1300] w-full flex-col overflow-y-auto border-r border-panel-line bg-panel p-5 backdrop-blur-xl lg:static lg:z-auto lg:flex lg:w-[22rem] lg:shrink-0`}
         >
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-400">Earth observation</p>
-              <h1 className="text-2xl font-bold text-white">{title}</h1>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">{description}</p>
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-accent-cyan">Earth observation</p>
+              <h1 className="text-2xl font-bold text-panel-foreground">{title}</h1>
+              <p className="mt-2 text-sm leading-relaxed text-panel-muted">{description}</p>
             </div>
-            <button type="button" onClick={() => onPanelOpenChange(false)} className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white lg:hidden" aria-label="Close controls">
+            <button type="button" onClick={() => onPanelOpenChange(false)} className="rounded-lg p-2 text-panel-muted hover:bg-panel-tint-strong hover:text-panel-foreground lg:hidden" aria-label="Close controls">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -54,9 +54,9 @@ export default function MapPageShell({ title, description, sidebar, children, to
                 type="button"
                 onClick={() => onPanelOpenChange(true)}
                 aria-expanded={panelOpen}
-                className="pointer-events-auto flex items-center gap-2 rounded-xl border border-white/10 bg-[#07111d]/90 px-3 py-2.5 text-sm font-medium text-white shadow-xl backdrop-blur lg:hidden"
+                className="pointer-events-auto flex items-center gap-2 rounded-xl border border-panel-line bg-panel/90 px-3 py-2.5 text-sm font-medium text-panel-foreground shadow-xl backdrop-blur lg:hidden"
               >
-                <Layers3 className="h-4 w-4 text-cyan-400" /> Controls
+                <Layers3 className="h-4 w-4 text-accent-cyan" /> Controls
               </button>
               <div className="pointer-events-auto ml-auto flex items-center gap-2">{topRight}</div>
             </div>
@@ -73,7 +73,7 @@ export function SidebarSection({ title, icon, children, action }: { title?: stri
     <section className="mb-5">
       {title && (
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-panel-muted">
             {icon}
             {title}
           </h2>

@@ -17,8 +17,8 @@ export function CursorTracker({ onChange }: { onChange: (point: LatLng) => void 
 /** The small "Lat / Lng" pill from the original Split and Sync views. */
 export function CoordsPill({ point }: { point: LatLng }) {
   return (
-    <div className="absolute bottom-4 left-4 hidden rounded-lg border border-white/10 bg-[#07111d]/85 px-3 py-2 text-xs text-white backdrop-blur md:block">
-      <MapPin className="mr-1 inline h-3 w-3 text-cyan-400" />
+    <div className="absolute bottom-4 left-4 hidden rounded-lg border border-panel-line bg-panel/85 px-3 py-2 text-xs text-panel-foreground backdrop-blur md:block">
+      <MapPin className="mr-1 inline h-3 w-3 text-accent-cyan" />
       Lat: {point[0].toFixed(3)}, Lng: {point[1].toFixed(3)}
     </div>
   );

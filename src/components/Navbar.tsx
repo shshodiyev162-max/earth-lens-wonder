@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Globe, Map, BarChart3, User, Menu, X, Search, LogOut } from "lucide-react";
+import { Globe, Map, BarChart3, User, Menu, X, Search, LogOut, Sun, Moon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import GlobalSearch from "@/components/search/GlobalSearch";
 import NavSearch, { type NavSearchHandle } from "@/components/search/NavSearch";
@@ -8,6 +8,7 @@ import { OPEN_SEARCH_EVENT } from "@/components/search/openSearch";
 import { useAuth } from "@/context/AuthContext";
 import { isDemoMode } from "@/lib/apiClient";
 import { ACCOUNTS_ENABLED } from "@/config";
+import { useTheme } from "@/context/theme";
 
 const navItems = [
   { to: "/", label: "Home", icon: Globe, match: ["/"] },
@@ -19,6 +20,7 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const navSearchRef = useRef<NavSearchHandle>(null);
@@ -108,6 +110,17 @@ export default function Navbar() {
             aria-label="Search places and layers"
           >
             <Search className="w-5 h-5" />
+          </button>
+
+          {/* Light / dark mode */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
 
           {!ACCOUNTS_ENABLED ? null : signedIn ? (

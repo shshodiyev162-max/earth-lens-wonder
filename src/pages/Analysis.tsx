@@ -68,7 +68,7 @@ function ReportSkeleton() {
         <Skeleton className="h-4 w-28 mb-4" />
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="bg-slate-800/50 rounded-lg p-4 space-y-2">
+            <div key={i} className="bg-tile rounded-lg p-4 space-y-2">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-7 w-24" />
               <Skeleton className="h-8 w-full" />
@@ -151,7 +151,7 @@ function Charts({ result }: { result: AnalysisResult }) {
         </ChartCard>
       )}
       {climate?.status === "error" && (
-        <section className="glass rounded-2xl p-6 text-sm text-yellow-400">
+        <section className="glass rounded-2xl p-6 text-sm text-tone-warn">
           NASA POWER (climate) didn't respond: {climate.error}. Satellite results above are unaffected.
         </section>
       )}
@@ -286,7 +286,7 @@ export default function Analysis() {
           {/* Right Report Section */}
           <section ref={resultsRef} aria-label="Report" className="min-w-0 scroll-mt-20 space-y-6">
             {targetError && (
-              <div role="alert" className="glass rounded-2xl p-6 flex items-start gap-3 text-sm text-yellow-400">
+              <div role="alert" className="glass rounded-2xl p-6 flex items-start gap-3 text-sm text-tone-warn">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {targetError}
               </div>
             )}
@@ -357,7 +357,7 @@ export default function Analysis() {
                 )}
 
                 {run.status === "error" && (
-                  <div role="alert" className="glass rounded-2xl p-6 flex flex-wrap items-center justify-between gap-3 text-sm text-red-400">
+                  <div role="alert" className="glass rounded-2xl p-6 flex flex-wrap items-center justify-between gap-3 text-sm text-tone-bad">
                     <span className="flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4" /> {run.error}
                     </span>

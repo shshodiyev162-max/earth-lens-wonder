@@ -40,7 +40,7 @@ export default function DateControl({ layer, state, requested, onChange, label =
     return (
       <div>
         {!compact && <DateLabel>{label}</DateLabel>}
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-400">Static cloud-free composite</div>
+        <div className="rounded-xl border border-panel-line bg-panel-tint px-4 py-3 text-sm text-panel-muted">Static cloud-free composite</div>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export default function DateControl({ layer, state, requested, onChange, label =
           type="button"
           onClick={() => go(-1)}
           disabled={!canGoBack}
-          className="rounded-xl border border-white/10 bg-white/[0.04] px-2.5 text-slate-300 transition hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
+          className="rounded-xl border border-panel-line bg-panel-tint px-2.5 text-panel-soft transition hover:border-cyan-400/40 hover:text-panel-foreground disabled:opacity-30"
           aria-label={`Previous ${layer.period === "daily" ? "day" : "period"}`}
         >
           <ChevronLeft className="h-4 w-4" />
@@ -77,14 +77,14 @@ export default function DateControl({ layer, state, requested, onChange, label =
           min={min}
           max={max}
           onChange={(event) => event.target.value && onChange(event.target.value)}
-          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white [color-scheme:dark] outline-none focus:border-cyan-400/50"
+          className="min-w-0 flex-1 rounded-xl border border-panel-line bg-panel-tint px-3 py-3 text-sm text-panel-foreground outline-none focus:border-cyan-400/50"
           aria-label={`${label} for ${layer.name}`}
         />
         <button
           type="button"
           onClick={() => go(1)}
           disabled={!canGoForward}
-          className="rounded-xl border border-white/10 bg-white/[0.04] px-2.5 text-slate-300 transition hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
+          className="rounded-xl border border-panel-line bg-panel-tint px-2.5 text-panel-soft transition hover:border-cyan-400/40 hover:text-panel-foreground disabled:opacity-30"
           aria-label={`Next ${layer.period === "daily" ? "day" : "period"}`}
         >
           <ChevronRight className="h-4 w-4" />
@@ -93,7 +93,7 @@ export default function DateControl({ layer, state, requested, onChange, label =
           type="button"
           onClick={() => onChange(null)}
           disabled={!requested}
-          className="rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-slate-300 transition hover:border-cyan-400/40 hover:text-white disabled:opacity-40"
+          className="rounded-xl border border-panel-line bg-panel-tint px-3 text-xs font-semibold text-panel-soft transition hover:border-cyan-400/40 hover:text-panel-foreground disabled:opacity-40"
         >
           Latest
         </button>
@@ -102,7 +102,7 @@ export default function DateControl({ layer, state, requested, onChange, label =
         <p
           className={cn(
             "mt-2 flex items-start gap-1.5 text-xs leading-relaxed",
-            status.tone === "warn" ? "text-amber-300/90" : status.tone === "info" ? "text-cyan-200/80" : "text-slate-400",
+            status.tone === "warn" ? "text-tone-warn" : status.tone === "info" ? "text-accent-cyan-soft" : "text-panel-muted",
           )}
         >
           {state.loading && <Loader2 className="mt-0.5 h-3 w-3 shrink-0 animate-spin" />}
@@ -115,8 +115,8 @@ export default function DateControl({ layer, state, requested, onChange, label =
 
 function DateLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-      <CalendarDays className="h-4 w-4 text-cyan-400" /> {children}
+    <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-panel-muted">
+      <CalendarDays className="h-4 w-4 text-accent-cyan" /> {children}
     </label>
   );
 }
