@@ -30,12 +30,13 @@ import { DEFAULT_COMPARE_LAYER_ID, DEFAULT_LAYER_ID, getLayerOrDefault, isScienc
 import { formatDate, isIsoDate } from "@/lib/gibs/time";
 import { formatArea, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
 import { analysisHrefForArea } from "@/lib/links";
+import { initialViewFrom } from "@/lib/mapView";
 
 export default function SplitView() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const workspace = useWorkspace();
-  const [initialView] = useState(() => workspace.view);
+  const [initialView] = useState(() => initialViewFrom(params, workspace.view));
   const leftLayer = useMemo(() => getLayerOrDefault(params.get("left"), DEFAULT_LAYER_ID), [params]);
   const rightLayer = useMemo(() => getLayerOrDefault(params.get("right"), DEFAULT_COMPARE_LAYER_ID), [params]);
   const leftRequested = isIsoDate(params.get("leftDate")) ? (params.get("leftDate") as string) : null;

@@ -363,6 +363,30 @@
   font-weight: 600;
 }
 
+/* Trend scan: crisp pixels for the change map, and round rank badges on hotspots. */
+.trend-grid-image {
+  image-rendering: pixelated;
+}
+
+.leaflet-tooltip.hotspot-rank {
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1.5px solid #f8fafc;
+  border-radius: 999px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 19px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
+}
+
+.leaflet-tooltip.hotspot-rank::before {
+  display: none;
+}
+
 /* ── Additions that don't change the look ── */
 
 /* Keyboard users get a visible focus ring; mouse clicks don't show it.

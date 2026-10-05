@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { isAbortError } from "@/lib/async";
 import { findCountry, loadCountries } from "@/lib/geo/countries";
+import { decodeGeometry } from "@/lib/geo/polyline";
 import { lookupOsm, reverseGeocode } from "@/lib/geo/geocode";
 import { areaKm2, bboxOf, bboxPolygon, centroidOf, circlePolygon, formatLatLng, interiorPoint, type BBox } from "@/lib/geo/geometry";
 import type { AnalysisTarget } from "@/lib/analysis/types";
@@ -14,12 +15,13 @@ export interface TargetState {
 
 const num = (value: string | null) => (value === null || value.trim() === "" ? NaN : Number(value));
 
-/** Resolves the URL (?area=, ?osm=, ?country=, ?lat&lon&r=, ?bbox=) into an analysis target. */
+/** Resolves the URL (?area=, ?osm=, ?country=, ?poly=, ?lat&lon&r=, ?bbox=) into an analysis target. */
 export function useAnalysisTarget(params: URLSearchParams): TargetState {
   const { getArea } = useWorkspace();
   const areaId = params.get("area");
   const osm = params.get("osm");
   const countryId = params.get("country");
+  const poly = params.get("poly");
   const lat = num(params.get("lat"));
   const lon = num(params.get("lon"));
   const radius = num(params.get("r"));
@@ -41,6 +43,19 @@ export function useAnalysisTarget(params: URLSearchParams): TargetState {
         areaKm2: savedArea.areaKm2,
         kind: savedArea.kind === "place" ? "place" : "drawn",
         ref: { type: "area", id: savedArea.id },
+      };
+    }
+    const polygon = poly ? decodeGeometry(poly) : null;
+    if (polygon && poly) {
+      return {
+        name: name ?? "Selected area",
+        context,
+        geometry: polygon,
+        bbox: bboxOf(polygon),
+        center: centroidOf(polygon),
+        areaKm2: areaKm2(polygon),
+        kind: "drawn",
+        ref: { type: "poly", poly },
       };
     }
     if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
@@ -75,7 +90,7 @@ export function useAnalysisTarget(params: URLSearchParams): TargetState {
       }
     }
     return null;
-  }, [savedArea, lat, lon, radius, bboxParam, name, context]);
+  }, [savedArea, poly, lat, lon, radius, bboxParam, name, context]);
 
   const [osmState, setOsmState] = useState<{ key: string; target: AnalysisTarget | null; error: string | null } | null>(null);
 

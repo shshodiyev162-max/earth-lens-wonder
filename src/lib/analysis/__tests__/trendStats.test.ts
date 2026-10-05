@@ -154,6 +154,8 @@ describe("verdicts", () => {
     expect(formatP(0.0004)).toBe("p < 0.001");
     expect(formatP(0.0042)).toBe("p = 0.004");
     expect(formatP(0.27)).toBe("p = 0.27");
+    expect(formatP(0.0497)).toBe("p = 0.0497");
+    expect(formatP(0.0503)).toBe("p = 0.0503");
   });
 });
 

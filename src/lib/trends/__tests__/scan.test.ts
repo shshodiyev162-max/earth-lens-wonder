@@ -211,6 +211,16 @@ describe("resolveArea", () => {
     expect(boundary).toHaveBeenCalled();
   });
 
+  it("prefers administrative areas over buildings and small places", async () => {
+    const results = [
+      place({ id: "W1", name: "Bukhara-Ural Gas Compressor Station", kind: "locality", osm: { type: "W", id: 1 } }),
+      place({ id: "N2", name: "Regional Oncology Center", kind: "poi", osm: { type: "N", id: 2 } }),
+      place({ id: "R3", name: "Buxoro Viloyati", kind: "state", osm: { type: "R", id: 3 } }),
+    ];
+    const found = await resolveArea("Bukhara region", { countries, search: async () => results, boundary: async () => bboxPolygon([62, 39, 65, 41]) });
+    expect(found.name).toBe("Buxoro Viloyati");
+  });
+
   it("widens the area for 'near'", async () => {
     const aral = await resolveArea("Aral Sea", { countries, near: true });
     expect(aral.name).toBe("Around Aral Sea");

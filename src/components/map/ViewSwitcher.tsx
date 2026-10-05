@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { Columns2, LayoutGrid, Map as MapIcon } from "lucide-react";
+import { Columns2, LayoutGrid, Map as MapIcon, TrendingUp } from "lucide-react";
 
 const VIEW_TABS = [
   { to: "/map", label: "Explore", icon: MapIcon },
   { to: "/split", label: "Split", icon: Columns2 },
   { to: "/sync", label: "Sync", icon: LayoutGrid },
+  { to: "/trends", label: "Trends", icon: TrendingUp },
 ];
 
 /** Unified ribbon at the bottom of the map — Earth Pulse style. Keeps the position when switching views. */

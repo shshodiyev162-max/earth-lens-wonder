@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Globe, Map, BarChart3, User, Menu, X, Search, LogOut, Sun, Moon } from "lucide-react";
+import { Globe, Map, BarChart3, User, Menu, X, Search, LogOut, Sun, Moon, TrendingUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import GlobalSearch from "@/components/search/GlobalSearch";
 import NavSearch, { type NavSearchHandle } from "@/components/search/NavSearch";
@@ -13,6 +13,7 @@ import { useTheme } from "@/context/theme";
 const navItems = [
   { to: "/", label: "Home", icon: Globe, match: ["/"] },
   { to: "/map", label: "Explore", icon: Map, match: ["/map", "/split", "/sync"] },
+  { to: "/trends", label: "Trends", icon: TrendingUp, match: ["/trends"] },
   { to: "/analysis", label: "Analysis", icon: BarChart3, match: ["/analysis"] },
 ];
 

@@ -55,15 +55,23 @@ export function pixelCenter(grid: GridSpec, index: number): LatLng {
   return [grid.bbox[3] - (row + 0.5) * dy, grid.bbox[0] + (col + 0.5) * dx];
 }
 
-/** Pixels that changed by at least `minChange` in the given direction (and whose trend agrees, when known). */
+/** A pixel's own trend must be at least this likely to be real (when a trend test was run). */
+export const PIXEL_SIGNIFICANCE = 0.1;
+
+/**
+ * Pixels that changed by at least `minChange` in the given direction. When yearly trends were
+ * tested, the pixel's slope must point the same way and its Mann–Kendall p-value be below
+ * PIXEL_SIGNIFICANCE, so a hotspot is a supported change rather than one unusual year.
+ */
 export function flagPixels(trends: PixelTrends, sign: -1 | 1, minChange: number): Uint8Array {
   const flags = new Uint8Array(trends.change.length);
   for (let i = 0; i < flags.length; i++) {
     const change = trends.change[i];
     if (!Number.isFinite(change) || change * sign < minChange) continue;
     const slope = trends.slope[i];
-    // A pixel whose own long-term slope points the other way is a one-off, not a trend.
     if (Number.isFinite(slope) && slope * sign < 0) continue;
+    const p = trends.p[i];
+    if (Number.isFinite(p) && p >= PIXEL_SIGNIFICANCE) continue;
     flags[i] = 1;
   }
   return flags;

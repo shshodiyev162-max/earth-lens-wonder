@@ -28,16 +28,7 @@ import { DEFAULT_LAYER_ID, getLayerOrDefault, isScienceLayer, type GibsLayer } f
 import { isIsoDate } from "@/lib/gibs/time";
 import { formatArea, type PolygonGeometry } from "@/lib/geo/geometry";
 import { analysisHrefForArea } from "@/lib/links";
-
-function initialViewFrom(params: URLSearchParams, fallback: MapView): MapView {
-  const lat = Number(params.get("lat"));
-  const lon = Number(params.get("lon"));
-  const zoom = Number(params.get("z"));
-  if (params.has("lat") && params.has("lon") && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 85 && Math.abs(lon) <= 180) {
-    return { center: [lat, lon], zoom: Number.isFinite(zoom) && zoom >= 2 && zoom <= 12 ? zoom : 6 };
-  }
-  return fallback;
-}
+import { initialViewFrom } from "@/lib/mapView";
 
 export default function Explore() {
   const [params, setParams] = useSearchParams();

@@ -19,11 +19,12 @@ const Explore = lazy(() => import("./pages/Explore"));
 const SplitView = lazy(() => import("./pages/SplitView"));
 const SyncView = lazy(() => import("./pages/SyncView"));
 const Analysis = lazy(() => import("./pages/Analysis"));
+const Trends = lazy(() => import("./pages/Trends"));
 const Login = lazy(() => import("./pages/Login"));
 
 const queryClient = new QueryClient();
 
-const MAP_ROUTES = ["/map", "/split", "/sync"];
+const MAP_ROUTES = ["/map", "/split", "/sync", "/trends"];
 
 /** Placeholder shaped like the page that is loading, so the layout doesn't jump. */
 function PageLoader() {
@@ -101,6 +102,7 @@ const App = () => (
                 <Route path="/split" element={<Page protectedRoute><SplitView /></Page>} />
                 <Route path="/sync" element={<Page protectedRoute><SyncView /></Page>} />
                 <Route path="/analysis" element={<Page protectedRoute><Analysis /></Page>} />
+                <Route path="/trends" element={<Page protectedRoute><Trends /></Page>} />
                 {ACCOUNTS_ENABLED && <Route path="/login" element={<Page><Login /></Page>} />}
                 <Route path="*" element={<NotFound />} />
               </Route>

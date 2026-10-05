@@ -344,13 +344,19 @@ async function refineHotspots(
       for (let i = 0; i < size; i++) mask[i] = region[i] && land[i] ? 1 : 0;
       const yearGrids = seasonMeanGrids(loaded.grids, years, plan.months, size);
       const trends = await computePixelTrends(yearGrids, years, plan.baseline, plan.recent, mask, { width: grid.width, height: grid.height, trend: false, signal });
-      const [bw, bs, be, bn] = hotspot.bbox;
-      const pixels = clusterPixels(flagPixels(trends, hotspot.sign, info.minChange), grid.width, grid.height, 4)
-        .filter((cluster) => {
-          const [lat, lon] = pixelCenter(grid, cluster[Math.floor(cluster.length / 2)]);
-          return lon >= bw && lon <= be && lat >= bs && lat <= bn;
-        })
-        .flat();
+      // Sharpen the edges only: a fine pixel counts if it changed and sits inside the coarse hotspot,
+      // which already passed the trend test.
+      const coarsePixels = new Set(hotspot.pixels);
+      const { dx: cdx, dy: cdy } = pixelSize(coarseGrid);
+      const insideCoarse = (index: number) => {
+        const [lat, lon] = pixelCenter(grid, index);
+        const row = Math.floor((coarseGrid.bbox[3] - lat) / cdy);
+        const col = Math.floor((lon - coarseGrid.bbox[0]) / cdx);
+        return row >= 0 && col >= 0 && row < coarseGrid.height && col < coarseGrid.width && coarsePixels.has(row * coarseGrid.width + col);
+      };
+      const flags = flagPixels(trends, hotspot.sign, info.minChange);
+      for (let i = 0; i < flags.length; i++) if (flags[i] && !insideCoarse(i)) flags[i] = 0;
+      const pixels = clusterPixels(flags, grid.width, grid.height, 4).flat();
       if (!pixels.length) continue;
       let areaKm2 = 0;
       let weighted = 0;

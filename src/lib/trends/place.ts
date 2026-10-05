@@ -3,7 +3,7 @@
 // current map view when the question names no place.
 
 import { findCountry, loadCountries, type Country, type CountryIndex } from "../geo/countries";
-import { defaultRadiusKm, fetchBoundary, hasBoundary, searchPlaces, type PlaceResult } from "../geo/geocode";
+import { defaultRadiusKm, fetchBoundary, hasBoundary, nominatimSearch, searchPlaces, type PlaceResult } from "../geo/geocode";
 import { bboxOf, bboxPolygon, centroidOf, circlePolygon, clampBBox, padBBox, type BBox, type LatLng, type PolygonGeometry } from "../geo/geometry";
 
 export interface ScanArea {
@@ -120,6 +120,35 @@ export interface ResolveOptions {
 
 const defaultBoundary = (place: PlaceResult, signal?: AbortSignal) => (place.osm ? fetchBoundary(place.osm, { signal, kind: place.kind }) : Promise.resolve(null));
 
+const AREA_RANK: Record<PlaceResult["kind"], number> = {
+  country: 0,
+  state: 1,
+  region: 2,
+  county: 3,
+  water: 4,
+  nature: 4,
+  city: 5,
+  district: 6,
+  locality: 7,
+  coordinates: 8,
+  other: 9,
+  poi: 10,
+};
+
+/**
+ * Nominatim first: it knows administrative areas ("Bukhara region" → Buxoro Viloyati), while the
+ * search-as-you-type service favours buildings and shops. Falls back to it when Nominatim is busy.
+ */
+async function defaultSearch(text: string, signal?: AbortSignal): Promise<PlaceResult[]> {
+  try {
+    const found = await nominatimSearch(text, { signal, limit: 6 });
+    if (found.length) return found;
+  } catch (error) {
+    if ((error as { name?: string }).name === "AbortError") throw error;
+  }
+  return searchPlaces(text, { signal, limit: 6 });
+}
+
 /** Resolves the place part of a question into an area to scan. Throws AreaError with a friendly message. */
 export async function resolveArea(text: string | null, options: ResolveOptions = {}): Promise<ScanArea> {
   const { near = false, view, signal } = options;
@@ -142,10 +171,11 @@ export async function resolveArea(text: string | null, options: ResolveOptions =
   const country = countries ? matchCountry(countries, text) : null;
   if (country) return finish(area(country.name, "Country", country.geometry, "country"));
 
-  const search = options.search ?? ((query: string, s?: AbortSignal) => searchPlaces(query, { signal: s, limit: 6 }));
-  const results = await search(text, signal);
+  const search = options.search ?? defaultSearch;
+  const results = (await search(text, signal)).filter((r) => r.kind !== "poi");
   if (!results.length) throw new AreaError(`Couldn't find “${text}” on the map. Try a country, a region or a city.`);
-  const place = results.find(hasBoundary) ?? results[0];
+  // Areas are scanned, so administrative areas beat towns, and towns beat single buildings.
+  const place = [...results].sort((a, b) => AREA_RANK[a.kind] - AREA_RANK[b.kind] || Number(hasBoundary(b)) - Number(hasBoundary(a)))[0];
   let geometry: PolygonGeometry | null = null;
   if (hasBoundary(place)) {
     try {

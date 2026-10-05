@@ -544,6 +544,8 @@ export function annualTrendVerdict(years: number[], values: number[]): TrendVerd
 export function formatP(p: number): string {
   if (!Number.isFinite(p)) return "p unavailable";
   if (p < 0.001) return "p < 0.001";
+  // Near the 0.05 cut-off, show enough digits that "significant" and the number never disagree.
+  if (Math.abs(p - SIGNIFICANCE) < 0.005) return `p = ${p.toFixed(4)}`;
   return `p = ${p < 0.01 ? p.toFixed(3) : p.toFixed(2)}`;
 }
 
