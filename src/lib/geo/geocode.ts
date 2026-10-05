@@ -3,6 +3,7 @@
 // Nominatim, throttled to its 1 request/second usage policy.
 
 import { isPolygonGeometry, type BBox, type LatLng, type PolygonGeometry } from "./geometry";
+import { readCache, TTL, writeCache } from "../cache/store";
 
 export type PlaceKind =
   | "coordinates"
@@ -363,6 +364,15 @@ export function lookupOsm(osmId: string, options: { signal?: AbortSignal } = {})
 }
 
 export async function reverseGeocode(center: LatLng, options: { signal?: AbortSignal; zoom?: number } = {}): Promise<string | null> {
+  const key = `place:${center[0].toFixed(3)},${center[1].toFixed(3)}|${options.zoom ?? 10}`;
+  const known = await readCache<string>(key);
+  if (known) return known;
+  const name = await reverseGeocodeLive(center, options);
+  if (name) void writeCache(key, name, TTL.place);
+  return name;
+}
+
+function reverseGeocodeLive(center: LatLng, options: { signal?: AbortSignal; zoom?: number }): Promise<string | null> {
   return throttledNominatim(async () => {
     const params = new URLSearchParams({
       lat: center[0].toFixed(5),

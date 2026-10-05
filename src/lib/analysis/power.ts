@@ -4,7 +4,7 @@
 // https://power.larc.nasa.gov/docs/services/api/
 
 import type { LatLng } from "../geo/geometry";
-import { withRetry } from "../async";
+import { fetchWithTimeout, withRetry } from "../async";
 
 const POWER_API = "https://power.larc.nasa.gov/api/temporal";
 const FILL_VALUE = -999;
@@ -28,7 +28,8 @@ export class PowerError extends Error {
 }
 
 async function getJson(url: string, signal?: AbortSignal): Promise<unknown> {
-  const response = await fetch(url, { signal });
+  // POWER can be slow for long records; give it more time than the map services.
+  const response = await fetchWithTimeout(url, { signal, timeoutMs: 45_000 });
   if (!response.ok) {
     let detail = "";
     try {

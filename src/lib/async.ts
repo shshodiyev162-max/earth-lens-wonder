@@ -105,6 +105,41 @@ export function isAbortError(error: unknown): boolean {
   return (error as { name?: string } | null)?.name === "AbortError";
 }
 
+/** A request that took too long. Marked 504 so `withRetry` tries it again. */
+export class TimeoutError extends Error {
+  status = 504;
+  constructor(message = "The NASA service took too long to answer") {
+    super(message);
+    this.name = "TimeoutError";
+  }
+}
+
+/**
+ * `fetch` with a time limit, so a stuck request ends in a clear error instead of an endless spinner.
+ * Cancelling through `signal` still rejects with an AbortError, as usual.
+ */
+export async function fetchWithTimeout(url: string, options: { signal?: AbortSignal; timeoutMs?: number; init?: RequestInit } = {}): Promise<Response> {
+  const { signal, timeoutMs = 25_000, init } = options;
+  if (signal?.aborted) throw abortError();
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort, { once: true });
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut && !signal?.aborted) throw new TimeoutError();
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
+
 /** Retries a request a few times on transient failures (network / 5xx). */
 export async function withRetry<T>(task: () => Promise<T>, options: { retries?: number; signal?: AbortSignal; baseDelay?: number } = {}): Promise<T> {
   const retries = options.retries ?? 2;

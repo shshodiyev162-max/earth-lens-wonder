@@ -4,10 +4,12 @@
 //    averaged over several points for large areas.
 
 import { createLimiter, createSharedCache, isAbortError, withRetry } from "../async";
+import { cachedValue, TTL } from "../cache/store";
+import { defaultEndMonth } from "./period";
 import { areaKm2 as geometryArea, representativePoints, type PolygonGeometry } from "../geo/geometry";
 import { getLayer, type GibsLayer } from "../gibs/catalog";
 import { sampleArea, type AreaStats } from "../gibs/sample";
-import { availableMonths, fetchTimeDomain, monthRange } from "../gibs/time";
+import { addMonthsToMonth, availableMonths, fetchTimeDomain, monthRange } from "../gibs/time";
 import {
   averageClimatology,
   averageMonthly,
@@ -107,10 +109,19 @@ export function geometryKey(geometry: PolygonGeometry): string {
 const gibsLimiter = createLimiter(6);
 const powerLimiter = createLimiter(3);
 
+/** Recent months can still be reprocessed by NASA, so they are kept for a shorter time. */
+export function ttlForMonth(month: string, latest = defaultEndMonth()): number {
+  return month >= addMonthsToMonth(latest, -1) ? TTL.recentGrid : TTL.grid;
+}
+
 function cachedSample(layer: GibsLayer, geometry: PolygonGeometry, key: string, month: string, signal?: AbortSignal): Promise<AreaStats> {
+  const id = `${layer.id}|${key}|${month}`;
   return satelliteCache(
-    `${layer.id}|${key}|${month}`,
-    (inner) => gibsLimiter(() => withRetry(() => sampleArea({ layer, geometry, date: `${month}-01`, signal: inner }), { signal: inner, retries: 2 }), inner),
+    id,
+    (inner) =>
+      cachedValue(`stats:${id}`, ttlForMonth(month), () =>
+        gibsLimiter(() => withRetry(() => sampleArea({ layer, geometry, date: `${month}-01`, signal: inner }), { signal: inner, retries: 2 }), inner),
+      ),
     signal,
   );
 }
@@ -193,12 +204,12 @@ async function runSatellite(
 
 function cachedPower(point: [number, number], startYear: number, endYear: number, signal?: AbortSignal) {
   const key = `${point[0].toFixed(3)},${point[1].toFixed(3)}|${startYear}-${endYear}`;
-  return powerCache(key, (inner) => powerLimiter(() => fetchPowerMonthly(point, startYear, endYear, inner), inner), signal);
+  return powerCache(key, (inner) => cachedValue(`power:${key}`, TTL.series, () => powerLimiter(() => fetchPowerMonthly(point, startYear, endYear, inner), inner)), signal);
 }
 
 function cachedClimatology(point: [number, number], signal?: AbortSignal) {
   const key = `${point[0].toFixed(3)},${point[1].toFixed(3)}`;
-  return climatologyCache(key, (inner) => powerLimiter(() => fetchPowerClimatology(point, inner), inner), signal);
+  return climatologyCache(key, (inner) => cachedValue(`normals:${key}`, TTL.series, () => powerLimiter(() => fetchPowerClimatology(point, inner), inner)), signal);
 }
 
 export function samplePointCount(areaKm2: number): number {

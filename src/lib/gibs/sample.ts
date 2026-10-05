@@ -6,6 +6,7 @@
 import { bboxOf, clampBBox, polygonsOf, type BBox, type LatLng, type PolygonGeometry } from "../geo/geometry";
 import { GIBS_WMS_4326, isTimeEnabled, nativeResolutionDeg, type GibsLayer } from "./catalog";
 import { applyTransform, decodePixel, fetchColorMap, type ParsedColorMap } from "./colormap";
+import { fetchWithTimeout } from "../async";
 
 export interface RasterGrid {
   bbox: BBox;
@@ -182,7 +183,7 @@ function createCanvas(width: number, height: number): OffscreenCanvas | HTMLCanv
 
 /** Fetches a GIBS WMS image and returns its RGBA pixels at exactly grid size. */
 export async function fetchRgba(url: string, grid: RasterGrid, signal?: AbortSignal): Promise<Uint8ClampedArray> {
-  const response = await fetch(url, { signal });
+  const response = await fetchWithTimeout(url, { signal, timeoutMs: 30_000 });
   if (!response.ok) throw new GibsRequestError(`NASA GIBS returned ${response.status}`, response.status);
   const type = response.headers.get("content-type") ?? "";
   if (!type.startsWith("image/")) {
