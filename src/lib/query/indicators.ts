@@ -41,6 +41,8 @@ export interface Indicator {
   decimals: number;
   /** Smallest change between baseline and recent periods worth flagging (in `unit`). */
   minChange: number;
+  /** Ground resolution of the product in degrees (no point scanning finer than this). */
+  nativeDeg: number;
   /** The direction that usually means trouble (drives colours and wording). */
   concern: "decline" | "increase";
   /** Default months to compare, so the seasonal cycle can't fake a change. */
@@ -64,6 +66,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     unit: "NDVI",
     decimals: 3,
     minChange: 0.02,
+    nativeDeg: 0.01,
     concern: "decline",
     season: "growing",
     colors: { decline: "#b45309", increase: "#15803d" },
@@ -80,6 +83,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     unit: "°C",
     decimals: 2,
     minChange: 0.5,
+    nativeDeg: 0.05,
     concern: "increase",
     season: "summer",
     colors: { decline: "#2563eb", increase: "#dc2626" },
@@ -96,6 +100,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     unit: "mm/month",
     decimals: 1,
     minChange: 3,
+    nativeDeg: 0.5,
     concern: "decline",
     season: "all",
     colors: { decline: "#a16207", increase: "#0369a1" },
@@ -112,6 +117,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     unit: "% vol",
     decimals: 2,
     minChange: 1,
+    nativeDeg: 0.5,
     concern: "decline",
     season: "all",
     colors: { decline: "#a16207", increase: "#0e7490" },
@@ -128,6 +134,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     unit: "µg/m³",
     decimals: 1,
     minChange: 3,
+    nativeDeg: 0.5,
     concern: "increase",
     season: "all",
     colors: { decline: "#0f766e", increase: "#c2410c" },
@@ -144,6 +151,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     unit: "%",
     decimals: 1,
     minChange: 5,
+    nativeDeg: 0.05,
     concern: "decline",
     season: "cold",
     colors: { decline: "#c2410c", increase: "#1d4ed8" },

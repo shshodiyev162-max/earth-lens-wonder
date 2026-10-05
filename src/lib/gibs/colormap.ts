@@ -199,8 +199,24 @@ export function fetchColorMap(name: string): Promise<ParsedColorMap> {
   return request;
 }
 
-export type ValueTransform = "kelvinToCelsius" | undefined;
+/** Unit conversions from the units NASA publishes to the ones people read. */
+export type ValueTransform = "kelvinToCelsius" | "kgm2sToMmPerMonth" | "fractionToPercent" | "kgm3ToUgm3" | undefined;
+
+/** Average month length in seconds (365.25 / 12 days). */
+const SECONDS_PER_MONTH = 30.4375 * 86_400;
 
 export function applyTransform(value: number, transform: ValueTransform): number {
-  return transform === "kelvinToCelsius" ? value - 273.15 : value;
+  switch (transform) {
+    case "kelvinToCelsius":
+      return value - 273.15;
+    case "kgm2sToMmPerMonth":
+      // 1 kg of water per m² is a 1 mm layer; negative bins are rounding below zero.
+      return Math.max(0, value) * SECONDS_PER_MONTH;
+    case "fractionToPercent":
+      return value * 100;
+    case "kgm3ToUgm3":
+      return Math.max(0, value) * 1e9;
+    default:
+      return value;
+  }
 }

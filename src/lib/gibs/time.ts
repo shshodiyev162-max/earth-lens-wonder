@@ -271,6 +271,19 @@ export function availableMonths(domain: TimeDomain | null, start: string, end: s
   });
 }
 
+/** Months a layer can serve within [start, end], honouring layers whose domain is one continuous range. */
+export function monthsInDomain(layer: GibsLayer, domain: TimeDomain | null, start: string, end: string): string[] {
+  if (!domain || !layer.continuousDomain) return availableMonths(domain, start, end);
+  const first = domain.earliest.slice(0, 7);
+  const last = domain.latest.slice(0, 7);
+  return monthRange(start < first ? first : start, end > last ? last : end).filter((m) => m >= first && m <= last);
+}
+
+/** First and last month a layer has published. */
+export function domainWindow(domain: TimeDomain): { earliest: string; latest: string } {
+  return { earliest: domain.earliest.slice(0, 7), latest: domain.latest.slice(0, 7) };
+}
+
 export function formatMonth(month: string, style: "short" | "long" = "short"): string {
   const [year, m] = month.split("-").map(Number);
   const date = new Date(Date.UTC(year, m - 1, 1));

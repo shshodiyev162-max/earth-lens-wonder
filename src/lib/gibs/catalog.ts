@@ -4,6 +4,8 @@
 // Using the wrong matrix set or zooming past it makes GIBS answer HTTP 400, so
 // each layer carries its own native zoom limit and Leaflet upsamples beyond it.
 
+import type { ValueTransform } from "./colormap";
+
 export const GIBS_WMTS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best";
 export const GIBS_WMS_4326 = "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi";
 export const GIBS_COLORMAPS = "https://gibs.earthdata.nasa.gov/colormaps/v1.3";
@@ -29,7 +31,7 @@ export interface GibsLayer {
   colormap?: string;
   /** Display unit after transforms. */
   unit?: string;
-  transform?: "kelvinToCelsius";
+  transform?: ValueTransform;
   decimals?: number;
   /** Near-real-time lag used for the default date (today's swaths are incomplete). */
   defaultLagDays?: number;
@@ -39,6 +41,11 @@ export interface GibsLayer {
   howToRead?: string;
   /** Hidden from the layer picker (analysis-only products). */
   hidden?: boolean;
+  /**
+   * GIBS lists stray daily dates in some MERRA-2 monthly domains; treat the record as
+   * continuous between its first and last month instead.
+   */
+  continuousDomain?: boolean;
 }
 
 const matrixZoom = (matrixSet: string) => Number(matrixSet.replace(/\D+/g, ""));
@@ -340,8 +347,65 @@ export const LAYERS: GibsLayer[] = [
     decimals: 2,
     needsBase: true,
     hidden: true,
+    continuousDomain: true,
+  }),
+
+  // ── Monthly MERRA-2 products used by the trend scan (rainfall, soil moisture, dust) ──
+  layer({
+    id: "MERRA2_Precipitation_Bias_Corrected_Monthly",
+    name: "Rainfall (monthly)",
+    source: "MERRA-2 reanalysis · monthly",
+    description: "Monthly bias-corrected precipitation from NASA's MERRA-2 reanalysis (~50 km).",
+    category: "water",
+    format: "png",
+    matrixSet: "GoogleMapsCompatible_Level6",
+    period: "monthly",
+    colormap: "MERRA2_Precipitation_Bias_Corrected_Monthly",
+    unit: "mm/month",
+    transform: "kgm2sToMmPerMonth",
+    decimals: 1,
+    needsBase: true,
+    hidden: true,
+    continuousDomain: true,
+  }),
+  layer({
+    id: "MERRA2_Soil_Water_Root_Zone_Monthly",
+    name: "Root-zone soil moisture (monthly)",
+    source: "MERRA-2 reanalysis · monthly",
+    description: "Monthly water content of the root-zone soil layer from NASA's MERRA-2 reanalysis (~50 km).",
+    category: "water",
+    format: "png",
+    matrixSet: "GoogleMapsCompatible_Level6",
+    period: "monthly",
+    colormap: "MERRA2_Soil_Water_Root_Zone_Monthly",
+    unit: "% vol",
+    transform: "fractionToPercent",
+    decimals: 1,
+    needsBase: true,
+    hidden: true,
+    continuousDomain: true,
+  }),
+  layer({
+    id: "MERRA2_Dust_Surface_Mass_Concentration_Monthly",
+    name: "Surface dust (monthly)",
+    source: "MERRA-2 reanalysis · monthly",
+    description: "Monthly dust concentration near the ground from NASA's MERRA-2 reanalysis (~50 km).",
+    category: "air",
+    format: "png",
+    matrixSet: "GoogleMapsCompatible_Level6",
+    period: "monthly",
+    colormap: "MERRA2_Dust_Surface_Mass_Concentration_Monthly",
+    unit: "µg/m³",
+    transform: "kgm3ToUgm3",
+    decimals: 1,
+    needsBase: true,
+    hidden: true,
+    continuousDomain: true,
   }),
 ];
+
+/** Static land/water map used to leave lakes and seas out of the trend scan. */
+export const LAND_WATER_LAYER_ID = "OSM_Land_Water_Map";
 
 export const MAP_LAYERS = LAYERS.filter((item) => !item.hidden);
 

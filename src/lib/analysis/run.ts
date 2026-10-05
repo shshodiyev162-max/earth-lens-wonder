@@ -9,7 +9,7 @@ import { defaultEndMonth } from "./period";
 import { areaKm2 as geometryArea, representativePoints, type PolygonGeometry } from "../geo/geometry";
 import { getLayer, type GibsLayer } from "../gibs/catalog";
 import { sampleArea, type AreaStats } from "../gibs/sample";
-import { addMonthsToMonth, availableMonths, fetchTimeDomain, monthRange } from "../gibs/time";
+import { addMonthsToMonth, fetchTimeDomain, monthRange, monthsInDomain } from "../gibs/time";
 import {
   averageClimatology,
   averageMonthly,
@@ -164,7 +164,7 @@ async function runSatellite(
   try {
     const domain = await fetchTimeDomain(layer);
     if (domain) {
-      domainMonths = availableMonths(domain, request.start, request.end);
+      domainMonths = monthsInDomain(layer, domain, request.start, request.end);
       base.latestAvailable = domain.latest.slice(0, 7);
     }
   } catch (error) {
