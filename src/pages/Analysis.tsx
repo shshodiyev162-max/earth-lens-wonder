@@ -12,7 +12,7 @@ import type { PickedCountry } from "@/components/map/DrawTools";
 import { useAnalysisRun } from "@/hooks/useAnalysisRun";
 import { useAnalysisTarget } from "@/hooks/useAnalysisTarget";
 import { DATASETS } from "@/lib/analysis/run";
-import { PERIOD_OPTIONS, periodRange, type PeriodId } from "@/lib/analysis/period";
+import { readPeriod, writePeriod, type PeriodKind } from "@/lib/analysis/period";
 import type { AnalysisResult, DatasetId, SatelliteSeries } from "@/lib/analysis/types";
 import { defaultRadiusKm, hasBoundary, type PlaceResult } from "@/lib/geo/geocode";
 import type { LatLng, PolygonGeometry } from "@/lib/geo/geometry";
@@ -165,9 +165,9 @@ export default function Analysis() {
   const workspace = useWorkspace();
   const { target, loading: targetLoading, error: targetError } = useAnalysisTarget(params);
 
-  const periodParam = params.get("period");
-  const period: PeriodId = (PERIOD_OPTIONS.find((o) => o.id === periodParam)?.id ?? "12") as PeriodId;
-  const { start, end } = periodRange(period, params.get("start"), params.get("end"));
+  const selection = useMemo(() => readPeriod(params), [params]);
+  const { start, end } = selection;
+  const period = selection.kind;
   const datasets = useMemo(() => parseDatasets(params.get("ds")), [params]);
   const run = useAnalysisRun(target, start, end, datasets);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -225,24 +225,8 @@ export default function Analysis() {
     revealResults();
   };
 
-  const onPeriod = (next: PeriodId, customStart?: string, customEnd?: string) => {
-    setParams(
-      (current) => {
-        const updated = new URLSearchParams(current);
-        if (next === "12") updated.delete("period");
-        else updated.set("period", next);
-        if (next === "custom" && customStart && customEnd) {
-          updated.set("start", customStart);
-          updated.set("end", customEnd);
-        } else {
-          updated.delete("start");
-          updated.delete("end");
-        }
-        return updated;
-      },
-      { replace: true },
-    );
-  };
+  const onPeriod = (next: PeriodKind, customStart?: string, customEnd?: string) =>
+    setParams((current) => writePeriod(current, selection, { kind: next, start: customStart, end: customEnd }), { replace: true });
 
   const onDatasets = (next: DatasetId[]) =>
     setParams(

@@ -2,16 +2,18 @@ import { Calendar, CloudRain, Flame, Leaf, Snowflake, Wind } from "lucide-react"
 import { DATASETS } from "@/lib/analysis/run";
 import type { DatasetId } from "@/lib/analysis/types";
 import { formatMonth } from "@/lib/gibs/time";
-import { EARLIEST_MONTH, PERIOD_OPTIONS, defaultEndMonth, type PeriodId } from "@/lib/analysis/period";
+import { EARLIEST_MONTH, PERIOD_PRESETS, defaultEndMonth, type PeriodKind } from "@/lib/analysis/period";
+
+const PERIOD_OPTIONS: { id: PeriodKind; label: string }[] = [...PERIOD_PRESETS.map((p) => ({ id: p.id, label: p.label })), { id: "custom", label: "Custom" }];
 import { cn } from "@/lib/utils";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 interface PeriodPickerProps {
-  period: PeriodId;
+  period: PeriodKind;
   start: string;
   end: string;
-  onChange: (period: PeriodId, start?: string, end?: string) => void;
+  onChange: (period: PeriodKind, start?: string, end?: string) => void;
 }
 
 export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps) {
@@ -62,7 +64,7 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
               className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground"
             />
           </label>
-          <p className="w-full text-xs text-muted-foreground">Up to 10 years, from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>
+          <p className="w-full text-xs text-muted-foreground">Any months from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">

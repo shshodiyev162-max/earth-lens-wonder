@@ -563,3 +563,31 @@ export function explainVerdict(verdict: TrendVerdict, subject: string, unit: str
   const chance = verdict.p < 0.001 ? "fewer than 1 in 1,000" : verdict.p < 0.01 ? "fewer than 1 in 100" : "fewer than 1 in 20";
   return `${subject} ${verdict.direction === "decline" ? "fell" : "rose"} by ${rate} (${range}). A run this consistent would appear by chance in ${chance} records without a real trend (${formatP(verdict.p)}).`;
 }
+
+// ---------------------------------------------------------------------------
+// Two periods compared (baseline vs comparison)
+
+export interface TwoSampleTest {
+  /** Comparison mean minus baseline mean. */
+  difference: number;
+  t: number;
+  df: number;
+  /** Two-sided p-value (Welch's t-test, which doesn't assume equal spread). */
+  p: number;
+}
+
+export function welchTTest(baseline: number[], comparison: number[]): TwoSampleTest | null {
+  const a = baseline.filter(Number.isFinite);
+  const b = comparison.filter(Number.isFinite);
+  if (a.length < 2 || b.length < 2) return null;
+  const ma = mean(a);
+  const mb = mean(b);
+  const va = a.reduce((s, v) => s + (v - ma) ** 2, 0) / (a.length - 1);
+  const vb = b.reduce((s, v) => s + (v - mb) ** 2, 0) / (b.length - 1);
+  const se2 = va / a.length + vb / b.length;
+  const difference = mb - ma;
+  if (se2 === 0) return { difference, t: difference === 0 ? 0 : Math.sign(difference) * Infinity, df: a.length + b.length - 2, p: difference === 0 ? 1 : 0 };
+  const t = difference / Math.sqrt(se2);
+  const df = se2 ** 2 / ((va / a.length) ** 2 / (a.length - 1) + (vb / b.length) ** 2 / (b.length - 1));
+  return { difference, t, df, p: studentTTwoSided(t, df) };
+}
