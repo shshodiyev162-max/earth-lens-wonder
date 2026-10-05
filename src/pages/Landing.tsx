@@ -5,6 +5,7 @@ import { Globe, Map, Columns, GitCompare, BarChart3, PenTool, Search, ArrowRight
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { openGlobalSearch } from "@/components/search/openSearch";
 import DayNightControl from "@/components/landing/DayNightControl";
+import HeroSearch from "@/components/landing/HeroSearch";
 import { createHourStore, utcHours, type DayNightMode } from "@/components/landing/sun";
 
 // The WebGL globe is the heaviest part of the app, so it loads after the page.
@@ -191,10 +192,9 @@ export default function Landing() {
               <span className="bg-gradient-to-r from-primary via-glow-blue to-primary bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-drift">Never Before</span>
             </h1>
 
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Explore daily NASA satellite imagery, compare any two dates, and analyze any
-              place on the planet — all from one powerful platform.
-            </p>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 leading-relaxed">Find where Earth is changing — and why — with NASA data.</p>
+
+            <HeroSearch className="mb-5" />
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
@@ -215,7 +215,7 @@ export default function Landing() {
             </div>
 
             {/* Just under the buttons, without moving the text from where it always was. */}
-            <div className="absolute inset-x-0 top-full mt-6 flex justify-center">
+            <div className="absolute inset-x-0 top-full mt-4 flex justify-center">
               <DayNightControl
                 mode={dayNightMode}
                 onModeChange={changeDayNightMode}

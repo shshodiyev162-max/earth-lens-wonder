@@ -1,9 +1,7 @@
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState, type KeyboardEvent } from "react";
-import { Image as ImageIcon, Loader2, Ruler, Search, X } from "lucide-react";
-import { kindLabel } from "@/lib/geo/geocode";
-import { isScienceLayer } from "@/lib/gibs/catalog";
+import { Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { KIND_ICON } from "./placeIcons";
+import { searchItemView, startsSection } from "./searchItemView";
 import { useOpenSearchItem, useUniversalSearch, type SearchItem } from "./useUniversalSearch";
 
 export interface NavSearchHandle {
@@ -18,7 +16,7 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
-  const { items, results, loading, error, resultsFor, searchNow } = useUniversalSearch(query, open);
+  const { items, loading, error, resultsFor, searchNow } = useUniversalSearch(query, open);
   const openItem = useOpenSearchItem();
 
   useImperativeHandle(ref, () => ({ focus: () => inputRef.current?.focus() }), []);
@@ -51,7 +49,7 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
       setHighlight((h) => Math.max(h - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
-      if (items.length && (resultsFor === query.trim() || items[highlight]?.type === "layer")) choose(items[Math.min(highlight, items.length - 1)]);
+      if (items.length && (resultsFor === query.trim() || items[highlight]?.type !== "place")) choose(items[Math.min(highlight, items.length - 1)]);
       else if (query.trim().length >= 2) {
         setOpen(true);
         const found = await searchNow(query);
@@ -79,8 +77,8 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="Search places or layers…"
-          aria-label="Search places and NASA layers"
+          placeholder="Search places, layers or ask a question…"
+          aria-label="Search places and NASA layers, or ask where something changed"
           role="combobox"
           aria-expanded={showDropdown}
           aria-controls={showDropdown ? listId : undefined}
@@ -112,15 +110,13 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
       {showDropdown && (
         <div tabIndex={0} aria-label="Search results" className="absolute right-0 top-full z-[2100] mt-2 max-h-[min(26rem,70vh)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-lg">
           <div id={listId} role="listbox" aria-label="Places and NASA layers">
-            {results.length > 0 && <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Places</div>}
             {items.map((item, index) => {
-              const Icon = item.type === "place" ? KIND_ICON[item.place.kind] : isScienceLayer(item.layer) ? Ruler : ImageIcon;
+              const view = searchItemView(item);
+              const Icon = view.icon;
               const active = index === highlight;
               return (
-                <div key={item.type === "place" ? item.place.id : item.layer.id}>
-                  {item.type === "layer" && index === results.length && (
-                    <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">NASA layers</div>
-                  )}
+                <div key={view.key}>
+                  {startsSection(items, index) && <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{view.section}</div>}
                   <button
                     type="button"
                     id={`${listId}-option-${index}`}
@@ -133,12 +129,10 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
                   >
                     <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                     <span className="min-w-0 flex-1">
-                      <span translate="no" className="block truncate font-medium">
-                        {item.type === "place" ? item.place.name : item.layer.name}
+                      <span translate="no" className={cn("block font-medium", item.type === "trend" ? "whitespace-normal" : "truncate")}>
+                        {view.title}
                       </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {item.type === "place" ? `${kindLabel(item.place.kind)}${item.place.context ? ` · ${item.place.context}` : ""}` : item.layer.source}
-                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">{view.subtitle}</span>
                     </span>
                   </button>
                 </div>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { analysisHref, compareHref, decodeTime, encodeTime, interpretation, paramsForEdit, queryFromParams, representativeMonth, resultsHeading } from "../query";
+import { analysisHref, compareHref, decodeTime, describeQuestion, encodeTime, interpretation, paramsForEdit, queryFromParams, representativeMonth, resultsHeading } from "../query";
 import { decodeGeometry } from "../../geo/polyline";
+import { parseTrendQuery } from "../../query/parse";
 import { bboxPolygon } from "../../geo/geometry";
 import type { Hotspot } from "../hotspots";
 import type { PeriodPlan } from "../../query/period";
@@ -62,6 +63,14 @@ describe("labels", () => {
     expect(resultsHeading(10, q, area, plan)).toBe("Top 10 areas with vegetation decline in Uzbekistan, 2015→2025");
     expect(resultsHeading(0, q, area, plan)).toBe("No areas with vegetation decline in Uzbekistan, 2015→2025");
     expect(resultsHeading(1, q, { ...area, name: "Around Aral Sea" }, plan)).toBe("One area with vegetation decline around the Aral Sea, 2015→2025");
+  });
+});
+
+describe("describeQuestion", () => {
+  it("summarises a question for the search box", () => {
+    expect(describeQuestion(parseTrendQuery("dust increase near the Aral Sea"))).toBe("Dust · Increase · near Aral Sea · last 10 years");
+    expect(describeQuestion(parseTrendQuery("where did vegetation decline in Uzbekistan since 2015"))).toBe("Vegetation · Decline · Uzbekistan · since 2015");
+    expect(describeQuestion(parseTrendQuery("areas that experienced a decline in vegetation health"))).toBe("Vegetation · Decline · map view · last 10 years");
   });
 });
 

@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Image as ImageIcon, Loader2, Ruler, Search, X } from "lucide-react";
-import { kindLabel } from "@/lib/geo/geocode";
 import { getLayer, isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { cn } from "@/lib/utils";
-import { KIND_ICON } from "./placeIcons";
 import { useOpenSearchItem, useUniversalSearch, type SearchItem } from "./useUniversalSearch";
+import { searchItemView, startsSection } from "./searchItemView";
+import { EXAMPLE_QUERIES } from "@/lib/query/examples";
 
 // Shown before the user types, so the window is useful straight away.
 const QUICK_LAYERS = [
@@ -25,7 +25,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
   const [highlight, setHighlight] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const listId = useId();
-  const { items, results, loading, error, resultsFor, searchNow } = useUniversalSearch(query, open);
+  const { items, loading, error, resultsFor, searchNow } = useUniversalSearch(query, open);
   const openItem = useOpenSearchItem();
 
   useEffect(() => setHighlight(0), [items.length, query]);
@@ -47,7 +47,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
       setHighlight((h) => Math.max(h - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
-      if (items.length && (resultsFor === query.trim() || items[highlight]?.type === "layer")) choose(items[Math.min(highlight, items.length - 1)]);
+      if (items.length && (resultsFor === query.trim() || items[highlight]?.type !== "place")) choose(items[Math.min(highlight, items.length - 1)]);
       else if (query.trim().length >= 2) {
         const found = await searchNow(query);
         if (found.length === 1) choose({ type: "place", place: found[0] });
@@ -77,7 +77,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Search any place, coordinates, or a NASA layer…"
+              placeholder="Search a place or NASA layer — or ask where something changed…"
               className="min-w-0 flex-1 bg-transparent py-4 text-base text-foreground outline-none placeholder:text-muted-foreground"
               aria-label="Search places and layers"
               role="combobox"
@@ -97,7 +97,11 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
             {trimmed.length < 2 && (
               <div className="px-1 py-1">
                 <p className="px-3 pb-3 pt-1 text-sm text-muted-foreground">
-                  Type a city, region, country, mountain or lake — or coordinates like <span className="font-mono text-foreground">39.77, 64.42</span>.
+                  Type a city, region, country, mountain or lake — or coordinates like <span className="font-mono text-foreground">39.77, 64.42</span>. You can also ask a question, like{" "}
+                  <button type="button" onClick={() => setQuery(EXAMPLE_QUERIES[0])} className="text-primary underline-offset-2 hover:underline">
+                    “{EXAMPLE_QUERIES[0]}”
+                  </button>
+                  .
                 </p>
                 <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Open a NASA layer</div>
                 <div className="grid gap-0.5 sm:grid-cols-2">
@@ -122,15 +126,13 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
               </div>
             )}
             <div id={listId} role="listbox" aria-label="Places and layers">
-              {results.length > 0 && <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Places</div>}
               {items.map((item, index) => {
-                const Icon = item.type === "place" ? KIND_ICON[item.place.kind] : isScienceLayer(item.layer) ? Ruler : ImageIcon;
+                const view = searchItemView(item);
+                const Icon = view.icon;
                 const active = index === highlight;
                 return (
-                  <div key={item.type === "place" ? item.place.id : item.layer.id}>
-                    {item.type === "layer" && index === results.length && (
-                      <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">NASA layers</div>
-                    )}
+                  <div key={view.key}>
+                    {startsSection(items, index) && <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{view.section}</div>}
                     <button
                       type="button"
                       id={`${listId}-option-${index}`}
@@ -144,12 +146,10 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
                     >
                       <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                       <span className="min-w-0 flex-1">
-                        <span translate="no" className="block truncate font-medium">
-                          {item.type === "place" ? item.place.name : item.layer.name}
+                        <span translate="no" className={cn("block font-medium", item.type === "trend" ? "whitespace-normal" : "truncate")}>
+                          {view.title}
                         </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {item.type === "place" ? `${kindLabel(item.place.kind)}${item.place.context ? ` · ${item.place.context}` : ""}` : item.layer.source}
-                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">{view.subtitle}</span>
                       </span>
                     </button>
                   </div>

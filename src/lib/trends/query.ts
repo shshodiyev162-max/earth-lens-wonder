@@ -5,7 +5,7 @@ import { formatArea } from "../geo/geometry";
 import { encodeGeometry } from "../geo/polyline";
 import { formatMonth } from "../gibs/time";
 import { INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId, type SeasonId } from "../query/indicators";
-import { parseTrendQuery, type TimeSpec } from "../query/parse";
+import { parseTrendQuery, type ParsedQuery, type TimeSpec } from "../query/parse";
 import { seasonYearMonths, type PeriodPlan } from "../query/period";
 import type { Hotspot } from "./hotspots";
 import type { ScanArea } from "./place";
@@ -146,6 +146,28 @@ export function directionLabel(direction: Direction): string {
 export function periodLabel(plan: PeriodPlan): string {
   if (plan.kind === "comparison") return `${plan.baseline[0]} vs ${plan.recent[0]}`;
   return `${plan.startYear}→${plan.endYear}`;
+}
+
+function describeTime(time: TimeSpec): string {
+  switch (time.kind) {
+    case "since":
+      return `since ${time.start}`;
+    case "range":
+      return `${time.start}–${time.end}`;
+    case "last":
+      return `last ${time.years} years`;
+    case "year":
+      return String(time.year);
+    case "versus":
+      return `${time.baseline} vs ${time.recent}`;
+    default:
+      return "last 10 years";
+  }
+}
+
+/** "Vegetation · Decline · Uzbekistan · since 2015" — before anything is looked up. */
+export function describeQuestion(parsed: ParsedQuery): string {
+  return [parsed.indicator ? INDICATORS[parsed.indicator].label : "Vegetation", directionLabel(parsed.direction), parsed.place ? `${parsed.near ? "near " : ""}${parsed.place}` : "map view", describeTime(parsed.time)].join(" · ");
 }
 
 /** "Vegetation · Decline · Uzbekistan · 2015→2025 · Apr–Sep" */
