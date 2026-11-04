@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analysisHref, applyEdit, compareHref, decodeTime, describeQuestion, encodeTime, paramsFor, queryFromParams, representativeMonth, resultsHeading, scanKey, sentenceFor, type TrendQuery } from "../query";
+import { analysisHref, applyEdit, areaAnalysisHref, compareHref, decodeTime, describeQuestion, encodeTime, paramsFor, queryFromParams, representativeMonth, resultsHeading, scanKey, sentenceFor, type TrendQuery } from "../query";
 import { decodeGeometry } from "../../geo/polyline";
 import { parseTrendQuery } from "../../query/parse";
 import { INDICATOR_ORDER, type Direction, type IndicatorId } from "../../query/indicators";
@@ -142,6 +142,16 @@ describe("labels and links", () => {
     const params = new URL(analysisHref(hotspot, "vegetation", area, plan, "2026-08"), "https://x.test").searchParams;
     expect(decodeGeometry(params.get("poly") as string)).toEqual(hotspot.geometry);
     expect([params.get("start"), params.get("end"), params.get("ds")]).toEqual(["2015-01", "2025-12", "vegetation,climate"]);
+  });
+
+  it("open the full analysis for the whole area, on the same country or outline", () => {
+    const country = new URL(areaAnalysisHref(area, { country: "UZB", name: "Uzbekistan" }, "heat", plan, "2026-08"), "https://x.test").searchParams;
+    expect([country.get("country"), country.get("poly"), country.get("name"), country.get("ds")]).toEqual(["UZB", null, "Uzbekistan", "surfaceHeat,climate"]);
+    const view = new URL(areaAnalysisHref({ ...area, kind: "view" }, null, "vegetation", plan, "2026-08"), "https://x.test").searchParams;
+    expect(decodeGeometry(view.get("poly") as string)).toEqual(area.geometry);
+    expect(view.get("name")).toBe("Map view");
+    // A typed country found in the bundled outlines links by its code.
+    expect(new URL(areaAnalysisHref({ ...area, countryId: "UZB" }, null, "vegetation", plan, "2026-08"), "https://x.test").searchParams.get("country")).toBe("UZB");
   });
 
   it("compare the middle of the season, then vs now", () => {

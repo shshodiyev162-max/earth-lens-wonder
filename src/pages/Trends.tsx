@@ -13,6 +13,7 @@ import FlyTo, { type FlyTarget } from "@/components/map/FlyTo";
 import LayerLegend from "@/components/map/LayerLegend";
 import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
 import AreaPicker from "@/components/trends/AreaPicker";
+import AreaSummaryCard from "@/components/trends/AreaSummaryCard";
 import GridImageLayer from "@/components/trends/GridImageLayer";
 import HotspotLayer from "@/components/trends/HotspotLayer";
 import HotspotList from "@/components/trends/HotspotList";
@@ -41,6 +42,7 @@ import { PIXEL_SIGNIFICANCE, STRICT_P } from "@/lib/trends/hotspots";
 import {
   analysisHref,
   applyEdit,
+  areaAnalysisHref,
   compareHref,
   DEFAULT_FILTER,
   filterFor,
@@ -57,7 +59,7 @@ import {
   type TrendQuery,
 } from "@/lib/trends/query";
 import { changeImage, changeScale } from "@/lib/trends/render";
-import { rebuildHotspots, type HotspotDetail } from "@/lib/trends/scan";
+import { rebuildHotspots, summarizeArea, type HotspotDetail } from "@/lib/trends/scan";
 import { cn } from "@/lib/utils";
 
 /** Reports the map's current bounds (for searches that name no place). */
@@ -339,6 +341,17 @@ export default function Trends() {
   const estimate = draft?.understood ? `About ${estimateMaps(draft)} monthly NASA maps · ${timeRange(estimateMaps(draft))} the first time.` : null;
   const minChange = indicator && filter ? indicator.minChange * filter.minFactor : 0;
   const shownKm2 = hotspots.reduce((sum, h) => sum + h.areaKm2, 0);
+  const summary = useMemo(() => (result && filter ? summarizeArea(result, filter) : null), [result, filter]);
+  const areaName = area ? (area.kind === "view" ? "The map view" : area.name) : "";
+  const areaKind = !area
+    ? ""
+    : area.kind === "view"
+      ? "What the map showed when you searched"
+      : area.kind === "country"
+        ? "Country"
+        : applied?.area?.poly
+          ? "Outlined on the map"
+          : (area.context ?? "Place");
 
   const results =
     applied && active && indicator && filter ? (
@@ -390,22 +403,28 @@ export default function Trends() {
         {measure?.status === "done" && result && area && plan && (
           <>
             <ResultFilters indicator={indicator} filter={filter} tested={plan.kind === "trend"} onChange={setFilter} />
-            <div>
-              <h2 className="text-base font-semibold leading-snug text-panel-foreground">{resultsHeading(hotspots.length, active, filter.direction, area, plan)}</h2>
-              {result.region.verdict ? (
-                <p className="mt-1.5 text-xs leading-relaxed text-panel-soft">
-                  Across the whole area: <strong className="text-panel-foreground">{result.region.verdict.label.toLowerCase()}</strong>.{" "}
-                  {explainVerdict(result.region.verdict, seasonAverage(months), indicator.unit, indicator.decimals)}
-                </p>
-              ) : (
-                <p className="mt-1.5 text-xs leading-relaxed text-panel-soft">
-                  Across the whole area, {seasonAverage(months).toLowerCase()} changed by {signed(result.region.meanChange, indicator.decimals)} {indicator.unit}.
-                </p>
-              )}
-              <p className="mt-1.5 text-[11px] text-panel-muted">
-                Scanned {formatArea(result.region.scannedKm2)} of land · {Math.round(result.region.validShare * 100)}% had data in both periods · these hotspots cover {formatArea(shownKm2)}.
-              </p>
-            </div>
+            {summary && (
+              <AreaSummaryCard
+                name={areaName}
+                kind={areaKind}
+                summary={summary}
+                verdict={result.region.verdict}
+                series={result.region.series}
+                indicator={indicator}
+                plan={plan}
+                filter={filter}
+                seasonSubject={seasonAverage(months)}
+                hotspotCount={hotspots.length}
+                hotspotKm2={shownKm2}
+                analysisHref={areaAnalysisHref(area, applied.area, active, plan, latest)}
+                compareHref={compareHref({ center: area.center, areaKm2: summary.scannedKm2 }, active, plan, months)}
+                onZoom={() => {
+                  setFlyTarget({ bbox: area.bbox, key: `whole-${Date.now()}` });
+                  if (window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(false);
+                }}
+              />
+            )}
+            <h2 className="text-sm font-semibold leading-snug text-panel-foreground">{resultsHeading(hotspots.length, active, filter.direction, area, plan)}</h2>
             {hotspots.length > 0 ? (
               <HotspotList hotspots={hotspots} labels={scan.labels} indicator={indicator} plan={plan} selectedId={selectedId} onSelect={select} />
             ) : (

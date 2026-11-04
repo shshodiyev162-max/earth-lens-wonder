@@ -13,6 +13,8 @@ export interface ScanArea {
   bbox: BBox;
   center: LatLng;
   kind: "region" | "country" | "place" | "view";
+  /** The country's code, when the area is a whole country (for exact links to other pages). */
+  countryId?: string;
 }
 
 export class AreaError extends Error {}
@@ -105,7 +107,8 @@ function area(name: string, context: string | undefined, geometry: PolygonGeomet
 /** "near X": a box around the place, widened so its surroundings are included. */
 export function widen(target: ScanArea): ScanArea {
   const bbox = clampBBox(padBBox(target.bbox, 0.6, 0.5));
-  return { ...target, name: `Around ${target.name}`, geometry: bboxPolygon(bbox), bbox };
+  // A box around the place, no longer the country itself.
+  return { ...target, name: `Around ${target.name}`, geometry: bboxPolygon(bbox), bbox, kind: target.kind === "country" ? "region" : target.kind, countryId: undefined };
 }
 
 export interface ResolveOptions {
@@ -169,7 +172,7 @@ export async function resolveArea(text: string | null, options: ResolveOptions =
   }
 
   const country = countries ? matchCountry(countries, text) : null;
-  if (country) return finish(area(country.name, "Country", country.geometry, "country"));
+  if (country) return finish({ ...area(country.name, "Country", country.geometry, "country"), countryId: country.id });
 
   const search = options.search ?? defaultSearch;
   const results = (await search(text, signal)).filter((r) => r.kind !== "poi");

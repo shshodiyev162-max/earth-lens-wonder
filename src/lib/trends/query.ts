@@ -411,28 +411,45 @@ function mid([a, b]: [number, number]): number {
   return Math.round((a + b) / 2);
 }
 
-/** Opens the full analysis for the hotspot's own outline and the scanned period. */
-export function analysisHref(hotspot: Hotspot, indicator: IndicatorId, area: ScanArea, plan: PeriodPlan, latestMonth: string): string {
+/** The scanned period and the measure's own datasets, for the Analysis page. */
+function analysisPeriod(params: URLSearchParams, indicator: IndicatorId, plan: PeriodPlan, latestMonth: string): string {
   const end = `${plan.endYear}-12` > latestMonth ? latestMonth : `${plan.endYear}-12`;
-  const params = new URLSearchParams({
-    poly: encodeGeometryForLink(hotspot.geometry),
-    name: hotspotTitle(hotspot),
-    ctx: `${area.kind === "view" ? "Map view" : area.name} · ${formatArea(hotspot.areaKm2)}`,
-    period: "custom",
-    start: `${plan.startYear}-01`,
-    end,
-  });
+  params.set("period", "custom");
+  params.set("start", `${plan.startYear}-01`);
+  params.set("end", end);
   const dataset = INDICATORS[indicator].dataset;
   params.set("ds", dataset === "climate" ? "climate,vegetation" : `${dataset},climate`);
   return `/analysis?${params}`;
 }
 
+/** Opens the full analysis for the hotspot's own outline and the scanned period. */
+export function analysisHref(hotspot: Hotspot, indicator: IndicatorId, area: ScanArea, plan: PeriodPlan, latestMonth: string): string {
+  const params = new URLSearchParams({
+    poly: encodeGeometryForLink(hotspot.geometry),
+    name: hotspotTitle(hotspot),
+    ctx: `${area.kind === "view" ? "Map view" : area.name} · ${formatArea(hotspot.areaKm2)}`,
+  });
+  return analysisPeriod(params, indicator, plan, latestMonth);
+}
+
+/** Opens the full analysis for the whole scanned area: the same country or boundary when there is one. */
+export function areaAnalysisHref(area: ScanArea, exact: TrendQuery["area"], indicator: IndicatorId, plan: PeriodPlan, latestMonth: string): string {
+  const params = new URLSearchParams();
+  const countryId = exact?.country ?? area.countryId;
+  if (countryId) params.set("country", countryId);
+  else if (exact?.osm) params.set("osm", exact.osm);
+  else params.set("poly", encodeGeometryForLink(area.geometry));
+  params.set("name", area.kind === "view" ? "Map view" : area.name);
+  if (area.context) params.set("ctx", area.context);
+  return analysisPeriod(params, indicator, plan, latestMonth);
+}
+
 /** Swipe view of the same layer: a baseline season on the left, a recent one on the right. */
-export function compareHref(hotspot: Hotspot, indicator: IndicatorId, plan: PeriodPlan, months: number[]): string {
+export function compareHref(hotspot: Pick<Hotspot, "center" | "areaKm2">, indicator: IndicatorId, plan: PeriodPlan, months: number[]): string {
   const month = representativeMonth(months);
   const yearFor = (seasonYear: number) => Number(seasonYearMonths(seasonYear, months).find((m) => Number(m.slice(5, 7)) === month)?.slice(0, 4) ?? seasonYear);
   const date = (seasonYear: number) => `${yearFor(seasonYear)}-${String(month).padStart(2, "0")}-01`;
-  const zoom = hotspot.areaKm2 > 50_000 ? 5 : hotspot.areaKm2 > 5_000 ? 7 : hotspot.areaKm2 > 500 ? 8 : 9;
+  const zoom = hotspot.areaKm2 > 1_000_000 ? 4 : hotspot.areaKm2 > 50_000 ? 5 : hotspot.areaKm2 > 5_000 ? 7 : hotspot.areaKm2 > 500 ? 8 : 9;
   const layer = INDICATORS[indicator].layerId;
   return `/split?${new URLSearchParams({
     left: layer,

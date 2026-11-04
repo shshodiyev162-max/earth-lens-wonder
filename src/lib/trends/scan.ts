@@ -331,6 +331,57 @@ export function rebuildHotspots(result: ScanResult, filter: HotspotFilter): Hots
   });
 }
 
+export interface AreaSummary {
+  /** Land inside the area. */
+  scannedKm2: number;
+  /** Land with a measurement in both periods. */
+  measuredKm2: number;
+  /** Area-weighted averages of the season over the baseline and recent years. */
+  baselineMean: number | null;
+  recentMean: number | null;
+  /** recentMean − baselineMean. */
+  change: number | null;
+  /** Land that fell / rose by at least the filter's smallest change, with its own trend agreeing. */
+  declinedKm2: number;
+  increasedKm2: number;
+}
+
+/** The whole scanned area in numbers, for the filter currently applied. */
+export function summarizeArea(result: ScanResult, filter: HotspotFilter): AreaSummary {
+  const options = hotspotOptions(filter, INDICATORS[result.indicator].minChange, result.coarse);
+  const down = flagPixels(result.trends, -1, options.minChange, options.maxP);
+  const up = flagPixels(result.trends, 1, options.minChange, options.maxP);
+  const { trends, grid, mask } = result;
+  let scannedKm2 = 0;
+  let measuredKm2 = 0;
+  let baseline = 0;
+  let recent = 0;
+  let declinedKm2 = 0;
+  let increasedKm2 = 0;
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i]) continue;
+    const a = pixelAreaKm2(grid, Math.floor(i / grid.width));
+    scannedKm2 += a;
+    if (!Number.isFinite(trends.change[i])) continue;
+    measuredKm2 += a;
+    baseline += trends.baselineMean[i] * a;
+    recent += trends.recentMean[i] * a;
+    if (down[i]) declinedKm2 += a;
+    if (up[i]) increasedKm2 += a;
+  }
+  const baselineMean = measuredKm2 ? baseline / measuredKm2 : null;
+  const recentMean = measuredKm2 ? recent / measuredKm2 : null;
+  return {
+    scannedKm2,
+    measuredKm2,
+    baselineMean,
+    recentMean,
+    change: baselineMean !== null && recentMean !== null ? recentMean - baselineMean : null,
+    declinedKm2,
+    increasedKm2,
+  };
+}
+
 /**
  * Large areas are scanned coarsely; the top hotspots are then re-read at finer resolution over the
  * baseline and recent years only, and their outlines and areas re-drawn from that.

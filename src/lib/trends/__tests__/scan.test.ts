@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { rebuildHotspots, runScan, ScanError, type ScanLoaders } from "../scan";
+import { rebuildHotspots, runScan, ScanError, summarizeArea, type ScanLoaders } from "../scan";
 import { scanGrid, decodeGrid } from "../grid";
 import { AreaError, matchCountry, resolveArea, widen, type ScanArea } from "../place";
 import { planPeriod, type PeriodPlan } from "../../query/period";
@@ -92,6 +92,29 @@ describe("runScan", () => {
     expect(both[0].verdict?.label).toBe("Significant decline");
     expect(rebuildHotspots(result, { ...result.filter, minFactor: 10 })).toHaveLength(0);
     expect(monthGrid.mock.calls.length).toBe(reads);
+  });
+
+  it("sums up the whole area: averages, change and the land that fell or rose", async () => {
+    const result = await runScan({
+      indicator: "vegetation",
+      direction: "decline",
+      area: AREA,
+      plan: plan(),
+      availability: { window: { earliest: "2000-03", latest: "2026-08" }, available: null },
+      loaders: loaders(),
+      maxSize: 20,
+    });
+    const filter = { direction: "decline" as const, minFactor: 1, minAreaKm2: 0, strict: false };
+    const summary = summarizeArea(result, filter);
+    // 19 of 20 columns are land (one is a lake), all measured.
+    expect(summary.measuredKm2).toBeCloseTo(summary.scannedKm2, 6);
+    // Only the 25-pixel block fell; nothing rose.
+    expect(summary.declinedKm2).toBeCloseTo(result.hotspots[0].areaKm2, 3);
+    expect(summary.increasedKm2).toBe(0);
+    expect(summary.change as number).toBeLessThan(0);
+    expect((summary.baselineMean as number) - (summary.recentMean as number)).toBeCloseTo(-(summary.change as number), 9);
+    // A stricter smallest change leaves less land counted.
+    expect(summarizeArea(result, { ...filter, minFactor: 10 }).declinedKm2).toBe(0);
   });
 
   it("skips a few failed months but gives up when NASA mostly fails", async () => {
