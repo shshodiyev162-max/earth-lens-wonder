@@ -200,7 +200,7 @@ export function fetchColorMap(name: string): Promise<ParsedColorMap> {
 }
 
 /** Unit conversions from the units NASA publishes to the ones people read. */
-export type ValueTransform = "kelvinToCelsius" | "kgm2sToMmPerMonth" | "fractionToPercent" | "kgm3ToUgm3" | undefined;
+export type ValueTransform = "kelvinToCelsius" | "kgm2sToMmPerMonth" | "fractionToPercent" | "kgm3ToUgm3" | "kgm2ToMgm2" | "ozoneMassToPpmv" | undefined;
 
 /** Average month length in seconds (365.25 / 12 days). */
 const SECONDS_PER_MONTH = 30.4375 * 86_400;
@@ -216,6 +216,11 @@ export function applyTransform(value: number, transform: ValueTransform): number
       return value * 100;
     case "kgm3ToUgm3":
       return Math.max(0, value) * 1e9;
+    case "kgm2ToMgm2":
+      return Math.max(0, value) * 1e6;
+    case "ozoneMassToPpmv":
+      // Mass mixing ratio (kg per kg of air) to parts per million by volume: × (air 28.97 g/mol ÷ ozone 48.00 g/mol).
+      return Math.max(0, value) * (28.97 / 48.0) * 1e6;
     default:
       return value;
   }

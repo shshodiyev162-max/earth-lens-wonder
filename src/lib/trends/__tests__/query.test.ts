@@ -85,7 +85,7 @@ describe("search URLs", () => {
   it("asks before scanning things it can't measure", () => {
     const q = fromText("is the Aral Sea drying up");
     expect(q).toMatchObject({ understood: false, indicators: [], place: "Aral Sea" });
-    expect(q.notes[0].closest).toEqual(["rainfall", "soil", "vegetation"]);
+    expect(q.notes[0].closest).toEqual(["rainfall", "evaporation", "soil", "vegetation"]);
     const picked = applyEdit(q, { indicators: ["rainfall"], filters: { rainfall: { direction: "decline", minFactor: 1, minAreaKm2: 0, strict: false } } });
     expect(picked.text).toBe("Rainfall decline in Aral Sea");
     expect(picked.notes).toEqual([]);
@@ -129,7 +129,7 @@ describe("labels and links", () => {
   it("summarise a question for the search boxes", () => {
     expect(describeQuestion(parseTrendQuery("dust increase near the Aral Sea"))).toBe("Dust · Increase · near Aral Sea · last 10 years");
     expect(describeQuestion(parseTrendQuery("vegetation and rainfall decline in Uzbekistan since 2015"))).toBe("Vegetation + Rainfall · Decline · Uzbekistan · since 2015");
-    expect(describeQuestion(parseTrendQuery("what changed in Uzbekistan"))).toBe("All six measures · Any change · Uzbekistan · last 10 years");
+    expect(describeQuestion(parseTrendQuery("what changed in Uzbekistan"))).toBe("Six main measures · Any change · Uzbekistan · last 10 years");
     expect(describeQuestion(parseTrendQuery("is the Aral Sea drying up"))).toBe("Closest measures for “drying up” · Aral Sea · last 10 years");
   });
 

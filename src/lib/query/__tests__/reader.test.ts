@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseTrendQuery } from "../parse";
-import { INDICATOR_ORDER } from "../indicators";
+import { CORE_INDICATORS } from "../indicators";
 
 // How each question must be read: measures with their directions, place and time. Written as
 // "measure:direction" so a mismatch reads plainly in the test output.
@@ -24,7 +24,7 @@ const GOLDEN: [string, { measures: string; place: string | null; time?: object; 
   ["where did it rain more in Pakistan in 2022", { measures: "rainfall:increase", place: "Pakistan", time: { kind: "year", year: 2022 } }],
   ["heat in Tashkent summer 2023 vs summer 2013", { measures: "heat:any", place: "Tashkent", time: { kind: "versus", baseline: 2013, recent: 2023 } }],
   ["where did soil get drier in Kazakhstan during the last decade", { measures: "soil:decline", place: "Kazakhstan", time: { kind: "last", years: 10 } }],
-  ["air pollution in Delhi", { measures: "dust:any", place: "Delhi", notes: "airPollution" }],
+  ["air pollution in Delhi", { measures: "dust:any so2:any co:any", place: "Delhi", notes: "airPollution" }],
   ["changes in Bukhara", { measures: "everything:any", place: "Bukhara" }],
   ["what changed in Uzbekistan", { measures: "everything:any", place: "Uzbekistan" }],
   ["vegetation decline in New York", { measures: "vegetation:decline", place: "New York" }],
@@ -51,6 +51,22 @@ const GOLDEN: [string, { measures: string; place: string | null; time?: object; 
   ["CO₂ emissions in China", { measures: "", place: "China", notes: "gas" }],
   ["groundwater loss in India", { measures: "", place: "India", notes: "groundwater" }],
   ["vegetation shrinking near the Aral Sea", { measures: "vegetation:decline", place: "Aral Sea", near: true }],
+  // Air, sea and the upper atmosphere.
+  ["is the Mediterranean sea temperature rising since 2003", { measures: "sst:increase", place: "Mediterranean", time: { kind: "since", start: 2003 } }],
+  ["marine heatwaves in the Mediterranean", { measures: "sst:increase", place: "Mediterranean" }],
+  ["warmer oceans near Australia", { measures: "sst:increase", place: "Australia", near: true }],
+  ["air temperature increase in Uzbekistan since 2000", { measures: "airTemp:increase", place: "Uzbekistan", time: { kind: "since", start: 2000 } }],
+  ["upper air temperature over the Pacific", { measures: "upperAir:any", place: "Pacific" }],
+  ["evaporation changes in Uzbekistan", { measures: "evaporation:any", place: "Uzbekistan" }],
+  ["is the ozone hole over Antarctica shrinking", { measures: "ozone:increase", place: "Antarctica" }],
+  ["is the ozone hole growing over Antarctica", { measures: "ozone:decline", place: "Antarctica" }],
+  ["ozone layer recovery over Antarctica since 2005", { measures: "ozone:increase", place: "Antarctica", time: { kind: "since", start: 2005 } }],
+  ["sulphur dioxide decline in Germany since 2001", { measures: "so2:decline", place: "Germany", time: { kind: "since", start: 2001 } }],
+  ["CO levels in Jakarta", { measures: "co:any", place: "Jakarta" }],
+  ["smog in Delhi", { measures: "", place: "Delhi", notes: "gas" }],
+  ["ground-level ozone in Los Angeles", { measures: "", place: "Los Angeles", notes: "gas" }],
+  ["river runoff in the Amu Darya basin", { measures: "", place: "Amu Darya basin", notes: "streamflow" }],
+  ["sea level rise in Bangladesh", { measures: "", place: "Bangladesh", notes: "sealevel" }],
 ];
 
 function measures(text: string): string {
@@ -70,13 +86,13 @@ describe("the reader breaks every question down the same way", () => {
     expect(q.isTrendQuery).toBe(true);
   });
 
-  it("scans all six measures for 'what changed'", () => {
-    expect(parseTrendQuery("what changed in Uzbekistan").indicators).toEqual(INDICATOR_ORDER);
+  it("scans the six main measures for 'what changed'", () => {
+    expect(parseTrendQuery("what changed in Uzbekistan").indicators).toEqual(CORE_INDICATORS);
   });
 
   it("offers the closest real measures for things it can't measure", () => {
     const q = parseTrendQuery("is the Aral Sea drying up");
-    expect(q.notes[0]).toMatchObject({ kind: "unmeasured", phrase: "drying up", closest: ["rainfall", "soil", "vegetation"] });
+    expect(q.notes[0]).toMatchObject({ kind: "unmeasured", phrase: "drying up", closest: ["rainfall", "evaporation", "soil", "vegetation"] });
     expect(parseTrendQuery("flooding in Bangladesh").notes[0]).toMatchObject({ closest: ["rainfall", "soil"], direction: "increase" });
   });
 

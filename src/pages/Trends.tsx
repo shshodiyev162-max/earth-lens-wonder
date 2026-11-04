@@ -39,7 +39,7 @@ import { encodeGeometryForLink } from "@/lib/geo/polyline";
 import { BASE_LAYER_ID, getLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { initialViewFrom } from "@/lib/mapView";
 import { interpretWithAi, isQueryAiConfigured } from "@/lib/query/ai";
-import { INDICATORS, monthsLabel, SEASONS, type IndicatorId } from "@/lib/query/indicators";
+import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type IndicatorId } from "@/lib/query/indicators";
 import { DEFAULT_YEARS } from "@/lib/query/period";
 import { PIXEL_SIGNIFICANCE, STRICT_P } from "@/lib/trends/hotspots";
 import {
@@ -470,7 +470,13 @@ export default function Trends() {
                 </li>
                 {plan.kind === "trend" && <li>Each pixel's yearly values are tested with Mann–Kendall; the slope is Sen's slope (robust to outliers).</li>}
                 <li>Changing what is shown re-groups the pixels already read — no new maps are needed.</li>
-                <li>Lakes and seas are left out; clouds or gaps leave pixels without data.</li>
+                <li>
+                  {indicator.surface === "land"
+                    ? "Lakes and seas are left out; clouds or gaps leave pixels without data."
+                    : indicator.surface === "water"
+                      ? "Land is left out (this measure is read on the sea); clouds or gaps leave pixels without data."
+                      : "This measure covers the air over land and sea alike, so nothing is left out."}
+                </li>
                 {result.notes.map((note) => (
                   <li key={note}>{note}</li>
                 ))}
@@ -507,7 +513,7 @@ export default function Trends() {
       {panelMode === "ask" && draft && !draft.understood && !draft.notes.length && !aiNote && (
         <SidebarSection>
           <p role="status" className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-3 text-xs leading-relaxed text-panel-soft">
-            {draft.text ? `I couldn't tell what to measure in “${draft.text}”. ` : ""}Pick one or more measures below — vegetation, surface heat, rainfall, soil moisture, dust or snow — then find changes.
+            {draft.text ? `I couldn't tell what to measure in “${draft.text}”. ` : ""}Pick one or more measures below — {INDICATOR_ORDER.map((id) => INDICATORS[id].label.toLowerCase()).join(", ")} — then find changes.
           </p>
         </SidebarSection>
       )}

@@ -82,7 +82,70 @@ export const DATASETS: DatasetInfo[] = [
     decimals: 0,
     color: "#a5b4fc",
   },
+  {
+    id: "evaporation",
+    label: "Evaporation",
+    description: "Water rising from the land into the air each month.",
+    source: "MERRA-2 monthly evaporation from land · NASA GIBS",
+    layerId: "MERRA2_Evaporation_Land_Monthly",
+    unit: "mm/month",
+    decimals: 1,
+    color: "#2dd4bf",
+  },
+  {
+    id: "sst",
+    label: "Sea temperature",
+    description: "Night-time temperature of the sea surface (areas with sea only).",
+    source: "MODIS Terra monthly night sea surface temperature · NASA GIBS",
+    layerId: "MODIS_Terra_L3_SST_Thermal_4km_Night_Monthly",
+    unit: "°C",
+    decimals: 1,
+    color: "#fb7185",
+  },
+  {
+    id: "so2",
+    label: "Sulphur dioxide",
+    description: "Sulphur dioxide in the air, from coal, oil, smelters and volcanoes.",
+    source: "MERRA-2 monthly SO₂ column · NASA GIBS",
+    layerId: "MERRA2_SO2_Column_Mass_Density_Monthly",
+    unit: "mg/m²",
+    decimals: 2,
+    color: "#c084fc",
+  },
+  {
+    id: "co",
+    label: "Carbon monoxide",
+    description: "Carbon monoxide about 5 km up, from fires, traffic and industry (from Sep 2002).",
+    source: "AIRS (Aqua) monthly carbon monoxide at 500 hPa · NASA GIBS",
+    layerId: "AIRS_L3_Carbon_Monoxide_500hPa_Volume_Mixing_Ratio_Monthly_Day",
+    unit: "ppb",
+    decimals: 0,
+    color: "#fdba74",
+  },
+  {
+    id: "upperAir",
+    label: "Upper air (10 km)",
+    description: "Air temperature about 10 km up, near where airliners fly.",
+    source: "MERRA-2 monthly air temperature at 250 hPa · NASA GIBS",
+    layerId: "MERRA2_Air_Temperature_250hPa_Monthly",
+    unit: "°C",
+    decimals: 1,
+    color: "#93c5fd",
+  },
+  {
+    id: "ozone",
+    label: "Ozone layer",
+    description: "Ozone about 20 km up, in the layer that blocks the Sun's ultraviolet light.",
+    source: "MERRA-2 monthly ozone at 50 hPa · NASA GIBS",
+    layerId: "MERRA2_Ozone_Mixing_Ratio_50hPa_Monthly",
+    unit: "ppm",
+    decimals: 2,
+    color: "#a78bfa",
+  },
 ];
+
+/** Read when no datasets are chosen: the original five (the others are one click away). */
+export const DEFAULT_DATASETS: DatasetId[] = ["vegetation", "surfaceHeat", "climate", "air", "snow"];
 
 export const DATASET_BY_ID = Object.fromEntries(DATASETS.map((d) => [d.id, d])) as Record<DatasetId, DatasetInfo>;
 

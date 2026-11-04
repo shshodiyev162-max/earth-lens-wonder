@@ -14,7 +14,7 @@ import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
 import type { PickedCountry } from "@/components/map/DrawTools";
 import { useAnalysisRun } from "@/hooks/useAnalysisRun";
 import { useAnalysisTarget } from "@/hooks/useAnalysisTarget";
-import { DATASETS, countClimateRequests, countMaps } from "@/lib/analysis/run";
+import { DATASETS, DATASET_BY_ID, DEFAULT_DATASETS, countClimateRequests, countMaps } from "@/lib/analysis/run";
 import {
   LARGE_RUN_MAPS,
   estimateSeconds,
@@ -38,10 +38,13 @@ const TARGET_KEYS = ["area", "osm", "country", "poly", "lat", "lon", "r", "bbox"
 const ALL_DATASETS = DATASETS.map((d) => d.id);
 
 function parseDatasets(value: string | null): DatasetId[] {
-  if (!value) return ALL_DATASETS;
+  if (!value) return DEFAULT_DATASETS;
   const wanted = value.split(",").filter((id): id is DatasetId => (ALL_DATASETS as string[]).includes(id));
-  return wanted.length ? ALL_DATASETS.filter((id) => wanted.includes(id)) : ALL_DATASETS;
+  return wanted.length ? ALL_DATASETS.filter((id) => wanted.includes(id)) : DEFAULT_DATASETS;
 }
+
+/** Datasets beyond the original five, each drawn as one simple monthly chart. */
+const EXTRA_DATASETS = ALL_DATASETS.filter((id) => !DEFAULT_DATASETS.includes(id)) as Exclude<DatasetId, "climate">[];
 
 function seriesNote(series: SatelliteSeries | undefined, end: string): string | undefined {
   if (!series) return undefined;
@@ -107,7 +110,9 @@ function SeriesUnavailable({ title, series }: { title: string; series: Satellite
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
         {series.status === "error"
           ? `NASA GIBS couldn't be reached for this dataset (${series.error ?? "network error"}). Try again in a moment.`
-          : "No valid pixels for this area in the selected period — for example open water, permanent cloud, or a product that doesn't cover this region."}
+          : series.dataset === "sst"
+            ? "This area has no sea, so there's no sea surface temperature to read. Choose an area that includes coast or open water."
+            : "No valid pixels for this area in the selected period — for example open water, permanent cloud, or a product that doesn't cover this region."}
       </p>
     </div>
   );
@@ -167,6 +172,18 @@ function Charts({ result }: { result: AnalysisResult }) {
           <SingleSeriesChart series={snow} color="#a5b4fc" kind="area" />
         </ChartCard>
       )}
+      {EXTRA_DATASETS.map((id) => {
+        const series = satellite[id];
+        if (!series) return null;
+        const info = DATASET_BY_ID[id];
+        return hasValues(series) ? (
+          <ChartCard key={id} title={info.label} subtitle={info.source.replace(" · NASA GIBS", "")} definition={METRIC_DEFINITIONS[id]} footer={seriesNote(series, result.end)}>
+            <SingleSeriesChart series={series} color={info.color} />
+          </ChartCard>
+        ) : (
+          <SeriesUnavailable key={id} title={info.label} series={series} />
+        );
+      })}
       {climate?.status === "error" && (
         <section className="glass rounded-2xl p-6 text-sm text-tone-warn">
           NASA POWER (climate) didn't respond: {climate.error}. Satellite results above are unaffected.
@@ -267,7 +284,7 @@ export default function Analysis() {
     setParams(
       (current) => {
         const updated = new URLSearchParams(current);
-        if (next.length === ALL_DATASETS.length) updated.delete("ds");
+        if (next.length === DEFAULT_DATASETS.length && DEFAULT_DATASETS.every((id) => next.includes(id))) updated.delete("ds");
         else updated.set("ds", next.join(","));
         return updated;
       },

@@ -12,7 +12,7 @@ describe("sanitizeInterpretation", () => {
   });
 
   it("drops unknown or malformed fields", () => {
-    expect(sanitizeInterpretation({ indicator: "ozone" })).toBeNull();
+    expect(sanitizeInterpretation({ indicator: "salinity" })).toBeNull();
     expect(sanitizeInterpretation("text")).toBeNull();
     expect(sanitizeInterpretation({ indicator: "dust", direction: "sideways", place: 42, time: { kind: "since", start: 1200 } })).toEqual({
       indicators: ["dust"],
@@ -20,7 +20,7 @@ describe("sanitizeInterpretation", () => {
       place: null,
       time: { kind: "default" },
     });
-    expect(sanitizeInterpretation({ indicators: ["snow", "vegetation", "ozone"] })?.indicators).toEqual(["vegetation", "snow"]);
+    expect(sanitizeInterpretation({ indicators: ["snow", "vegetation", "salinity"] })?.indicators).toEqual(["vegetation", "snow"]);
     expect(sanitizeInterpretation({ indicator: "snow", time: { kind: "range", start: 2020, end: 2012 } })?.time).toEqual({ kind: "range", start: 2012, end: 2020 });
   });
 });

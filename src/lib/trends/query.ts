@@ -5,7 +5,7 @@
 import { formatArea } from "../geo/geometry";
 import { encodeGeometryForLink } from "../geo/polyline";
 import { formatMonth } from "../gibs/time";
-import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId, type SeasonId } from "../query/indicators";
+import { CORE_INDICATORS, INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId, type SeasonId } from "../query/indicators";
 import { parseTrendQuery, type ParsedQuery, type ReaderNote, type TimeSpec } from "../query/parse";
 import { seasonYearMonths, type PeriodPlan } from "../query/period";
 import type { Hotspot, HotspotFilter } from "./hotspots";
@@ -156,7 +156,7 @@ export function queryFromParams(params: URLSearchParams): TrendQuery {
   const parsed = parseTrendQuery(text);
   const ind = params.get("ind");
   const listed = ind?.split(",").filter(isIndicator);
-  const wanted = new Set(ind === "all" ? INDICATOR_ORDER : listed?.length ? listed : parsed.indicators);
+  const wanted = new Set(ind === "all" ? CORE_INDICATORS : listed?.length ? listed : parsed.indicators);
   const indicators = INDICATOR_ORDER.filter((id) => wanted.has(id));
 
   const directions = decodeDirections(params.get("dir"), indicators) ?? parsed.directions;
@@ -259,6 +259,13 @@ const NOUN: Record<IndicatorId, string> = {
   soil: "soil moisture",
   dust: "dust",
   snow: "snow cover",
+  airTemp: "air temperature",
+  evaporation: "evaporation",
+  sst: "sea surface temperature",
+  so2: "sulphur dioxide",
+  co: "carbon monoxide",
+  upperAir: "upper-air temperature",
+  ozone: "ozone layer",
 };
 const DIRECTION_WORD: Record<Direction, string> = { decline: "decline", increase: "increase", any: "change" };
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -318,7 +325,8 @@ export function sentenceFor(query: Pick<TrendQuery, "indicators" | "filters" | "
   const directions = ids.map((id) => query.filters[id]?.direction ?? "any");
   const shared = directions.every((d) => d === directions[0]) ? directions[0] : null;
   let what: string;
-  if (ids.length === INDICATOR_ORDER.length && shared) {
+  // "What changed" reads as the six main measures, so exactly those six read back as "everything".
+  if (ids.length === CORE_INDICATORS.length && CORE_INDICATORS.every((id) => ids.includes(id)) && shared) {
     what = shared === "any" ? "Everything that changed" : `Everything that ${shared === "decline" ? "declined" : "increased"}`;
   } else if (shared) {
     what = `${joinWords(ids.map((id) => NOUN[id]))} ${DIRECTION_WORD[shared]}`;
@@ -375,7 +383,7 @@ function describeTime(time: TimeSpec): string {
 export function describeQuestion(parsed: ParsedQuery): string {
   const values = parsed.indicators.map((id) => parsed.directions[id] ?? "any");
   const what = parsed.everything
-    ? "All six measures"
+    ? "Six main measures"
     : parsed.indicators.length
       ? parsed.indicators.map((id) => INDICATORS[id].label).join(" + ")
       : `Closest measures for “${parsed.notes[0]?.phrase ?? parsed.text}”`;

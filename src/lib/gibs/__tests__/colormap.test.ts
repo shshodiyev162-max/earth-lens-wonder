@@ -106,3 +106,15 @@ describe("parseColorMapXml / decodePixel", () => {
     expect(applyTransform(0.5, undefined)).toBe(0.5);
   });
 });
+
+describe("unit conversions for the newer measures", () => {
+  it("turns NASA's units into the ones people read", () => {
+    // MERRA-2 sulphur dioxide column: kg/m² → mg/m².
+    expect(applyTransform(4.5e-6, "kgm2ToMgm2")).toBeCloseTo(4.5, 6);
+    // Ozone mass mixing ratio at 50 hPa: 2.616e-6 kg/kg ≈ 1.58 ppm by volume.
+    expect(applyTransform(2.616e-6, "ozoneMassToPpmv")).toBeCloseTo(1.579, 3);
+    // Evaporation uses the rainfall conversion: 4e-5 kg/m²/s ≈ 105 mm a month.
+    expect(applyTransform(4e-5, "kgm2sToMmPerMonth")).toBeCloseTo(105.2, 1);
+    expect(applyTransform(-1e-7, "kgm2ToMgm2")).toBe(0);
+  });
+});

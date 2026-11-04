@@ -55,7 +55,7 @@ export async function interpretWithAi(text: string, signal?: AbortSignal): Promi
       task: "interpret-trend-question",
       text,
       instructions:
-        'Return JSON {"indicators": a list of one or more of "vegetation","heat","rainfall","soil","dust","snow"; "direction": "decline"|"increase"|"any"; "place": string or null; "time": {"kind":"since","start":year} | {"kind":"range","start":year,"end":year} | {"kind":"last","years":n} | {"kind":"default"}}. Do not add any other text.',
+        `Return JSON {"indicators": a list of one or more of ${INDICATOR_ORDER.map((id) => `"${id}"`).join(",")}; "direction": "decline"|"increase"|"any"; "place": string or null; "time": {"kind":"since","start":year} | {"kind":"range","start":year,"end":year} | {"kind":"last","years":n} | {"kind":"default"}}. Do not add any other text.`,
     }),
   });
   if (!response.ok) return null;

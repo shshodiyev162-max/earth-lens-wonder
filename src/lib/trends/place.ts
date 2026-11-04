@@ -25,6 +25,8 @@ interface NamedRegion {
   context: string;
   countries?: string[];
   bbox?: BBox;
+  /** A rough outline (longitude, latitude) when a box would take in other seas. */
+  outline?: [number, number][];
 }
 
 /** Regions people search for that aren't single places in OpenStreetMap. */
@@ -43,6 +45,56 @@ export const NAMED_REGIONS: NamedRegion[] = [
   { names: ["horn of africa"], label: "Horn of Africa", context: "East Africa", countries: ["ETH", "SOM", "SOL", "DJI", "ERI"] },
   { names: ["east africa", "eastern africa"], label: "East Africa", context: "Africa", countries: ["KEN", "TZA", "UGA", "ETH", "SOM", "SOL", "RWA", "BDI", "SDS", "ERI", "DJI"] },
   { names: ["alps", "the alps"], label: "Alps", context: "Europe", bbox: [5.0, 43.6, 16.5, 48.4] },
+  // Seas and oceans: place search returns them as a single point, so their extent is kept here.
+  {
+    names: ["mediterranean", "mediterranean sea", "the mediterranean"],
+    label: "Mediterranean Sea",
+    context: "Sea",
+    // From the Strait of Gibraltar to the Dardanelles: leaves out the Bay of Biscay and the Black Sea.
+    outline: [
+      [-5.8, 35.0],
+      [-5.8, 36.6],
+      [-1.5, 39.5],
+      [3.0, 43.6],
+      [8.5, 44.6],
+      [12.6, 45.9],
+      [14.5, 45.9],
+      [19.7, 42.0],
+      [22.8, 40.8],
+      [26.6, 41.0],
+      [26.9, 40.3],
+      [29.0, 41.1],
+      [29.5, 40.6],
+      [27.2, 39.8],
+      [36.4, 37.0],
+      [36.4, 31.0],
+      [30.0, 30.6],
+      [19.5, 29.9],
+      [10.0, 33.0],
+      [9.5, 37.4],
+      [-1.0, 35.0],
+      [-5.8, 35.0],
+    ],
+  },
+  { names: ["black sea"], label: "Black Sea", context: "Sea", bbox: [27.2, 40.6, 41.9, 47.0] },
+  { names: ["caspian sea", "caspian"], label: "Caspian Sea", context: "Sea", bbox: [46.5, 36.5, 55.0, 47.3] },
+  { names: ["red sea"], label: "Red Sea", context: "Sea", bbox: [32.3, 12.4, 43.6, 30.0] },
+  { names: ["persian gulf", "arabian gulf", "the gulf"], label: "Persian Gulf", context: "Sea", bbox: [47.7, 23.8, 56.6, 30.5] },
+  { names: ["arabian sea"], label: "Arabian Sea", context: "Sea", bbox: [51.0, 5.0, 77.0, 25.5] },
+  { names: ["bay of bengal"], label: "Bay of Bengal", context: "Sea", bbox: [79.5, 5.0, 99.0, 23.0] },
+  { names: ["south china sea"], label: "South China Sea", context: "Sea", bbox: [99.0, 0.0, 121.5, 24.0] },
+  { names: ["sea of japan", "east sea"], label: "Sea of Japan", context: "Sea", bbox: [127.5, 33.5, 142.5, 52.0] },
+  { names: ["baltic sea", "baltic"], label: "Baltic Sea", context: "Sea", bbox: [9.5, 53.5, 30.5, 66.0] },
+  { names: ["north sea"], label: "North Sea", context: "Sea", bbox: [-4.5, 51.0, 9.5, 61.5] },
+  { names: ["caribbean sea", "caribbean"], label: "Caribbean Sea", context: "Sea", bbox: [-88.5, 9.0, -59.5, 22.5] },
+  { names: ["gulf of mexico"], label: "Gulf of Mexico", context: "Sea", bbox: [-98.0, 18.0, -80.5, 31.0] },
+  { names: ["coral sea", "great barrier reef"], label: "Coral Sea", context: "Sea", bbox: [142.0, -25.0, 158.0, -9.0] },
+  { names: ["gulf of guinea"], label: "Gulf of Guinea", context: "Sea", bbox: [-8.0, -5.0, 10.5, 6.5] },
+  { names: ["indian ocean"], label: "Indian Ocean", context: "Ocean", bbox: [20.0, -50.0, 120.0, 25.0] },
+  { names: ["atlantic", "atlantic ocean", "the atlantic"], label: "Atlantic Ocean", context: "Ocean", bbox: [-80.0, -60.0, 20.0, 70.0] },
+  { names: ["north atlantic"], label: "North Atlantic", context: "Ocean", bbox: [-80.0, 0.0, 0.0, 70.0] },
+  { names: ["arctic ocean", "arctic"], label: "Arctic", context: "Ocean", bbox: [-180.0, 66.5, 180.0, 90.0] },
+  { names: ["southern ocean"], label: "Southern Ocean", context: "Ocean", bbox: [-180.0, -78.0, 180.0, -50.0] },
 ];
 
 const COUNTRY_ALIASES: Record<string, string> = {
@@ -166,6 +218,7 @@ export async function resolveArea(text: string | null, options: ResolveOptions =
 
   const region = findNamedRegion(text);
   if (region) {
+    if (region.outline) return finish(area(region.label, region.context, { type: "Polygon", coordinates: [region.outline] }, "region"));
     if (region.bbox) return finish(area(region.label, region.context, bboxPolygon(region.bbox), "region"));
     const members = (region.countries ?? []).map((id) => (countries ? findCountry(countries, id) : null)).filter((c): c is Country => Boolean(c));
     if (members.length) return finish(area(region.label, region.context, merge(members.map((c) => c.geometry)), "region"));

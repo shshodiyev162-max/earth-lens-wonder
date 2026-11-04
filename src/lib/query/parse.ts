@@ -6,7 +6,7 @@
 // → measures → directions → place, so a word is never read twice. No AI service is needed.
 
 import { CONCEPTS, type ConceptId } from "./concepts";
-import { INDICATOR_ORDER, type Direction, type IndicatorId, type SeasonId } from "./indicators";
+import { CORE_INDICATORS, type Direction, type IndicatorId, type SeasonId } from "./indicators";
 
 export type TimeSpec =
   | { kind: "default" }
@@ -83,6 +83,18 @@ const NUMBER_WORDS: Record<string, number> = {
  * ("heat and drought"), so "vegetation decline during the drought" stays about vegetation.
  */
 const MEASURES: { id: IndicatorId; strong: RegExp; weak?: RegExp }[] = [
+  // Air and sea measures first: their names contain words other measures use ("air temperature").
+  { id: "upperAir", strong: /\bupper[-\s](?:air|atmosphere|troposphere)(?:\s+temperatures?)?\b|\b250\s?hpa\b|\bair\s+temperatures?\s+(?:10\s?km|high)\s+up\b/ },
+  {
+    id: "sst",
+    strong:
+      /\b(?:sea|ocean|marine)(?:\s+surface)?(?:\s+water)?\s+temperatures?\b|\bsst\b|\bmarine\s+heat\s?waves?\b|\b(?:ocean|sea)\s+(?:warming|heat(?:ing)?)\b|\bwarm(?:er|ing)\s+(?:seas|oceans|waters)\b/,
+  },
+  { id: "airTemp", strong: /\b(?:near[-\s]surface\s+)?air\s+temperatures?\b|\b2[-\s]?m(?:etre|eter)?\s+temperatures?\b|\bsurface\s+air\b/ },
+  { id: "ozone", strong: /(?<!(?:ground[-\s]level|surface)\s)\bozone(?:\s+(?:layer|hole|levels?|concentrations?|depletion|column))?\b/ },
+  { id: "so2", strong: /\bso2\b|\bso₂\b|\bsul(?:ph|f)ur\s+dioxide\b|\bsul(?:ph|f)ur\s+(?:pollution|emissions?)\b/ },
+  { id: "co", strong: /\bcarbon\s+monoxide\b|\bco\s+(?:pollution|levels?|concentrations?|emissions?)\b/ },
+  { id: "evaporation", strong: /\bevapo(?:ration|transpiration|rating|rates?|rated)\b|\bwater\s+loss\s+to\s+the\s+air\b/ },
   { id: "soil", strong: /\bsoils?(?:\s+(?:moisture|water|wetness))?\b|\bmoisture\b/ },
   { id: "snow", strong: /\bsnow(?:\s?cover|pack|fall|line|y)?\b/ },
   {
@@ -104,6 +116,8 @@ const OWN_DIRECTION: { indicator: IndicatorId; direction: Exclude<Direction, "an
   { indicator: "vegetation", direction: "increase", pattern: /greening|greener/ },
   { indicator: "vegetation", direction: "decline", pattern: /browning|deforestation|desertification|degrad/ },
   { indicator: "dust", direction: "increase", pattern: /dustier|hazier|sand\s?storms?/ },
+  { indicator: "sst", direction: "increase", pattern: /warming|warmer|heat\s?waves?|heating/ },
+  { indicator: "ozone", direction: "decline", pattern: /depletion/ },
 ];
 
 // A direction implied by other words in the same part of the sentence ("drying soils").
@@ -115,7 +129,7 @@ const CLAUSE_DIRECTION: { indicator: IndicatorId; direction: Exclude<Direction, 
 
 const DECLINE =
   /\b(?:declin\w*|decreas\w*|loss(?:es)?|lost|losing|lose|less|fewer|drop\w*|fell|falling|fallen|falls|shrink\w*|shrank|degrad\w*|retreat\w*|melt\w*|reduc\w*|lower\w*|weaken\w*|worsen\w*|die-?off|die-?back|dying|thinn\w*|disappear\w*|vanish\w*|deplet\w*|fail\w*|collaps\w*|downward)\b/;
-const INCREASE = /\b(?:increas\w*|gain\w*|more|ris(?:e|es|ing|en)|rose|grow(?:s|ing|n|th)?|higher|expand\w*|spread\w*|surg\w*|spik\w*|intensif\w*|boost\w*|upward)\b/;
+const INCREASE = /\b(?:increas\w*|gain\w*|more|ris(?:e|es|ing|en)|rose|grow(?:s|ing|n|th)?|higher|expand\w*|spread\w*|surg\w*|spik\w*|intensif\w*|boost\w*|recover\w*|heal(?:s|ing|ed)?|upward)\b/;
 const ANY = /\b(?:chang(?:e|es|ed|ing)|trends?|trending|shift(?:s|ed|ing)?|anomal(?:y|ies|ous)|differen(?:ce|ces|t)|evolv(?:e|es|ed|ing)|variation|variations)\b/;
 const UP = String.raw`(?:increases?|rises?|gains?|growth|grow|up)`;
 const DOWN = String.raw`(?:decreases?|declines?|loss|losses|drops?|falls?|down)`;
@@ -322,6 +336,8 @@ interface Mention {
   strong: boolean;
   /** Direction carried by the word itself ("hotter"). */
   own: Exclude<Direction, "any"> | null;
+  /** The words describe the opposite of the measure: a shrinking ozone hole is more ozone. */
+  inverted?: boolean;
 }
 
 interface DirectionWord {
@@ -370,7 +386,8 @@ function readMeasures(rest: string, lower: string): { mentions: Mention[]; rest:
   const weak: Mention[] = [];
   for (const measure of MEASURES) {
     for (const match of matchesOf(measure.strong, rest)) {
-      strong.push({ indicator: measure.id, start: match.index, end: match.index + match[0].length, strong: true, own: ownDirection(measure.id, match[0]) });
+      const inverted = measure.id === "ozone" && /\bhole\b/.test(match[0]);
+      strong.push({ indicator: measure.id, start: match.index, end: match.index + match[0].length, strong: true, own: ownDirection(measure.id, match[0]), inverted });
       rest = blank(rest, match.index, match.index + match[0].length);
     }
   }
@@ -424,6 +441,8 @@ function assignDirections(mentions: Mention[], words: DirectionWord[], clauseTex
   const resolved = new Map<Mention, Direction>();
   /** Directions written as words ("decline"), which listed measures may share. */
   const asked = new Set<Mention>();
+  const flip = (mention: Mention, direction: Direction): Direction =>
+    !mention.inverted || direction === "any" ? direction : direction === "decline" ? "increase" : "decline";
 
   for (const mention of mentions) {
     if (mention.own) {
@@ -433,7 +452,7 @@ function assignDirections(mentions: Mention[], words: DirectionWord[], clauseTex
     const clause = clauseOf(mention.start);
     const near = words.filter((w) => clauseOf(w.start) === clause).sort((a, b) => Math.abs(a.start - mention.start) - Math.abs(b.start - mention.start))[0];
     if (near) {
-      resolved.set(mention, near.direction);
+      resolved.set(mention, flip(mention, near.direction));
       asked.add(mention);
       continue;
     }
@@ -532,7 +551,7 @@ export function parseTrendQuery(input: string): ParsedQuery {
   const unmeasured = concepts.notes.some((n) => n.kind === "unmeasured");
   if (!indicators.length && !unmeasured && (EVERYTHING.test(time.rest) || BOTH.test(time.rest) || ASKS_FOR_CHANGE.test(time.rest))) {
     everything = true;
-    indicators = [...INDICATOR_ORDER];
+    indicators = [...CORE_INDICATORS];
     const direction = directions.words[0]?.direction ?? "any";
     perIndicator = Object.fromEntries(indicators.map((id) => [id, direction]));
   }

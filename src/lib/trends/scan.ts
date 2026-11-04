@@ -6,13 +6,14 @@ import { annualTrendVerdict, type TrendVerdict } from "../analysis/stats";
 import { defaultEndMonth } from "../analysis/period";
 import { isAbortError } from "../async";
 import { reverseGeocode } from "../geo/geocode";
-import { padBBox } from "../geo/geometry";
+import { formatLatLng, padBBox } from "../geo/geometry";
 import { getLayer, type GibsLayer } from "../gibs/catalog";
+import { applyTransform, fetchColorMap } from "../gibs/colormap";
 import { rasterizeMask } from "../gibs/sample";
 import { domainWindow, fetchTimeDomain, monthsInDomain } from "../gibs/time";
 import { INDICATORS, type Direction, type IndicatorId } from "../query/indicators";
 import { seasonYearMonths, type DataWindow, type PeriodPlan } from "../query/period";
-import { fetchLandMask, fetchMonthGrid, scanGrid } from "./grid";
+import { fetchMonthGrid, fetchSurfaceMask, scanGrid, type Surface } from "./grid";
 import { buildHotspots, clusterPixels, flagPixels, hotspotOptions, pixelAreaKm2, pixelCenter, pixelSize, traceOutline, type GridSpec, type Hotspot, type HotspotFilter } from "./hotspots";
 import { computePixelTrends, seasonMeanGrids, type PixelTrends } from "./pixels";
 import type { ScanArea } from "./place";
@@ -45,7 +46,7 @@ export interface ScanResult {
   plan: PeriodPlan;
   layerId: string;
   grid: GridSpec;
-  /** 1 = land inside the area. */
+  /** 1 = pixels inside the area that the measure is read on (land, sea or both). */
   mask: Uint8Array;
   trends: PixelTrends;
   /** Season mean per year (for the yearly animation). */
@@ -97,10 +98,43 @@ export async function fetchAvailability(indicator: IndicatorId): Promise<DataAva
 
 export interface ScanLoaders {
   monthGrid: (layer: GibsLayer, grid: GridSpec, month: string, signal?: AbortSignal) => Promise<Float32Array>;
-  landMask: (grid: GridSpec, signal?: AbortSignal) => Promise<Uint8Array>;
+  /** 1 = pixels the measure is read on (land, sea or both). */
+  surfaceMask: (grid: GridSpec, surface: Surface, signal?: AbortSignal) => Promise<Uint8Array>;
+  /** The top of the product's colour scale, when values above it are all shown as that value. */
+  scaleTop?: (layer: GibsLayer) => Promise<number | null>;
 }
 
-const NETWORK: ScanLoaders = { monthGrid: fetchMonthGrid, landMask: fetchLandMask };
+/** Values at or above the open-ended top bin of NASA's colour scale can't be told apart. */
+async function colourScaleTop(layer: GibsLayer): Promise<number | null> {
+  if (!layer.colormap) return null;
+  const colormap = await fetchColorMap(layer.colormap);
+  return colormap.legend?.openMax ? applyTransform(colormap.legend.max, layer.transform) : null;
+}
+
+const NETWORK: ScanLoaders = { monthGrid: fetchMonthGrid, surfaceMask: fetchSurfaceMask, scaleTop: colourScaleTop };
+
+const SURFACE_WORDS: Record<Surface, { failed: string }> = {
+  land: { failed: "The land/water map couldn't be loaded, so lakes and sea are not masked out." },
+  water: { failed: "The land/water map couldn't be loaded, so land isn't masked out (the sea temperature map has no values on land anyway)." },
+  any: { failed: "" },
+};
+
+/** Share of readings inside the mask that sit at the top of the colour scale. */
+export function cappedShare(grids: Iterable<Float32Array>, mask: Uint8Array, top: number): number {
+  const tolerance = Math.abs(top) * 1e-4 + 1e-12;
+  let valid = 0;
+  let capped = 0;
+  for (const grid of grids) {
+    for (let i = 0; i < mask.length; i++) {
+      if (!mask[i]) continue;
+      const value = grid[i];
+      if (!Number.isFinite(value)) continue;
+      valid += 1;
+      if (value >= top - tolerance) capped += 1;
+    }
+  }
+  return valid ? capped / valid : 0;
+}
 
 export interface ScanRequest {
   indicator: IndicatorId;
@@ -205,12 +239,12 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   const report = (phase: ScanProgress["phase"], message: string) => onProgress?.({ phase, done, total, message });
   report("maps", `Reading NASA maps: 0 of ${months.length}`);
 
-  const [landResult, monthResult] = await Promise.all([
-    loaders.landMask(grid, signal).then(
+  const [surfaceResult, monthResult, scaleTop] = await Promise.all([
+    loaders.surfaceMask(grid, info.surface, signal).then(
       (mask) => mask,
       (error) => {
         if (isAbortError(error)) throw error;
-        notes.push("The land/water map couldn't be loaded, so lakes and sea are not masked out.");
+        notes.push(SURFACE_WORDS[info.surface].failed);
         return new Uint8Array(size).fill(1);
       },
     ),
@@ -223,6 +257,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
         report("maps", `Reading NASA maps: ${done} of ${months.length} (${month})`);
       },
     ),
+    (loaders.scaleTop?.(layer) ?? Promise.resolve(null)).catch(() => null),
   ]);
   done = total;
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
@@ -239,7 +274,15 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   report("computing", "Testing each pixel for a trend");
   const regionMask = rasterizeMask(area.geometry, grid);
   const mask = new Uint8Array(size);
-  for (let i = 0; i < size; i++) mask[i] = regionMask[i] && landResult[i] ? 1 : 0;
+  for (let i = 0; i < size; i++) mask[i] = regionMask[i] && surfaceResult[i] ? 1 : 0;
+  if (scaleTop !== null) {
+    const share = cappedShare(monthGrids.values(), mask, scaleTop);
+    if (share >= 0.05) {
+      notes.push(
+        `${Math.round(share * 100)}% of the readings were at the top of NASA's colour scale (${scaleTop.toFixed(info.decimals)} ${info.unit} or more) and count as exactly that, so the real values — and changes — there may be larger than shown.`,
+      );
+    }
+  }
 
   const yearGrids = seasonMeanGrids(monthGrids, plan.years, plan.months, size);
   const trends = await computePixelTrends(yearGrids, plan.years, plan.baseline, plan.recent, mask, {
@@ -408,7 +451,7 @@ async function refineHotspots(
     report("refining", `Sharpening hotspot ${k + 1}`);
     try {
       const [land, loaded] = await Promise.all([
-        loaders.landMask(grid, signal).catch((error) => {
+        loaders.surfaceMask(grid, info.surface, signal).catch((error) => {
           if (isAbortError(error)) throw error;
           return new Uint8Array(grid.width * grid.height).fill(1);
         }),
@@ -469,7 +512,9 @@ export async function nameHotspots(hotspots: Hotspot[], onLabel: (id: string, la
     const zoom = hotspot.areaKm2 >= 50_000 ? 5 : hotspot.areaKm2 >= 5_000 ? 8 : 10;
     try {
       const name = await reverseGeocode(hotspot.center, { signal, zoom });
-      if (name && !signal?.aborted) onLabel(hotspot.id, name);
+      if (signal?.aborted) return;
+      // Open sea has no address: name it by its position instead.
+      onLabel(hotspot.id, name ?? `Near ${formatLatLng(hotspot.center, 1)}`);
     } catch (error) {
       if (isAbortError(error)) return;
     }

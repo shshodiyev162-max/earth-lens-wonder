@@ -47,7 +47,11 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
   const percent = summary.change !== null && summary.baselineMean && indicator.unit !== "°C" && Math.abs(summary.baselineMean) > 1e-6 ? (summary.change / Math.abs(summary.baselineMean)) * 100 : null;
   const threshold = `${(indicator.minChange * filter.minFactor).toFixed(Math.max(indicator.decimals, 2)).replace(/\.?0+$/, "")} ${indicator.unit}`;
   const windows = plan.kind === "comparison" ? [`${plan.baseline[0]}`, `${plan.recent[0]}`] : [`${plan.baseline[0]}–${plan.baseline[1]}`, `${plan.recent[0]}–${plan.recent[1]}`];
-  const tone = !verdict || verdict.direction === "none" ? "text-panel-foreground" : verdict.direction === indicator.concern ? "text-tone-warn" : "text-tone-good";
+  const tone =
+    !verdict || verdict.direction === "none" || indicator.concern === "none" ? "text-panel-foreground" : verdict.direction === indicator.concern ? "text-tone-warn" : "text-tone-good";
+  // Sea measures are read on water, air measures everywhere.
+  const ground = indicator.surface === "water" ? "Sea" : indicator.surface === "any" ? "Area" : "Land";
+  const groundWord = ground.toLowerCase();
 
   return (
     <section aria-label={`The whole area: ${name}`} className="rounded-2xl border border-cyan-400/30 bg-panel-tint p-4">
@@ -58,7 +62,7 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
       <p className="mb-3 text-[11px] text-panel-muted">{kind}</p>
 
       <dl className="mb-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 text-xs">
-        <dt className="text-panel-muted">Land scanned</dt>
+        <dt className="text-panel-muted">{ground} scanned</dt>
         <dd className="text-right font-medium text-panel-foreground">
           {formatArea(summary.scannedKm2)}
           <span className="block text-[10px] font-normal text-panel-muted">{Math.round((summary.measuredKm2 / Math.max(summary.scannedKm2, 1e-9)) * 100)}% with data in both periods</span>
@@ -91,12 +95,16 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
             </dd>
           </>
         )}
-        <dt className="text-panel-muted">Land that fell by {threshold} or more</dt>
+        <dt className="text-panel-muted">
+          {ground} that fell by {threshold} or more
+        </dt>
         <dd className="text-right font-medium text-panel-foreground">
           {formatArea(summary.declinedKm2)}
           <span className="text-panel-muted">{share(summary.declinedKm2, summary.measuredKm2)}</span>
         </dd>
-        <dt className="text-panel-muted">Land that rose by {threshold} or more</dt>
+        <dt className="text-panel-muted">
+          {ground} that rose by {threshold} or more
+        </dt>
         <dd className="text-right font-medium text-panel-foreground">
           {formatArea(summary.increasedKm2)}
           <span className="text-panel-muted">{share(summary.increasedKm2, summary.measuredKm2)}</span>
@@ -120,8 +128,8 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
       )}
       <p className="mb-2 text-[11px] leading-relaxed text-panel-muted">
         {plan.kind === "trend"
-          ? `“Fell” and “rose” count land whose own yearly trend agrees${filter.strict ? " clearly (p < 0.05)" : ""}, including small patches too scattered to be listed as hotspots.`
-          : "“Fell” and “rose” count land by the change between the two seasons, including small patches too scattered to be listed as hotspots."}
+          ? `“Fell” and “rose” count ${groundWord} whose own yearly trend agrees${filter.strict ? " clearly (p < 0.05)" : ""}, including small patches too scattered to be listed as hotspots.`
+          : `“Fell” and “rose” count ${groundWord} by the change between the two seasons, including small patches too scattered to be listed as hotspots.`}
       </p>
 
       <YearTrendChart

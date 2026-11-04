@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
-import { Calendar, CalendarRange, CloudRain, Flame, Leaf, Snowflake, Wind } from "lucide-react";
+import { Calendar, CalendarRange, CloudRain, Droplets, Factory, Flame, Leaf, Plane, Shield, Snowflake, Waves, Wind } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
-import { DATASETS } from "@/lib/analysis/run";
+import { DATASETS, DEFAULT_DATASETS } from "@/lib/analysis/run";
 import type { DatasetId } from "@/lib/analysis/types";
 import { formatMonth } from "@/lib/gibs/time";
 import { monthsLabel, SEASONS } from "@/lib/query/indicators";
@@ -195,6 +195,12 @@ const DATASET_ICON: Record<DatasetId, typeof Leaf> = {
   climate: CloudRain,
   air: Wind,
   snow: Snowflake,
+  evaporation: Droplets,
+  sst: Waves,
+  so2: Factory,
+  co: Flame,
+  upperAir: Plane,
+  ozone: Shield,
 };
 
 export function DatasetPicker({ selected, onChange }: { selected: DatasetId[]; onChange: (next: DatasetId[]) => void }) {
@@ -202,11 +208,29 @@ export function DatasetPicker({ selected, onChange }: { selected: DatasetId[]; o
     const next = selected.includes(id) ? selected.filter((d) => d !== id) : [...selected, id];
     if (next.length) onChange(DATASETS.map((d) => d.id).filter((d) => next.includes(d)));
   };
+  const more = DATASETS.filter((d) => !DEFAULT_DATASETS.includes(d.id));
   return (
     <div className="space-y-3">
       <div className="text-xs font-medium text-muted-foreground">NASA datasets</div>
+      <DatasetList datasets={DATASETS.filter((d) => DEFAULT_DATASETS.includes(d.id))} selected={selected} onToggle={toggle} />
+      <details open={more.some((d) => selected.includes(d.id))} className="space-y-2">
+        <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">
+          More NASA measures ({more.length}): sea, upper air, ozone, pollution gases, evaporation
+        </summary>
+        <div className="pt-2">
+          <DatasetList datasets={more} selected={selected} onToggle={toggle} />
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function DatasetList({ datasets, selected, onToggle }: { datasets: typeof DATASETS; selected: DatasetId[]; onToggle: (id: DatasetId) => void }) {
+  const toggle = onToggle;
+  return (
+    <div className="space-y-3">
       <div className="grid gap-2">
-        {DATASETS.map((dataset) => {
+        {datasets.map((dataset) => {
           const Icon = DATASET_ICON[dataset.id];
           const on = selected.includes(dataset.id);
           return (

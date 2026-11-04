@@ -13,6 +13,13 @@ export const MEASURE_DEFINITIONS: Record<IndicatorId, string> = {
   soil: "How much water the soil holds where plant roots grow (the top metre or so), as a share of the soil's volume. Low values mean dry soil that roots struggle to draw from.",
   dust: "How much desert dust is in the air near the ground, in micrograms per cubic metre. Dust storms, dried-up lakes and bare land raise it.",
   snow: "The share of the ground covered by snow, from 0% (none) to 100% (all), seen by the MODIS satellite instrument.",
+  airTemp: "The temperature of the air about 2 metres above the ground or sea — what a thermometer in the shade would read — from NASA's MERRA-2 model.",
+  evaporation: "How much water rises from the land into the air each month — from soil, lakes and leaves — in millimetres, from NASA's MERRA-2 model.",
+  sst: "The temperature of the top layer of the sea at night, measured from space by the MODIS satellite instrument.",
+  so2: "How much sulphur dioxide is in the air above each spot. It comes from burning coal and oil, metal smelters and volcanoes.",
+  co: "How much carbon monoxide is in the air about 5 km up, in parts per billion, measured by the AIRS satellite instrument. Fires, traffic and industry release it.",
+  upperAir: "The air temperature about 10 km up, near the height airliners fly (the 250 hPa level), from NASA's MERRA-2 model.",
+  ozone: "Ozone about 20 km up, in the layer that shields the ground from the Sun's ultraviolet light, in parts per million. The ozone hole shows as very low values.",
 };
 
 /** What each Analysis-page measure is. */
@@ -24,6 +31,12 @@ export const METRIC_DEFINITIONS: Record<MetricId, string> = {
   soil: "How wet the soil is where plant roots grow, from 0% (completely dry) to 100% (soaked).",
   aod: "How hazy the air is: how much sunlight dust, smoke and pollution block. Below 0.1 is clean air; above 0.4 is hazy.",
   snow: "The average share of the area covered by snow.",
+  evaporation: MEASURE_DEFINITIONS.evaporation,
+  sst: MEASURE_DEFINITIONS.sst,
+  so2: MEASURE_DEFINITIONS.so2,
+  co: MEASURE_DEFINITIONS.co,
+  upperAir: MEASURE_DEFINITIONS.upperAir,
+  ozone: MEASURE_DEFINITIONS.ozone,
 };
 
 export interface Term {

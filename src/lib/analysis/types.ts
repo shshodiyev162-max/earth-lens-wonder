@@ -1,6 +1,6 @@
 import type { BBox, LatLng, PolygonGeometry } from "../geo/geometry";
 
-export type DatasetId = "vegetation" | "surfaceHeat" | "climate" | "air" | "snow";
+export type DatasetId = "vegetation" | "surfaceHeat" | "climate" | "air" | "snow" | "evaporation" | "sst" | "so2" | "co" | "upperAir" | "ozone";
 
 export interface DatasetInfo {
   id: DatasetId;

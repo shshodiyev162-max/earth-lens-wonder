@@ -3,7 +3,7 @@
 
 import type { DatasetId } from "../analysis/types";
 
-export type IndicatorId = "vegetation" | "heat" | "rainfall" | "soil" | "dust" | "snow";
+export type IndicatorId = "vegetation" | "heat" | "rainfall" | "soil" | "dust" | "snow" | "airTemp" | "evaporation" | "sst" | "so2" | "co" | "upperAir" | "ozone";
 export type Direction = "decline" | "increase" | "any";
 
 export interface SeasonPreset {
@@ -43,8 +43,8 @@ export interface Indicator {
   minChange: number;
   /** Ground resolution of the product in degrees (no point scanning finer than this). */
   nativeDeg: number;
-  /** The direction that usually means trouble (drives colours and wording). */
-  concern: "decline" | "increase";
+  /** The direction that usually means trouble (drives colours and wording); "none" when neither does. */
+  concern: "decline" | "increase" | "none";
   /** Default months to compare, so the seasonal cycle can't fake a change. */
   season: Exclude<SeasonId, "custom">;
   /** Colours for the change map: falling values / rising values. */
@@ -53,6 +53,12 @@ export interface Indicator {
   words: { decline: string; increase: string; any: string };
   /** Matching Analysis-page dataset (rainfall and soil moisture come from NASA POWER there). */
   dataset: DatasetId;
+  /** Where the product has values: land only, the sea only, or everywhere (the air above both). */
+  surface: "land" | "water" | "any";
+  /** Group in the measure picker. */
+  group: "land" | "air" | "ocean";
+  /** First month NASA publishes, when later than the MODIS record (e.g. AIRS from September 2002). */
+  firstMonth?: string;
 }
 
 export const INDICATORS: Record<IndicatorId, Indicator> = {
@@ -72,6 +78,8 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     colors: { decline: "#b45309", increase: "#15803d" },
     words: { decline: "vegetation decline", increase: "greening", any: "vegetation change" },
     dataset: "vegetation",
+    surface: "land",
+    group: "land",
   },
   heat: {
     id: "heat",
@@ -89,6 +97,8 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     colors: { decline: "#2563eb", increase: "#dc2626" },
     words: { decline: "surface cooling", increase: "surface warming", any: "surface temperature change" },
     dataset: "surfaceHeat",
+    surface: "land",
+    group: "land",
   },
   rainfall: {
     id: "rainfall",
@@ -106,6 +116,8 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     colors: { decline: "#a16207", increase: "#0369a1" },
     words: { decline: "drying", increase: "wetting", any: "rainfall change" },
     dataset: "climate",
+    surface: "land",
+    group: "air",
   },
   soil: {
     id: "soil",
@@ -123,6 +135,8 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     colors: { decline: "#a16207", increase: "#0e7490" },
     words: { decline: "soil drying", increase: "soil wetting", any: "soil moisture change" },
     dataset: "climate",
+    surface: "land",
+    group: "land",
   },
   dust: {
     id: "dust",
@@ -140,6 +154,8 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     colors: { decline: "#0f766e", increase: "#c2410c" },
     words: { decline: "less dust", increase: "dust increase", any: "dust change" },
     dataset: "air",
+    surface: "land",
+    group: "air",
   },
   snow: {
     id: "snow",
@@ -157,10 +173,157 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     colors: { decline: "#c2410c", increase: "#1d4ed8" },
     words: { decline: "snow cover loss", increase: "snow cover gain", any: "snow cover change" },
     dataset: "snow",
+    surface: "land",
+    group: "land",
+  },
+
+  airTemp: {
+    id: "airTemp",
+    label: "Air temperature",
+    noun: "air temperature",
+    subject: "Air temperature near the ground",
+    layerId: "MERRA2_2m_Air_Temperature_Assimilated_Monthly",
+    product: "MERRA-2 monthly air temperature at 2 m, ~50 km",
+    unit: "°C",
+    decimals: 2,
+    minChange: 0.5,
+    nativeDeg: 0.5,
+    concern: "increase",
+    season: "all",
+    colors: { decline: "#2563eb", increase: "#dc2626" },
+    words: { decline: "air cooling", increase: "air warming", any: "air temperature change" },
+    dataset: "climate",
+    surface: "any",
+    group: "air",
+  },
+  evaporation: {
+    id: "evaporation",
+    label: "Evaporation",
+    noun: "evaporation",
+    subject: "Monthly evaporation from land",
+    layerId: "MERRA2_Evaporation_Land_Monthly",
+    product: "MERRA-2 monthly evaporation from land, ~50 km",
+    unit: "mm/month",
+    decimals: 1,
+    minChange: 3,
+    nativeDeg: 0.5,
+    concern: "none",
+    season: "all",
+    colors: { decline: "#a16207", increase: "#0e7490" },
+    words: { decline: "less evaporation", increase: "more evaporation", any: "evaporation change" },
+    dataset: "evaporation",
+    surface: "land",
+    group: "land",
+  },
+  sst: {
+    id: "sst",
+    label: "Sea temperature",
+    noun: "sea surface temperature",
+    subject: "Sea surface temperature (night)",
+    layerId: "MODIS_Terra_L3_SST_Thermal_4km_Night_Monthly",
+    product: "MODIS Terra monthly night-time sea surface temperature, ~4 km",
+    unit: "°C",
+    decimals: 2,
+    minChange: 0.3,
+    nativeDeg: 0.04,
+    concern: "increase",
+    season: "all",
+    colors: { decline: "#2563eb", increase: "#dc2626" },
+    words: { decline: "sea cooling", increase: "sea warming", any: "sea temperature change" },
+    dataset: "sst",
+    surface: "water",
+    group: "ocean",
+    firstMonth: "2000-08",
+  },
+  so2: {
+    id: "so2",
+    label: "Sulphur dioxide",
+    noun: "sulphur dioxide",
+    subject: "Sulphur dioxide in the air",
+    layerId: "MERRA2_SO2_Column_Mass_Density_Monthly",
+    product: "MERRA-2 monthly sulphur dioxide (SO₂) column, ~50 km",
+    unit: "mg/m²",
+    decimals: 2,
+    minChange: 1,
+    nativeDeg: 0.5,
+    concern: "increase",
+    season: "all",
+    colors: { decline: "#0f766e", increase: "#b91c1c" },
+    words: { decline: "less sulphur dioxide", increase: "more sulphur dioxide", any: "sulphur dioxide change" },
+    dataset: "so2",
+    surface: "any",
+    group: "air",
+  },
+  co: {
+    id: "co",
+    label: "Carbon monoxide",
+    noun: "carbon monoxide",
+    subject: "Carbon monoxide about 5 km up",
+    layerId: "AIRS_L3_Carbon_Monoxide_500hPa_Volume_Mixing_Ratio_Monthly_Day",
+    product: "AIRS (Aqua) monthly carbon monoxide at 500 hPa, ~100 km",
+    unit: "ppb",
+    decimals: 1,
+    minChange: 5,
+    nativeDeg: 1,
+    concern: "increase",
+    season: "all",
+    colors: { decline: "#0f766e", increase: "#b91c1c" },
+    words: { decline: "less carbon monoxide", increase: "more carbon monoxide", any: "carbon monoxide change" },
+    dataset: "co",
+    surface: "any",
+    group: "air",
+    firstMonth: "2002-09",
+  },
+  upperAir: {
+    id: "upperAir",
+    label: "Upper air (10 km)",
+    noun: "upper-air temperature",
+    subject: "Air temperature about 10 km up",
+    layerId: "MERRA2_Air_Temperature_250hPa_Monthly",
+    product: "MERRA-2 monthly air temperature at 250 hPa (about 10 km up), ~50 km",
+    unit: "°C",
+    decimals: 2,
+    minChange: 0.5,
+    nativeDeg: 0.5,
+    concern: "none",
+    season: "all",
+    colors: { decline: "#2563eb", increase: "#dc2626" },
+    words: { decline: "upper-air cooling", increase: "upper-air warming", any: "upper-air temperature change" },
+    dataset: "upperAir",
+    surface: "any",
+    group: "air",
+  },
+  ozone: {
+    id: "ozone",
+    label: "Ozone layer",
+    noun: "ozone layer",
+    subject: "Ozone about 20 km up",
+    layerId: "MERRA2_Ozone_Mixing_Ratio_50hPa_Monthly",
+    product: "MERRA-2 monthly ozone at 50 hPa (about 20 km up), ~50 km",
+    unit: "ppm",
+    decimals: 2,
+    minChange: 0.1,
+    nativeDeg: 0.5,
+    concern: "decline",
+    season: "all",
+    colors: { decline: "#9333ea", increase: "#0369a1" },
+    words: { decline: "ozone thinning", increase: "ozone recovery", any: "ozone change" },
+    dataset: "ozone",
+    surface: "any",
+    group: "air",
   },
 };
 
-export const INDICATOR_ORDER: IndicatorId[] = ["vegetation", "heat", "rainfall", "soil", "dust", "snow"];
+/** Every measure, in the order tabs and lists use. */
+export const INDICATOR_ORDER: IndicatorId[] = ["vegetation", "heat", "rainfall", "soil", "dust", "snow", "airTemp", "evaporation", "sst", "so2", "co", "upperAir", "ozone"];
+
+/** The six measures scanned for "what changed" when nothing better is known about the place. */
+export const CORE_INDICATORS: IndicatorId[] = ["vegetation", "heat", "rainfall", "soil", "dust", "snow"];
+
+/** The record's first month for a measure. */
+export function firstMonthOf(id: IndicatorId): string {
+  return INDICATORS[id].firstMonth ?? "2000-03";
+}
 
 /** Months for a season, flipped by six months for places south of the equator. */
 export function seasonMonths(season: Exclude<SeasonId, "custom">, latitude = 0): number[] {

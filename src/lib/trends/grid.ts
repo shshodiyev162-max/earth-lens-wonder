@@ -85,9 +85,20 @@ const LAND_WATER: GibsLayer = {
   period: "static",
 };
 
+export type Surface = "land" | "water" | "any";
+
 /** 1 = land, 0 = lakes and sea (GIBS OSM land/water map: water is light grey, land dark grey). */
 export function fetchLandMask(grid: GridSpec, signal?: AbortSignal): Promise<Uint8Array> {
-  const key = `land:${gridKey(grid)}`;
+  return fetchSurfaceMask(grid, "land", signal);
+}
+
+/**
+ * Pixels a measure is read on: 1 = keep. "land" drops clearly-water pixels, "water" drops
+ * clearly-land pixels, "any" (the air above both) keeps everything without asking NASA.
+ */
+export function fetchSurfaceMask(grid: GridSpec, surface: Surface, signal?: AbortSignal): Promise<Uint8Array> {
+  if (surface === "any") return Promise.resolve(new Uint8Array(grid.width * grid.height).fill(1));
+  const key = `${surface}:${gridKey(grid)}`;
   return sharedMasks(
     key,
     (inner) =>
@@ -98,8 +109,13 @@ export function fetchLandMask(grid: GridSpec, signal?: AbortSignal): Promise<Uin
               async () => {
                 const rgba = await fetchRgba(wmsGetMapUrl(LAND_WATER, grid, null), grid, inner);
                 const mask = new Uint8Array(grid.width * grid.height);
-                // Only clearly-water pixels are dropped; anything unclear stays in the scan.
-                for (let i = 0; i < mask.length; i++) mask[i] = rgba[i * 4 + 3] >= 128 && rgba[i * 4] >= 100 ? 0 : 1;
+                // Only clearly-water (or clearly-land) pixels are dropped; anything unclear stays in the scan.
+                for (let i = 0; i < mask.length; i++) {
+                  const opaque = rgba[i * 4 + 3] >= 128;
+                  const water = opaque && rgba[i * 4] >= 100;
+                  const land = opaque && rgba[i * 4] < 100;
+                  mask[i] = surface === "land" ? (water ? 0 : 1) : land ? 0 : 1;
+                }
                 return mask;
               },
               { signal: inner, retries: 2 },

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { rebuildHotspots, runScan, ScanError, summarizeArea, type ScanLoaders } from "../scan";
+import { cappedShare, rebuildHotspots, runScan, ScanError, summarizeArea, type ScanLoaders } from "../scan";
 import { scanGrid, decodeGrid } from "../grid";
 import { AreaError, matchCountry, resolveArea, widen, type ScanArea } from "../place";
 import { planPeriod, type PeriodPlan } from "../../query/period";
@@ -34,9 +34,10 @@ function loaders(fail?: (month: string) => boolean): ScanLoaders {
       }
       return values;
     },
-    landMask: async (grid) => {
-      const mask = new Uint8Array(grid.width * grid.height).fill(1);
-      for (let r = 0; r < grid.height; r++) mask[r * grid.width] = 0;
+    // Column 0 is a lake: left out for land measures, the only pixels kept for sea measures.
+    surfaceMask: async (grid, surface) => {
+      const mask = new Uint8Array(grid.width * grid.height).fill(surface === "water" ? 0 : 1);
+      if (surface !== "any") for (let r = 0; r < grid.height; r++) mask[r * grid.width] = surface === "water" ? 1 : 0;
       return mask;
     },
   };
@@ -70,6 +71,45 @@ describe("runScan", () => {
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({ phase: "done" }));
     expect(result.yearGrids).toHaveLength(11);
     expect(result.monthsRead).toHaveLength(66);
+  });
+
+  it("reads sea measures on water only and air measures everywhere", async () => {
+    const base = { direction: "any" as const, area: AREA, plan: plan(), availability: { window: { earliest: "2000-03", latest: "2026-08" }, available: null }, loaders: loaders(), maxSize: 20 };
+    const sea = await runScan({ ...base, indicator: "sst" });
+    expect(sea.mask[0]).toBe(1);
+    expect(sea.mask[5 * 20 + 5]).toBe(0);
+    expect(sea.hotspots).toHaveLength(0);
+    const air = await runScan({ ...base, indicator: "so2" });
+    expect(air.mask[0]).toBe(1);
+    expect(air.mask.every((v) => v === 1)).toBe(true);
+  });
+
+  it("warns when many readings sit at the top of NASA's colour scale", async () => {
+    const result = await runScan({
+      indicator: "vegetation",
+      direction: "decline",
+      area: AREA,
+      plan: plan(),
+      availability: { window: { earliest: "2000-03", latest: "2026-08" }, available: null },
+      loaders: { ...loaders(), scaleTop: async () => 0.5 },
+      maxSize: 20,
+    });
+    expect(result.notes.join(" ")).toMatch(/\d+% of the readings were at the top of NASA's colour scale \(0\.500 NDVI or more\)/);
+    const quiet = await runScan({
+      indicator: "vegetation",
+      direction: "decline",
+      area: AREA,
+      plan: plan(),
+      availability: { window: { earliest: "2000-03", latest: "2026-08" }, available: null },
+      loaders: { ...loaders(), scaleTop: async () => 0.9 },
+      maxSize: 20,
+    });
+    expect(quiet.notes.join(" ")).not.toMatch(/colour scale/);
+  });
+
+  it("counts readings at the top of the scale inside the mask only", () => {
+    const grid = new Float32Array([1, 2, 5, 5, Number.NaN]);
+    expect(cappedShare([grid], new Uint8Array([1, 1, 1, 0, 1]), 5)).toBeCloseTo(1 / 3, 6);
   });
 
   it("rebuilds hotspots for other filters without reading any map again", async () => {
@@ -276,5 +316,18 @@ describe("resolveArea", () => {
   it("falls back to the map view, and explains when nothing is found", async () => {
     expect(await resolveArea(null, { view: [60, 40, 62, 42] })).toMatchObject({ kind: "view", name: "Map view" });
     await expect(resolveArea("Nowhereland", { countries, search: async () => [] })).rejects.toBeInstanceOf(AreaError);
+  });
+});
+
+describe("seas and oceans", () => {
+  it("know their real extent, since place search returns them as single points", async () => {
+    const sea = await resolveArea("the Mediterranean", { countries: null, search: async () => [] });
+    expect(sea.name).toBe("Mediterranean Sea");
+    // From Gibraltar to the Levant, without the Bay of Biscay or the Black Sea.
+    expect(sea.bbox[0]).toBeLessThan(-5);
+    expect(sea.bbox[2]).toBeGreaterThan(36);
+    expect(sea.bbox[3]).toBeLessThan(46.5);
+    const black = await resolveArea("Black Sea", { countries: null, search: async () => [] });
+    expect(black.bbox).toEqual([27.2, 40.6, 41.9, 47.0]);
   });
 });

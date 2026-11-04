@@ -2,7 +2,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { Check, Loader2, Sparkles } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
 import { MEASURE_DEFINITIONS } from "@/lib/glossary";
-import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
+import { CORE_INDICATORS, INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
 import type { TimeSpec } from "@/lib/query/parse";
 import { DEFAULT_FILTER, filterFor, type QueryEdit, type SeasonChoice, type TrendQuery } from "@/lib/trends/query";
 import { cn } from "@/lib/utils";
@@ -28,9 +28,15 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; 
 // ---------------------------------------------------------------------------
 // What to measure
 
+const GROUPS: { id: "land" | "air" | "ocean"; label: string }[] = [
+  { id: "land", label: "Land" },
+  { id: "air", label: "Air and rain" },
+  { id: "ocean", label: "Sea" },
+];
+
 function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: QueryEdit) => void }) {
   const selected = new Set(query.indicators);
-  const all = selected.size === INDICATOR_ORDER.length;
+  const main = selected.size === CORE_INDICATORS.length && CORE_INDICATORS.every((id) => selected.has(id));
   const directions = query.indicators.map((id) => filterFor(query, id).direction);
   // A measure added to a search that asks one direction for everything asks the same.
   const shared: Direction = directions.length && directions.every((d) => d === directions[0]) ? directions[0] : "any";
@@ -40,38 +46,45 @@ function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Qu
   });
   const toggle = (id: IndicatorId) => onEdit(withFilters(selected.has(id) ? query.indicators.filter((x) => x !== id) : [...query.indicators, id]));
   return (
-    <div className="space-y-1.5">
-      <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="What to measure">
-        {INDICATOR_ORDER.map((id) => {
-          const on = selected.has(id);
-          return (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={on}
-              onClick={() => toggle(id)}
-              title={INDICATORS[id].product}
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition pointer-coarse:min-h-11",
-                on ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-panel-line bg-panel-tint text-panel-soft hover:text-panel-foreground",
-              )}
-            >
-              <Check className={cn("h-3.5 w-3.5 shrink-0", on ? "opacity-100" : "opacity-0")} aria-hidden />
-              {INDICATORS[id].label}
-            </button>
-          );
-        })}
-      </div>
+    <div className="space-y-2">
+      {GROUPS.map((group) => (
+        <div key={group.id} className="space-y-1">
+          <p id={`measure-group-${group.id}`} className="text-[10px] font-medium uppercase tracking-wide text-panel-muted">
+            {group.label}
+          </p>
+          <div className="grid grid-cols-2 gap-1.5" role="group" aria-labelledby={`measure-group-${group.id}`}>
+            {INDICATOR_ORDER.filter((id) => INDICATORS[id].group === group.id).map((id) => {
+              const on = selected.has(id);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggle(id)}
+                  title={INDICATORS[id].product}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition pointer-coarse:min-h-11",
+                    on ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-panel-line bg-panel-tint text-panel-soft hover:text-panel-foreground",
+                  )}
+                >
+                  <Check className={cn("h-3.5 w-3.5 shrink-0", on ? "opacity-100" : "opacity-0")} aria-hidden />
+                  {INDICATORS[id].label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
       <button
         type="button"
-        aria-pressed={all}
-        onClick={() => onEdit(withFilters(all ? [] : [...INDICATOR_ORDER]))}
+        aria-pressed={main}
+        onClick={() => onEdit(withFilters(main ? [] : [...CORE_INDICATORS]))}
         className={cn(
           "flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition pointer-coarse:min-h-11",
-          all ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-dashed border-panel-line text-panel-muted hover:text-panel-foreground",
+          main ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-dashed border-panel-line text-panel-muted hover:text-panel-foreground",
         )}
       >
-        {all ? "All six selected · clear" : "Everything (all six)"}
+        {main ? "The six main measures · clear" : "The six main measures"}
       </button>
       <details className="rounded-lg border border-panel-line bg-panel-tint px-2.5 py-1.5">
         <summary className="flex cursor-pointer items-center text-[11px] font-medium text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11">What does each one measure?</summary>

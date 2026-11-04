@@ -42,6 +42,12 @@ export function buildCsv(result: AnalysisResult): string {
   satColumn("surfaceHeat", "land_surface_temp_c", 2);
   satColumn("air", "aerosol_optical_depth", 3);
   satColumn("snow", "snow_cover_pct", 1);
+  satColumn("evaporation", "evaporation_mm_month", 1);
+  satColumn("sst", "sea_surface_temp_night_c", 2);
+  satColumn("so2", "so2_column_mg_m2", 3);
+  satColumn("co", "co_500hpa_ppb", 1);
+  satColumn("upperAir", "air_temp_250hpa_c", 2);
+  satColumn("ozone", "ozone_50hpa_ppm", 3);
 
   if (result.climate?.points.length) {
     columns.push(
@@ -61,7 +67,7 @@ export function buildCsv(result: AnalysisResult): string {
   const header = [
     `# ${result.target.name} — ${result.start} to ${result.end}`,
     `# Area ${result.target.areaKm2.toFixed(1)} km², centre ${result.target.center[0].toFixed(4)}, ${result.target.center[1].toFixed(4)}`,
-    "# Sources: NASA GIBS (MODIS, MERRA-2) decoded from official colormaps; NASA POWER monthly + 2001-2020 climatology",
+    "# Sources: NASA GIBS (MODIS, MERRA-2, AIRS) decoded from official colormaps; NASA POWER monthly + 2001-2020 climatology",
     ...trendLines(result),
   ];
   const lines = [columns.map((c) => c.header).join(",")];

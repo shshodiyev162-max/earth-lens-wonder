@@ -69,7 +69,7 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
       </dl>
       {verdict && (
         <p className="mb-2 text-xs leading-relaxed text-panel-soft">
-          <span className={cn("font-semibold", verdict.direction === "none" ? "text-panel-foreground" : verdict.direction === indicator.concern ? "text-tone-warn" : "text-tone-good")}>
+          <span className={cn("font-semibold", verdict.direction === "none" || indicator.concern === "none" ? "text-panel-foreground" : verdict.direction === indicator.concern ? "text-tone-warn" : "text-tone-good")}>
             {verdict.label}
           </span>
           . {explainVerdict(verdict, `${indicator.subject} here`, indicator.unit, indicator.decimals + 1)}
