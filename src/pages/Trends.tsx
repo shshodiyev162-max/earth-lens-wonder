@@ -200,7 +200,7 @@ export default function Trends() {
       if (done) out[id] = rebuildHotspots(done, filterOf(id));
     }
     return out;
-  }, [applied, scan.measures, filterOf]);
+  }, [scanned, scan.measures, filterOf]);
   const counts = useMemo(() => Object.fromEntries(Object.entries(rebuilt).map(([id, list]) => [id, list?.length ?? 0])) as Partial<Record<IndicatorId, number>>, [rebuilt]);
   const activeHotspots = active ? rebuilt[active] : undefined;
   const { requestNames } = scan;
