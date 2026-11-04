@@ -14,6 +14,8 @@ import LayerLegend from "@/components/map/LayerLegend";
 import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
 import AreaPicker from "@/components/trends/AreaPicker";
 import AreaSummaryCard from "@/components/trends/AreaSummaryCard";
+import Glossary from "@/components/common/Glossary";
+import { MEASURE_DEFINITIONS } from "@/lib/glossary";
 import GridImageLayer from "@/components/trends/GridImageLayer";
 import HotspotLayer from "@/components/trends/HotspotLayer";
 import HotspotList from "@/components/trends/HotspotList";
@@ -368,6 +370,9 @@ export default function Trends() {
   const results =
     applied && active && indicator && filter ? (
       <div id={panelId} role={applied.indicators.length > 1 ? "tabpanel" : undefined} aria-labelledby={applied.indicators.length > 1 ? `measure-tab-${active}` : undefined} className="space-y-4">
+        <p className="text-[11px] leading-relaxed text-panel-muted">
+          <span className="font-semibold text-panel-soft">{indicator.label}:</span> {MEASURE_DEFINITIONS[active]}
+        </p>
         {(!measure || measure.status === "waiting") && scan.status !== "error" && (
           <p role="status" className="flex items-center gap-2 rounded-xl border border-panel-line bg-panel-tint p-3 text-xs text-panel-soft">
             <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-cyan" aria-hidden />
@@ -471,6 +476,7 @@ export default function Trends() {
                 ))}
               </ul>
             </details>
+            <Glossary />
           </>
         )}
       </div>

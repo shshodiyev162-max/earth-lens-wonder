@@ -6,6 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import LocationPicker from "@/components/analysis/LocationPicker";
 import { DatasetPicker, MonthsPicker, PeriodPicker } from "@/components/analysis/AnalysisControls";
 import TrendSummary from "@/components/analysis/TrendSummary";
+import Glossary from "@/components/common/Glossary";
+import { MEASURE_DEFINITIONS, METRIC_DEFINITIONS } from "@/lib/glossary";
 import { ChartCard, RainChart, SingleSeriesChart, SoilChart, TemperatureChart, VegetationChart } from "@/components/analysis/Charts";
 import { FindingsList, InsightPanel, KpiGrid, Methodology, ResultsHeader } from "@/components/analysis/ResultsPanels";
 import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
@@ -125,7 +127,7 @@ function Charts({ result }: { result: AnalysisResult }) {
     <div className="grid gap-6 2xl:grid-cols-2">
       {veg &&
         (hasValues(veg) ? (
-          <ChartCard title="Vegetation health (NDVI)" subtitle="Area mean and spread of pixels · MODIS Terra monthly" footer={seriesNote(veg, result.end)}>
+          <ChartCard title="Vegetation health (NDVI)" subtitle="Area mean and spread of pixels · MODIS Terra monthly" definition={METRIC_DEFINITIONS.ndvi} footer={seriesNote(veg, result.end)}>
             <VegetationChart series={veg} />
           </ChartCard>
         ) : (
@@ -134,6 +136,7 @@ function Charts({ result }: { result: AnalysisResult }) {
       {(climatePoints.length > 0 || hasValues(heat)) && (
         <ChartCard
           title="Temperature"
+          definition={`Air: ${METRIC_DEFINITIONS.airTemp} Ground: ${METRIC_DEFINITIONS.lst.split(".")[0]}.`}
           subtitle={[climatePoints.length ? "Air: NASA POWER vs 2001–2020 normal" : null, hasValues(heat) ? "Ground: MODIS land surface (day)" : null].filter(Boolean).join(" · ")}
           footer={seriesNote(heat, result.end)}
         >
@@ -142,25 +145,25 @@ function Charts({ result }: { result: AnalysisResult }) {
       )}
       {heat && !hasValues(heat) && <SeriesUnavailable title="Surface heat" series={heat} />}
       {climatePoints.length > 0 && (
-        <ChartCard title="Rainfall" subtitle="Monthly total vs 2001–2020 normal · NASA POWER">
+        <ChartCard title="Rainfall" subtitle="Monthly total vs 2001–2020 normal · NASA POWER" definition="How much rain and snow fell each month, in millimetres, next to the usual amount for that month.">
           <RainChart climate={climatePoints} />
         </ChartCard>
       )}
       {climatePoints.some((p) => p.soil !== null) && (
-        <ChartCard title="Soil moisture" subtitle="Root-zone soil wetness vs normal · NASA POWER (MERRA-2)">
+        <ChartCard title="Soil moisture" subtitle="Root-zone soil wetness vs normal · NASA POWER (MERRA-2)" definition={METRIC_DEFINITIONS.soil}>
           <SoilChart climate={climatePoints} />
         </ChartCard>
       )}
       {air &&
         (hasValues(air) ? (
-          <ChartCard title="Aerosols & dust" subtitle="Aerosol optical depth at 550 nm · MERRA-2 monthly" footer={seriesNote(air, result.end)}>
+          <ChartCard title="Aerosols & dust" subtitle="Aerosol optical depth at 550 nm · MERRA-2 monthly" definition={METRIC_DEFINITIONS.aod} footer={seriesNote(air, result.end)}>
             <SingleSeriesChart series={air} color="#facc15" reference={{ y: 0.4, label: "hazy" }} />
           </ChartCard>
         ) : (
           <SeriesUnavailable title="Aerosols & dust" series={air} />
         ))}
       {snow && snowVisible && (
-        <ChartCard title="Snow cover" subtitle="Average share of the area under snow · MODIS Terra monthly" footer={seriesNote(snow, result.end)}>
+        <ChartCard title="Snow cover" subtitle="Average share of the area under snow · MODIS Terra monthly" definition={MEASURE_DEFINITIONS.snow} footer={seriesNote(snow, result.end)}>
           <SingleSeriesChart series={snow} color="#a5b4fc" kind="area" />
         </ChartCard>
       )}
@@ -438,6 +441,7 @@ export default function Analysis() {
                     <Charts result={run.result} />
                     <FindingsList findings={run.report.findings} />
                     <Methodology report={run.report} result={run.result} />
+                    <Glossary look="page" />
                   </div>
                 )}
               </>

@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Check, Loader2, Sparkles } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
+import { MEASURE_DEFINITIONS } from "@/lib/glossary";
 import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
 import type { TimeSpec } from "@/lib/query/parse";
 import { DEFAULT_FILTER, filterFor, type QueryEdit, type SeasonChoice, type TrendQuery } from "@/lib/trends/query";
@@ -72,6 +73,17 @@ function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Qu
       >
         {all ? "All six selected · clear" : "Everything (all six)"}
       </button>
+      <details className="rounded-lg border border-panel-line bg-panel-tint px-2.5 py-1.5">
+        <summary className="flex cursor-pointer items-center text-[11px] font-medium text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11">What does each one measure?</summary>
+        <dl className="mt-2 space-y-1.5 text-[11px] leading-relaxed">
+          {INDICATOR_ORDER.map((id) => (
+            <div key={id}>
+              <dt className="font-semibold text-panel-foreground">{INDICATORS[id].label}</dt>
+              <dd className="text-panel-muted">{MEASURE_DEFINITIONS[id]}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </div>
   );
 }

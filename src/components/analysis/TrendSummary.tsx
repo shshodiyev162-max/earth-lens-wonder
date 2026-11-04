@@ -3,6 +3,7 @@ import YearTrendChart from "@/components/trends/YearTrendChart";
 import { formatSpan } from "@/lib/analysis/period";
 import { explainVerdict, formatP, signed } from "@/lib/analysis/stats";
 import { isConcerning, type MetricTrend } from "@/lib/analysis/trend";
+import { METRIC_DEFINITIONS } from "@/lib/glossary";
 import { cn } from "@/lib/utils";
 
 const TONE = {
@@ -31,6 +32,7 @@ function TrendCard({ trend, spans, onTryAllYears }: { trend: MetricTrend; spans:
         <div className="min-w-0">
           <h4 className="text-sm font-medium text-foreground">{metric.label}</h4>
           <p className="text-[11px] text-muted-foreground">{metric.source}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{METRIC_DEFINITIONS[metric.id]}</p>
         </div>
         <span className={cn("shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE[tone])}>{badge}</span>
       </div>

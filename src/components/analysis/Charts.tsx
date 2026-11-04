@@ -81,6 +81,7 @@ function ChartTooltip({ active, payload, label, formats }: TooltipProps<number, 
 export function ChartCard({
   title,
   subtitle,
+  definition,
   aside,
   children,
   footer,
@@ -88,6 +89,8 @@ export function ChartCard({
 }: {
   title: string;
   subtitle?: string;
+  /** What the measure is, in plain words. */
+  definition?: string;
   aside?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
@@ -99,6 +102,7 @@ export function ChartCard({
         <div>
           <p className="text-sm font-medium text-foreground">{title}</p>
           {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+          {definition && <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">{definition}</p>}
         </div>
         {aside}
       </div>
