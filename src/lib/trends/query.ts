@@ -411,12 +411,21 @@ function mid([a, b]: [number, number]): number {
   return Math.round((a + b) / 2);
 }
 
-/** The scanned period and the measure's own datasets, for the Analysis page. */
+/** The scanned period, months and the measure's own datasets, for the Analysis page. */
 function analysisPeriod(params: URLSearchParams, indicator: IndicatorId, plan: PeriodPlan, latestMonth: string): string {
-  const end = `${plan.endYear}-12` > latestMonth ? latestMonth : `${plan.endYear}-12`;
-  params.set("period", "custom");
-  params.set("start", `${plan.startYear}-01`);
-  params.set("end", end);
+  if (plan.kind === "comparison") {
+    // Two seasons compared: the Analysis page compares the same two periods (and says when one year each is too few to test).
+    params.set("period", "compare");
+    params.set("base", `${plan.baseline[0]}-${plan.baseline[1]}`);
+    params.set("recent", `${plan.recent[0]}-${plan.recent[1]}`);
+  } else {
+    const first = seasonYearMonths(plan.startYear, plan.months)[0] ?? `${plan.startYear}-01`;
+    const last = seasonYearMonths(plan.endYear, plan.months).at(-1) ?? `${plan.endYear}-12`;
+    params.set("period", "custom");
+    params.set("start", first);
+    params.set("end", last > latestMonth ? latestMonth : last);
+  }
+  if (plan.months.length && plan.months.length < 12) params.set("season", `m-${[...plan.months].sort((a, b) => a - b).join(".")}`);
   const dataset = INDICATORS[indicator].dataset;
   params.set("ds", dataset === "climate" ? "climate,vegetation" : `${dataset},climate`);
   return `/analysis?${params}`;

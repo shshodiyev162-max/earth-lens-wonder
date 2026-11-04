@@ -272,14 +272,23 @@ async function runClimate(request: AnalysisRequest, months: string[], signal: Ab
   }
 }
 
+/** The months an analysis reads: the chosen ones, or every month from start to end. */
+export function requestMonths(request: Pick<AnalysisRequest, "start" | "end" | "months">): string[] {
+  return request.months ?? monthRange(request.start, request.end);
+}
+
+/** Monthly satellite maps an analysis needs (the load that takes time). */
+export function countMaps(request: Pick<AnalysisRequest, "start" | "end" | "months" | "datasets">): number {
+  return requestMonths(request).length * request.datasets.filter((d) => d !== "climate").length;
+}
+
+/** Requests to NASA POWER (monthly values and normals at each sample point). */
+export function countClimateRequests(request: Pick<AnalysisRequest, "datasets" | "target">): number {
+  return request.datasets.includes("climate") ? samplePointCount(request.target.areaKm2) * 2 : 0;
+}
+
 export function countTasks(request: AnalysisRequest): number {
-  const months = monthRange(request.start, request.end).length;
-  let total = 0;
-  for (const dataset of request.datasets) {
-    if (dataset === "climate") total += samplePointCount(request.target.areaKm2) * 2;
-    else total += months;
-  }
-  return total;
+  return countMaps(request) + countClimateRequests(request);
 }
 
 export async function runAnalysis(
@@ -287,7 +296,7 @@ export async function runAnalysis(
   options: { signal?: AbortSignal; onProgress?: (progress: AnalysisProgress) => void } = {},
 ): Promise<AnalysisResult> {
   const { signal, onProgress } = options;
-  const months = monthRange(request.start, request.end);
+  const months = requestMonths(request);
   const key = geometryKey(request.target.geometry);
   const total = Math.max(1, countTasks(request));
   let done = 0;
@@ -315,6 +324,8 @@ export async function runAnalysis(
     start: request.start,
     end: request.end,
     datasets: request.datasets,
+    months,
+    period: request.period,
     generatedAt: new Date().toISOString(),
     satellite,
     climate,

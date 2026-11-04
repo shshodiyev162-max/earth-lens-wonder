@@ -33,12 +33,23 @@ export interface AnalysisTarget {
   ref: TargetRef;
 }
 
+/** Which months count and whether two periods are compared. */
+export interface AnalysisPeriod {
+  /** Calendar months included (1–12), already flipped for the southern hemisphere. */
+  calendarMonths: number[];
+  /** Whole years, inclusive: a baseline period and a later one to compare with it. */
+  compare: { baseline: [number, number]; recent: [number, number] } | null;
+}
+
 export interface AnalysisRequest {
   target: AnalysisTarget;
   /** YYYY-MM inclusive */
   start: string;
   end: string;
   datasets: DatasetId[];
+  /** The months to read (YYYY-MM, oldest first); every month from start to end when missing. */
+  months?: string[];
+  period?: AnalysisPeriod;
 }
 
 export interface SatellitePoint {
@@ -96,6 +107,9 @@ export interface AnalysisResult {
   start: string;
   end: string;
   datasets: DatasetId[];
+  /** The months that were read (missing in older saved results: every month from start to end). */
+  months?: string[];
+  period?: AnalysisPeriod;
   generatedAt: string;
   satellite: Partial<Record<Exclude<DatasetId, "climate">, SatelliteSeries>>;
   climate?: ClimateSeries;

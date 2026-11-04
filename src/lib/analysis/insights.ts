@@ -3,8 +3,11 @@
 // and NASA POWER, and the thresholds are stated in the text.
 
 import { formatMonth } from "../gibs/time";
-import { deseasonalizedTrend, extremes, latestValid, mean, signed, sum, yearOverYear, type MonthlyValue } from "./stats";
-import type { AnalysisResult, ClimatePoint, DatasetId, SatelliteSeries } from "./types";
+import { climateValues, satelliteValues } from "./metrics";
+import { formatSpan, seasonPhrase } from "./period";
+import { explainVerdict, extremes, formatP, latestValid, mean, signed, sum, yearOverYear, type MonthlyValue } from "./stats";
+import { analysisTrends, isConcerning, periodOf, type MetricTrend } from "./trend";
+import type { AnalysisResult, DatasetId } from "./types";
 
 export type Tone = "positive" | "neutral" | "warning" | "critical";
 
@@ -37,17 +40,6 @@ export interface InsightReport {
   caveats: string[];
 }
 
-const MIN_COVERAGE = 0.1;
-
-function satelliteValues(series: SatelliteSeries | undefined): MonthlyValue[] {
-  if (!series) return [];
-  return series.points.map((p) => ({ month: p.month, value: p.value !== null && p.coverage >= MIN_COVERAGE ? p.value : null }));
-}
-
-function climateValues(points: ClimatePoint[], key: keyof ClimatePoint): MonthlyValue[] {
-  return points.map((p) => ({ month: p.month, value: (p[key] as number | null) ?? null }));
-}
-
 function hasData(values: MonthlyValue[]): boolean {
   return values.some((v) => v.value !== null);
 }
@@ -71,11 +63,6 @@ function pct(value: number): string {
   return `${Math.round(value)}%`;
 }
 
-function trendWord(perYear: number, threshold: number): "rising" | "falling" | "stable" {
-  if (Math.abs(perYear) < threshold) return "stable";
-  return perYear > 0 ? "rising" : "falling";
-}
-
 export function buildInsights(result: AnalysisResult): InsightReport {
   const findings: Finding[] = [];
   const kpis: Kpi[] = [];
@@ -94,7 +81,6 @@ export function buildInsights(result: AnalysisResult): InsightReport {
     const ext = extremes(ndvi);
     const latest = latestValid(ndvi);
     const yoy = yearOverYear(ndvi);
-    const trend = deseasonalizedTrend(ndvi);
 
     findings.push({
       id: "veg-level",
@@ -127,26 +113,6 @@ export function buildInsights(result: AnalysisResult): InsightReport {
         } else if (change <= -10) {
           score += 1;
           reasons.push("vegetation greenness fell 10–20% year-on-year");
-        }
-      }
-    }
-    if (trend) {
-      const direction = trendWord(trend.perYear, 0.005);
-      if (direction !== "stable") {
-        // Only extrapolate to a decade when the record itself spans five years.
-        const longRecord = ndvi.length >= 60;
-        findings.push({
-          id: "veg-trend",
-          dataset: "vegetation",
-          tone: direction === "falling" ? "warning" : "positive",
-          title: direction === "falling" ? "Vegetation has been getting less green" : "Vegetation has been getting greener",
-          detail: `After removing the seasonal cycle, NDVI changed by ${signed(trend.perYear, 3)} per year over this period${
-            longRecord ? ` (${signed(trend.perYear * 10, 2)} per decade)` : ""
-          }; R² ${trend.r2.toFixed(2)}.`,
-        });
-        if (direction === "falling" && trend.r2 > 0.2) {
-          score += 1;
-          reasons.push("a sustained downward vegetation trend");
         }
       }
     }
@@ -438,6 +404,71 @@ export function buildInsights(result: AnalysisResult): InsightReport {
     }
   }
 
+  // ── Trends over the years (or two periods compared) ───────────────────
+  const trends = analysisTrends(result);
+  const steady: MetricTrend[] = [];
+  for (const trend of trends) {
+    const { metric, verdict, comparison } = trend;
+    const noun = nounOf(metric.label);
+    const value = (v: number, d = metric.decimals) => `${v.toFixed(d)}${metric.unit ? ` ${metric.unit}` : ""}`;
+    if (comparison) {
+      const spans = periodOf(result).compare;
+      if (!spans || comparison.label === "Not enough years to test" || comparison.change === null || comparison.p === null) continue;
+      if (comparison.label === "No clear difference") {
+        steady.push(trend);
+        continue;
+      }
+      const lower = comparison.label === "Significantly lower";
+      const concerning = isConcerning(metric, lower ? "decline" : "increase");
+      const percent = comparison.percent !== null ? `, ${signed(comparison.percent, Math.abs(comparison.percent) < 10 ? 1 : 0)}%` : "";
+      findings.push({
+        id: `compare-${metric.id}`,
+        dataset: metric.dataset,
+        tone: concerning ? "warning" : metric.concern === "none" ? "neutral" : "positive",
+        title: `${metric.label} significantly ${lower ? "lower" : "higher"} in ${formatSpan(spans.recent)} than in ${formatSpan(spans.baseline)}`,
+        detail: `Yearly average ${value(comparison.baselineMean as number)} then, ${value(comparison.recentMean as number)} now (${signed(comparison.change, metric.decimals)}${metric.unit ? ` ${metric.unit}` : ""}${percent}). Welch's t-test on the yearly values: ${formatP(comparison.p)}.`,
+      });
+      headline.push({ text: `${noun} ${lower ? "lower" : "higher"} than in ${formatSpan(spans.baseline)}`, priority: 0 });
+      if (concerning) {
+        score += 1;
+        reasons.push(`${noun} was significantly ${lower ? "lower" : "higher"} than in ${formatSpan(spans.baseline)}`);
+      }
+      continue;
+    }
+    if (!verdict) continue;
+    if (verdict.direction === "none") {
+      steady.push(trend);
+      continue;
+    }
+    const concerning = isConcerning(metric, verdict.direction);
+    const years = trend.span ? `, ${formatSpan(trend.span)}` : "";
+    findings.push({
+      id: `trend-${metric.id}`,
+      dataset: metric.dataset,
+      tone: concerning ? "warning" : metric.concern === "none" ? "neutral" : "positive",
+      title: `${metric.label}: ${verdict.label.toLowerCase()}${years}`,
+      detail: explainVerdict(verdict, metric.subject, metric.unit, metric.decimals + 1),
+    });
+    headline.push({ text: `significant ${noun} ${verdict.direction === "decline" ? "decline" : "rise"}`, priority: 0 });
+    if (concerning) {
+      score += 1;
+      reasons.push(`a significant ${verdict.direction === "decline" ? "downward" : "upward"} trend in ${noun} (${formatP(verdict.p)})`);
+    }
+  }
+  if (steady.length) {
+    const names = joinWithAnd(steady.map((t) => nounOf(t.metric.label)));
+    const comparing = Boolean(periodOf(result).compare);
+    findings.push({
+      id: "trend-none",
+      dataset: steady[0].metric.dataset,
+      tone: "neutral",
+      title: comparing ? `No clear difference between the two periods in ${names}` : `No clear trend in ${names}`,
+      detail: comparing
+        ? "The two periods' yearly values overlap too much to call the difference real (t-test, p ≥ 0.05). See the trend cards for the numbers."
+        : "These measures went up and down without a consistent direction (Mann–Kendall test, p ≥ 0.05). See the trend cards for the numbers and the likely range.",
+    });
+  }
+
   // ── Coverage of the requested period ───────────────────────────────────
   for (const series of Object.values(result.satellite)) {
     if (!series) continue;
@@ -473,15 +504,36 @@ function buildHeadline(place: string, parts: { text: string; priority: number }[
   return `${place}: ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 }
 
+/** "vegetation" from "Vegetation (NDVI)". */
+function nounOf(label: string): string {
+  return label.replace(/\s*\(.*\)$/, "").toLowerCase();
+}
+
+/** "Mar 2016 – Feb 2026 (Apr–Sep only)" or "2001–2010 and 2016–2025". */
+export function describeResultPeriod(result: AnalysisResult): { text: string; comparing: boolean } {
+  const period = periodOf(result);
+  const months = seasonPhrase(period.calendarMonths);
+  const range = period.compare ? `${formatSpan(period.compare.baseline)} and ${formatSpan(period.compare.recent)}` : `${formatMonth(result.start, "long")} – ${formatMonth(result.end, "long")}`;
+  return { text: months ? `${range} (${months})` : range, comparing: Boolean(period.compare) };
+}
+
 function buildSummary(result: AnalysisResult, findings: Finding[], level: string, reasons: string[]): string {
-  const period = `${formatMonth(result.start, "long")} – ${formatMonth(result.end, "long")}`;
+  const period = describeResultPeriod(result);
   const sentences: string[] = [];
   const veg = findings.find((f) => f.id === "veg-level");
   const temp = findings.find((f) => f.id === "clim-temp");
   const rain = findings.find((f) => f.id === "clim-rain");
   const air = findings.find((f) => f.id === "air-level");
+  const trends = findings.filter((f) => f.id.startsWith("trend-") || f.id.startsWith("compare-"));
 
-  sentences.push(`This report covers ${result.target.name} from ${period}, using NASA satellite and climate records.`);
+  sentences.push(
+    period.comparing
+      ? `This report compares ${result.target.name} in ${period.text}, using NASA satellite and climate records.`
+      : `This report covers ${result.target.name} from ${period.text}, using NASA satellite and climate records.`,
+  );
+  const significant = trends.filter((f) => f.id !== "trend-none");
+  if (significant.length) sentences.push(`${significant.map((f) => f.title).join("; ")}.`);
+  else if (trends.length) sentences.push(`${trends[0].title}.`);
   if (veg) sentences.push(`${veg.title.replace(/^Average NDVI/, "Average plant greenness (NDVI) was")}.`);
   if (temp) sentences.push(`${temp.title}.`);
   if (rain) sentences.push(`${rain.title.replace(/^Rainfall:/, "Rainfall totalled")}.`);

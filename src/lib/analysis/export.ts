@@ -1,12 +1,32 @@
 import { monthRange } from "../gibs/time";
+import { formatSpan } from "./period";
+import { formatP } from "./stats";
+import { analysisTrends, periodOf } from "./trend";
 import type { AnalysisResult } from "./types";
 
 const fmt = (value: number | null | undefined, decimals = 3) =>
   value === null || value === undefined || !Number.isFinite(value) ? "" : value.toFixed(decimals);
 
-/** One row per month with every series side by side (blank = no data). */
+/** "# Trend, Vegetation (NDVI): Significant decline, -0.0042 per year (95% range …), p = 0.01, years 2001–2025" */
+export function trendLines(result: AnalysisResult): string[] {
+  const compare = periodOf(result).compare;
+  return analysisTrends(result).map(({ metric, verdict, comparison, span, note }) => {
+    const unit = metric.unit ? ` ${metric.unit}` : "";
+    const d = metric.decimals + 1;
+    if (comparison && compare) {
+      const parts: string[] = [comparison.label];
+      if (comparison.baselineMean !== null && comparison.recentMean !== null) parts.push(`${formatSpan(compare.baseline)} average ${comparison.baselineMean.toFixed(metric.decimals)}${unit}, ${formatSpan(compare.recent)} average ${comparison.recentMean.toFixed(metric.decimals)}${unit}`);
+      if (comparison.p !== null) parts.push(`Welch's t-test ${formatP(comparison.p)}`);
+      return `# Comparison, ${metric.label}: ${parts.join(", ")}`;
+    }
+    if (!verdict) return `# Trend, ${metric.label}: not tested (${note ?? "too few years"})`;
+    return `# Trend, ${metric.label}: ${verdict.label}, ${verdict.slopePerYear.toFixed(d)}${unit} per year (95% range ${verdict.lowerPerYear.toFixed(d)} to ${verdict.upperPerYear.toFixed(d)}), Mann-Kendall ${formatP(verdict.p)}${span ? `, years ${formatSpan(span)}` : ""}`;
+  });
+}
+
+/** One row per month read, with every series side by side (blank = no data). */
 export function buildCsv(result: AnalysisResult): string {
-  const months = monthRange(result.start, result.end);
+  const months = result.months ?? monthRange(result.start, result.end);
   const sat = result.satellite;
   const climate = new Map((result.climate?.points ?? []).map((p) => [p.month, p]));
   const columns: { header: string; value: (month: string) => string }[] = [{ header: "month", value: (m) => m }];
@@ -42,6 +62,7 @@ export function buildCsv(result: AnalysisResult): string {
     `# ${result.target.name} — ${result.start} to ${result.end}`,
     `# Area ${result.target.areaKm2.toFixed(1)} km², centre ${result.target.center[0].toFixed(4)}, ${result.target.center[1].toFixed(4)}`,
     "# Sources: NASA GIBS (MODIS, MERRA-2) decoded from official colormaps; NASA POWER monthly + 2001-2020 climatology",
+    ...trendLines(result),
   ];
   const lines = [columns.map((c) => c.header).join(",")];
   for (const month of months) lines.push(columns.map((c) => c.value(month)).join(","));

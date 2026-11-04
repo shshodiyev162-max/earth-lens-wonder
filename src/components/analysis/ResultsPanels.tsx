@@ -4,12 +4,11 @@ import { AlertTriangle, BadgeCheck, Check, CircleAlert, Copy, Download, External
 import { toast } from "sonner";
 import { Sparkline } from "./Charts";
 import PlaceThumbnail from "./PlaceThumbnail";
-import type { Finding, InsightReport, Kpi, Tone } from "@/lib/analysis/insights";
+import { describeResultPeriod, type Finding, type InsightReport, type Kpi, type Tone } from "@/lib/analysis/insights";
 import type { AnalysisResult, AnalysisTarget, DatasetId } from "@/lib/analysis/types";
 import { DATASET_BY_ID } from "@/lib/analysis/run";
 import { buildCsv, downloadText, slugify } from "@/lib/analysis/export";
 import { isAiConfigured, requestAiNarrative, type AiNarrative } from "@/lib/analysisClient";
-import { formatMonth } from "@/lib/gibs/time";
 import { formatArea, formatLatLng } from "@/lib/geo/geometry";
 import { cn } from "@/lib/utils";
 
@@ -87,7 +86,7 @@ export function ResultsHeader({
           <p className="mt-1 text-sm text-muted-foreground">{[target.context, formatArea(target.areaKm2), formatLatLng(target.center, 2)].filter(Boolean).join(" · ")}</p>
           {result && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {formatMonth(result.start, "long")} – {formatMonth(result.end, "long")} · NASA GIBS (MODIS, MERRA-2) · NASA POWER
+              {describeResultPeriod(result).text} · NASA GIBS (MODIS, MERRA-2) · NASA POWER
             </p>
           )}
           <div className="mt-4 flex flex-wrap gap-2 sm:mt-auto sm:pt-4">

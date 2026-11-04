@@ -1,19 +1,32 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { AlertTriangle, BarChart3, Globe, Loader2, MapPin, RefreshCw } from "lucide-react";
+import { AlertTriangle, BarChart3, Globe, Info, Loader2, MapPin, Play, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import LocationPicker from "@/components/analysis/LocationPicker";
-import { DatasetPicker, PeriodPicker } from "@/components/analysis/AnalysisControls";
+import { DatasetPicker, MonthsPicker, PeriodPicker } from "@/components/analysis/AnalysisControls";
+import TrendSummary from "@/components/analysis/TrendSummary";
 import { ChartCard, RainChart, SingleSeriesChart, SoilChart, TemperatureChart, VegetationChart } from "@/components/analysis/Charts";
 import { FindingsList, InsightPanel, KpiGrid, Methodology, ResultsHeader } from "@/components/analysis/ResultsPanels";
 import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
 import type { PickedCountry } from "@/components/map/DrawTools";
 import { useAnalysisRun } from "@/hooks/useAnalysisRun";
 import { useAnalysisTarget } from "@/hooks/useAnalysisTarget";
-import { DATASETS } from "@/lib/analysis/run";
-import { readPeriod, writePeriod, type PeriodKind } from "@/lib/analysis/period";
-import type { AnalysisResult, DatasetId, SatelliteSeries } from "@/lib/analysis/types";
+import { DATASETS, countClimateRequests, countMaps } from "@/lib/analysis/run";
+import {
+  LARGE_RUN_MAPS,
+  estimateSeconds,
+  formatEstimate,
+  periodHints,
+  periodProblems,
+  readPeriod,
+  requestedMonths,
+  selectionMonths,
+  writePeriod,
+  type PeriodEdit,
+} from "@/lib/analysis/period";
+import { analysisTrends } from "@/lib/analysis/trend";
+import type { AnalysisPeriod, AnalysisResult, DatasetId, SatelliteSeries } from "@/lib/analysis/types";
 import { defaultRadiusKm, hasBoundary, type PlaceResult } from "@/lib/geo/geocode";
 import type { LatLng, PolygonGeometry } from "@/lib/geo/geometry";
 import { formatMonth } from "@/lib/gibs/time";
@@ -167,9 +180,29 @@ export default function Analysis() {
 
   const selection = useMemo(() => readPeriod(params), [params]);
   const { start, end } = selection;
-  const period = selection.kind;
+  const latitude = target?.center[0] ?? 0;
+  const calendarMonths = useMemo(() => selectionMonths(selection, latitude), [selection, latitude]);
+  const months = useMemo(() => requestedMonths(selection, latitude), [selection, latitude]);
+  const analysisPeriod = useMemo<AnalysisPeriod>(
+    () => ({
+      calendarMonths,
+      compare: selection.kind === "compare" && selection.baseline && selection.recent ? { baseline: selection.baseline, recent: selection.recent } : null,
+    }),
+    [calendarMonths, selection],
+  );
   const datasets = useMemo(() => parseDatasets(params.get("ds")), [params]);
-  const run = useAnalysisRun(target, start, end, datasets);
+  const problems = periodProblems(selection, months.length);
+  const hints = periodHints(selection, calendarMonths, months.length);
+
+  // Very large requests wait for a click instead of starting by themselves.
+  const maps = countMaps({ start, end, months, datasets });
+  const climateRequests = target ? countClimateRequests({ datasets, target }) : 0;
+  const runKey = `${target ? target.bbox.join(",") : ""}|${months.length}|${months[0]}|${months[months.length - 1]}|${datasets.join(",")}|${JSON.stringify(analysisPeriod)}`;
+  const [confirmedRun, setConfirmedRun] = useState<string | null>(null);
+  const large = maps > LARGE_RUN_MAPS;
+  const waiting = Boolean(target) && !problems.length && large && confirmedRun !== runKey;
+  const run = useAnalysisRun(target, { start, end, months, period: analysisPeriod }, datasets, !problems.length && !waiting);
+  const trends = useMemo(() => (run.result ? analysisTrends(run.result) : []), [run.result]);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   /** On phones the report sits below the controls — bring it into view after a choice. */
@@ -225,8 +258,7 @@ export default function Analysis() {
     revealResults();
   };
 
-  const onPeriod = (next: PeriodKind, customStart?: string, customEnd?: string) =>
-    setParams((current) => writePeriod(current, selection, { kind: next, start: customStart, end: customEnd }), { replace: true });
+  const onPeriod = (edit: PeriodEdit) => setParams((current) => writePeriod(current, selection, edit), { replace: true });
 
   const onDatasets = (next: DatasetId[]) =>
     setParams(
@@ -267,7 +299,22 @@ export default function Analysis() {
 
             <section className="glass rounded-2xl p-6 space-y-4">
               <h2 className="text-sm font-semibold text-muted-foreground">2. Choose a time range and data</h2>
-              <PeriodPicker period={period} start={start} end={end} onChange={onPeriod} />
+              <PeriodPicker selection={selection} onChange={onPeriod} />
+              <MonthsPicker selection={selection} latitude={latitude} onChange={onPeriod} />
+              {(problems.length > 0 || hints.length > 0 || selection.notes.length > 0) && (
+                <ul className="space-y-1.5 text-xs leading-relaxed" aria-live="polite">
+                  {problems.map((text) => (
+                    <li key={text} className="flex gap-1.5 text-tone-warn">
+                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden /> {text}
+                    </li>
+                  ))}
+                  {[...selection.notes, ...hints].map((text) => (
+                    <li key={text} className="flex gap-1.5 text-muted-foreground">
+                      <Info className="mt-0.5 h-3 w-3 shrink-0 text-primary" aria-hidden /> {text}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <DatasetPicker selected={datasets} onChange={onDatasets} />
             </section>
           </div>
@@ -328,6 +375,23 @@ export default function Analysis() {
               <>
                 <ResultsHeader target={target} result={run.result} report={run.report} running={running} shareUrl={shareUrl} />
 
+                {waiting && (
+                  <div className="glass rounded-2xl p-6 space-y-3" role="status">
+                    <p className="text-sm font-medium text-foreground">This is a big request: about {maps.toLocaleString("en-US")} monthly NASA maps.</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      Reading them takes {formatEstimate(estimateSeconds(maps, climateRequests))} the first time, depending on how busy NASA's map service is — seconds after that, as
+                      the maps are kept on this device. Fewer years, fewer months or fewer datasets make it faster.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmedRun(runKey)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium gradient-primary text-primary-foreground hover:opacity-90"
+                    >
+                      <Play className="h-4 w-4" aria-hidden /> Start the analysis
+                    </button>
+                  </div>
+                )}
+
                 {running && (
                   <div className="glass rounded-2xl p-6" role="status" aria-live="polite">
                     <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -365,6 +429,11 @@ export default function Analysis() {
                 {run.result && run.report && (
                   <div className={cn("space-y-6 transition-opacity", running && "pointer-events-none opacity-50")}>
                     <InsightPanel key={run.result.generatedAt} report={run.report} result={run.result} />
+                    <TrendSummary
+                      trends={trends}
+                      compare={run.result.period?.compare ?? null}
+                      onTryAllYears={selection.kind === "all" ? undefined : () => onPeriod({ kind: "all" })}
+                    />
                     <KpiGrid kpis={run.report.kpis} />
                     <Charts result={run.result} />
                     <FindingsList findings={run.report.findings} />

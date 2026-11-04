@@ -1,11 +1,11 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Check, Loader2, Sparkles } from "lucide-react";
+import MonthToggles from "@/components/common/MonthToggles";
 import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
 import type { TimeSpec } from "@/lib/query/parse";
 import { DEFAULT_FILTER, filterFor, type QueryEdit, type SeasonChoice, type TrendQuery } from "@/lib/trends/query";
 import { cn } from "@/lib/utils";
 
-const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const field = "w-full rounded-lg border border-panel-line bg-panel-tint px-3 py-2 text-sm text-panel-foreground outline-none focus:border-cyan-400/60 pointer-coarse:min-h-11";
 const yearInput = "w-20 rounded-md border border-panel-line bg-panel-tint px-2 py-1.5 text-sm text-panel-foreground outline-none focus:border-cyan-400/60 pointer-coarse:min-h-11";
 
@@ -186,26 +186,13 @@ function MonthsField({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Quer
       </select>
       {value === "usual" && <p className="text-[11px] leading-relaxed text-panel-muted">{usual}. Seasons flip south of the equator.</p>}
       {value === "custom" && (
-        <div className="grid grid-cols-6 gap-1" role="group" aria-label="Months">
-          {MONTH_ABBR.map((name, i) => {
-            const on = picking.includes(i + 1);
-            return (
-              <button
-                key={name}
-                type="button"
-                aria-pressed={on}
-                onClick={() => {
-                  const next = on ? picking.filter((m) => m !== i + 1) : [...picking, i + 1].sort((x, y) => x - y);
-                  setPicking(next);
-                  if (next.length) onEdit({ months: next });
-                }}
-                className={cn("rounded-md px-1 py-1.5 text-[11px] font-medium pointer-coarse:min-h-11", on ? "bg-cyan-400/20 text-accent-cyan-soft" : "bg-panel-tint text-panel-muted hover:text-panel-foreground")}
-              >
-                {name}
-              </button>
-            );
-          })}
-        </div>
+        <MonthToggles
+          value={picking}
+          onChange={(next) => {
+            setPicking(next);
+            onEdit({ months: next });
+          }}
+        />
       )}
     </Field>
   );

@@ -1,23 +1,96 @@
-import { Calendar, CloudRain, Flame, Leaf, Snowflake, Wind } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { Calendar, CalendarRange, CloudRain, Flame, Leaf, Snowflake, Wind } from "lucide-react";
+import MonthToggles from "@/components/common/MonthToggles";
 import { DATASETS } from "@/lib/analysis/run";
 import type { DatasetId } from "@/lib/analysis/types";
 import { formatMonth } from "@/lib/gibs/time";
-import { EARLIEST_MONTH, PERIOD_PRESETS, defaultEndMonth, type PeriodKind } from "@/lib/analysis/period";
-
-const PERIOD_OPTIONS: { id: PeriodKind; label: string }[] = [...PERIOD_PRESETS.map((p) => ({ id: p.id, label: p.label })), { id: "custom", label: "Custom" }];
+import { monthsLabel, SEASONS } from "@/lib/query/indicators";
+import {
+  EARLIEST_MONTH,
+  EARLIEST_YEAR,
+  PERIOD_PRESETS,
+  defaultComparison,
+  defaultEndMonth,
+  lastCompleteYear,
+  selectionMonths,
+  type PeriodEdit,
+  type PeriodKind,
+  type PeriodSelection,
+  type SeasonChoice,
+  type YearSpan,
+} from "@/lib/analysis/period";
 import { cn } from "@/lib/utils";
 
-const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const PERIOD_OPTIONS: { id: PeriodKind; label: string }[] = [
+  ...PERIOD_PRESETS.map((p) => ({ id: p.id, label: p.label })),
+  { id: "custom", label: "Custom" },
+  { id: "compare", label: "Compare two periods" },
+];
 
-interface PeriodPickerProps {
-  period: PeriodKind;
-  start: string;
-  end: string;
-  onChange: (period: PeriodKind, start?: string, end?: string) => void;
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const pill = "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors pointer-coarse:min-h-11";
+const input = "rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground pointer-coarse:min-h-11";
+
+/** Two year boxes ("2001" – "2010"); a change is applied when a box loses focus or Enter is pressed. */
+function SpanInput({ label, span, first, last, onChange }: { label: string; span: YearSpan; first: number; last: number; onChange: (span: YearSpan) => void }) {
+  const [a, setA] = useState(String(span[0]));
+  const [b, setB] = useState(String(span[1]));
+  useEffect(() => {
+    setA(String(span[0]));
+    setB(String(span[1]));
+  }, [span]);
+  const clamp = (value: string, fallback: number) => Math.min(last, Math.max(first, Math.round(Number(value)) || fallback));
+  const commit = () => {
+    const x = clamp(a, span[0]);
+    const y = clamp(b, span[1]);
+    const next: YearSpan = x <= y ? [x, y] : [y, x];
+    if (next[0] !== span[0] || next[1] !== span[1]) onChange(next);
+    else {
+      setA(String(span[0]));
+      setB(String(span[1]));
+    }
+  };
+  const box = (value: string, set: (v: string) => void, which: string) => (
+    <label className="flex items-center gap-1.5">
+      <span className="sr-only">
+        {label}: {which} year
+      </span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={first}
+        max={last}
+        value={value}
+        onChange={(event) => set(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => event.key === "Enter" && commit()}
+        className={cn(input, "w-20")}
+      />
+    </label>
+  );
+  return (
+    <fieldset className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <legend className="sr-only">{label} period</legend>
+      <span aria-hidden className="w-10 font-medium text-foreground">
+        {label}
+      </span>
+      {box(a, setA, "first")}
+      <span aria-hidden>–</span>
+      {box(b, setB, "last")}
+    </fieldset>
+  );
 }
 
-export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps) {
+interface PeriodPickerProps {
+  selection: PeriodSelection;
+  onChange: (edit: PeriodEdit) => void;
+}
+
+export function PeriodPicker({ selection, onChange }: PeriodPickerProps) {
   const latest = defaultEndMonth();
+  const lastYear = lastCompleteYear(latest);
+  const { kind: period, start, end } = selection;
+  const spans = selection.baseline && selection.recent ? { baseline: selection.baseline, recent: selection.recent } : defaultComparison(latest);
   return (
     <div className="space-y-3">
       <div className="text-xs font-medium text-muted-foreground flex items-center gap-2">
@@ -30,11 +103,8 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
             type="button"
             role="radio"
             aria-checked={period === option.id}
-            onClick={() => onChange(option.id, option.id === "custom" ? start : undefined, option.id === "custom" ? end : undefined)}
-            className={cn(
-              "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors",
-              period === option.id ? "bg-primary text-primary-foreground" : "glass text-muted-foreground hover:text-foreground",
-            )}
+            onClick={() => onChange({ kind: option.id, ...(option.id === "custom" ? { start, end } : {}) })}
+            className={cn(pill, period === option.id ? "bg-primary text-primary-foreground" : "glass text-muted-foreground hover:text-foreground")}
           >
             {option.label}
           </button>
@@ -49,8 +119,8 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
               value={start}
               min={EARLIEST_MONTH}
               max={end}
-              onChange={(event) => MONTH_RE.test(event.target.value) && onChange("custom", event.target.value, end)}
-              className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground"
+              onChange={(event) => MONTH_RE.test(event.target.value) && onChange({ kind: "custom", start: event.target.value, end })}
+              className={input}
             />
           </label>
           <label className="flex items-center gap-2 text-muted-foreground">
@@ -60,17 +130,61 @@ export function PeriodPicker({ period, start, end, onChange }: PeriodPickerProps
               value={end}
               min={start}
               max={latest}
-              onChange={(event) => MONTH_RE.test(event.target.value) && onChange("custom", start, event.target.value)}
-              className="rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground"
+              onChange={(event) => MONTH_RE.test(event.target.value) && onChange({ kind: "custom", start, end: event.target.value })}
+              className={input}
             />
           </label>
           <p className="w-full text-xs text-muted-foreground">Any months from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>
+        </div>
+      ) : period === "compare" ? (
+        <div className="space-y-2">
+          <SpanInput label="Then" span={spans.baseline} first={EARLIEST_YEAR} last={lastYear} onChange={(baseline) => onChange({ kind: "compare", baseline, recent: spans.recent })} />
+          <SpanInput label="Now" span={spans.recent} first={EARLIEST_YEAR} last={lastYear} onChange={(recent) => onChange({ kind: "compare", baseline: spans.baseline, recent })} />
+          <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+            <CalendarRange className="mt-0.5 h-3 w-3 shrink-0 text-primary" aria-hidden />
+            Each year becomes one average, then the two periods are compared with a t-test. 5–10 years in each works best.
+          </p>
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
           {formatMonth(start, "long")} – {formatMonth(end, "long")}
         </p>
       )}
+    </div>
+  );
+}
+
+const SEASON_CHOICES: (SeasonChoice | "custom")[] = ["all", "growing", "summer", "winter", "spring", "autumn", "cold", "custom"];
+
+/** Which months of each year to read: all, a season, or months picked one by one. */
+export function MonthsPicker({ selection, latitude, onChange }: { selection: PeriodSelection; latitude: number; onChange: (edit: PeriodEdit) => void }) {
+  const id = useId();
+  const value = selection.customMonths?.length ? "custom" : selection.season;
+  const months = selectionMonths(selection, latitude);
+  const flipped = latitude < 0 && !selection.customMonths?.length && selection.season !== "all";
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+        Months of each year
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => {
+          const next = event.target.value as (typeof SEASON_CHOICES)[number];
+          if (next === "custom") onChange({ customMonths: months.length < 12 ? months : [6, 7, 8] });
+          else onChange({ season: next });
+        }}
+        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground pointer-coarse:min-h-11"
+      >
+        {SEASON_CHOICES.map((choice) => (
+          <option key={choice} value={choice}>
+            {choice === "custom" ? "Choose months…" : choice === "all" ? "All months" : SEASONS[choice].label}
+          </option>
+        ))}
+      </select>
+      {value === "custom" && <MonthToggles look="page" value={months} onChange={(next) => onChange({ customMonths: next })} />}
+      {flipped && <p className="text-xs text-muted-foreground">South of the equator the seasons are flipped: {monthsLabel(months)}.</p>}
     </div>
   );
 }

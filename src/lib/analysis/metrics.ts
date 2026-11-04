@@ -21,17 +21,19 @@ export interface MetricDef {
   aggregate: "mean" | "sum";
   /** Whether "−12%" is meaningful (not for temperatures in °C). */
   percent: boolean;
+  /** The direction of change that is usually a worry ("none" when neither is). */
+  concern: "decline" | "increase" | "none";
   source: string;
 }
 
 export const METRICS: MetricDef[] = [
-  { id: "ndvi", dataset: "vegetation", label: "Vegetation (NDVI)", subject: "Plant greenness (NDVI)", unit: "", decimals: 3, color: "#34d399", aggregate: "mean", percent: true, source: "MODIS Terra monthly NDVI" },
-  { id: "lst", dataset: "surfaceHeat", label: "Surface heat (day)", subject: "Daytime ground temperature", unit: "°C", decimals: 1, color: "#fb923c", aggregate: "mean", percent: false, source: "MODIS Terra monthly land surface temperature" },
-  { id: "airTemp", dataset: "climate", label: "Air temperature", subject: "Air temperature", unit: "°C", decimals: 1, color: "#38bdf8", aggregate: "mean", percent: false, source: "NASA POWER (MERRA-2)" },
-  { id: "rain", dataset: "climate", label: "Rainfall", subject: "Rainfall", unit: "mm", decimals: 0, color: "#60a5fa", aggregate: "sum", percent: true, source: "NASA POWER (MERRA-2, bias-corrected)" },
-  { id: "soil", dataset: "climate", label: "Soil moisture", subject: "Root-zone soil wetness", unit: "%", decimals: 1, color: "#a3e635", aggregate: "mean", percent: false, source: "NASA POWER (MERRA-2)" },
-  { id: "aod", dataset: "air", label: "Aerosols (AOD)", subject: "Aerosol optical depth", unit: "", decimals: 3, color: "#facc15", aggregate: "mean", percent: true, source: "MERRA-2 monthly aerosol optical thickness" },
-  { id: "snow", dataset: "snow", label: "Snow cover", subject: "Snow cover", unit: "%", decimals: 1, color: "#a5b4fc", aggregate: "mean", percent: false, source: "MODIS Terra monthly snow cover" },
+  { id: "ndvi", dataset: "vegetation", label: "Vegetation (NDVI)", subject: "Plant greenness (NDVI)", unit: "", decimals: 3, color: "#34d399", aggregate: "mean", percent: true, concern: "decline", source: "MODIS Terra monthly NDVI" },
+  { id: "lst", dataset: "surfaceHeat", label: "Surface heat (day)", subject: "Daytime ground temperature", unit: "°C", decimals: 1, color: "#fb923c", aggregate: "mean", percent: false, concern: "increase", source: "MODIS Terra monthly land surface temperature" },
+  { id: "airTemp", dataset: "climate", label: "Air temperature", subject: "Air temperature", unit: "°C", decimals: 1, color: "#38bdf8", aggregate: "mean", percent: false, concern: "increase", source: "NASA POWER (MERRA-2)" },
+  { id: "rain", dataset: "climate", label: "Rainfall", subject: "Rainfall", unit: "mm", decimals: 0, color: "#60a5fa", aggregate: "sum", percent: true, concern: "decline", source: "NASA POWER (MERRA-2, bias-corrected)" },
+  { id: "soil", dataset: "climate", label: "Soil moisture", subject: "Root-zone soil wetness", unit: "%", decimals: 1, color: "#a3e635", aggregate: "mean", percent: false, concern: "decline", source: "NASA POWER (MERRA-2)" },
+  { id: "aod", dataset: "air", label: "Aerosols (AOD)", subject: "Aerosol optical depth", unit: "", decimals: 3, color: "#facc15", aggregate: "mean", percent: true, concern: "increase", source: "MERRA-2 monthly aerosol optical thickness" },
+  { id: "snow", dataset: "snow", label: "Snow cover", subject: "Snow cover", unit: "%", decimals: 1, color: "#a5b4fc", aggregate: "mean", percent: false, concern: "decline", source: "MODIS Terra monthly snow cover" },
 ];
 
 export const METRIC_BY_ID = Object.fromEntries(METRICS.map((m) => [m.id, m])) as Record<MetricId, MetricDef>;

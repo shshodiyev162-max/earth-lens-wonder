@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Analysis from "../Analysis";
 import { WorkspaceProvider } from "@/context/WorkspaceContext";
@@ -14,12 +14,14 @@ vi.mock("@/lib/geo/geocode", async (original) => {
 });
 
 const runAnalysis = vi.fn(async (request: AnalysisRequest): Promise<AnalysisResult> => {
-  const months = monthRange(request.start, request.end);
+  const months = request.months ?? monthRange(request.start, request.end);
   return {
     target: request.target,
     start: request.start,
     end: request.end,
     datasets: request.datasets,
+    months,
+    period: request.period,
     generatedAt: new Date().toISOString(),
     satellite: {
       vegetation: {
@@ -72,7 +74,13 @@ function renderAt(url: string) {
   );
 }
 
+const BUKHARA = "/analysis?lat=39.77&lon=64.42&r=10&name=Bukhara";
+
 describe("Analysis page", () => {
+  beforeEach(() => {
+    runAnalysis.mockClear();
+  });
+
   it("asks for a place instead of showing preset regions", () => {
     renderAt("/analysis");
     expect(screen.getByText(/Pick a place to start/i)).toBeInTheDocument();
@@ -81,14 +89,56 @@ describe("Analysis page", () => {
   });
 
   it("runs a real analysis for the place in the URL and shows the findings", async () => {
-    renderAt("/analysis?lat=39.77&lon=64.42&r=10&name=Bukhara");
+    renderAt(BUKHARA);
     expect(screen.getByRole("heading", { name: "Bukhara" })).toBeInTheDocument();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
     const request = runAnalysis.mock.calls[0][0];
     expect(request.target.center).toEqual([39.77, 64.42]);
     expect(request.target.areaKm2).toBeGreaterThan(300);
     expect((await screen.findAllByText(/Air temperature \+1\.0 °C warmer than the 2001–2020 normal/)).length).toBeGreaterThan(0);
-    expect(screen.getByText("Vegetation (NDVI)")).toBeInTheDocument();
+    expect(screen.getAllByText("Vegetation (NDVI)").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Download CSV/i })).toBeEnabled();
+  });
+
+  it("tests every measure for a trend and offers the whole record when there's no clear trend", async () => {
+    renderAt(BUKHARA);
+    expect(await screen.findByRole("heading", { name: /Is it changing\? Trend tests/ })).toBeInTheDocument();
+    expect(screen.getAllByText("No clear trend").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("95% range").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole("button", { name: /Test every year since 2000/ })[0]);
+    // The whole record is a big request, so its size is shown before anything is read.
+    fireEvent.click(await screen.findByRole("button", { name: /Start the analysis/ }));
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(2));
+    expect(runAnalysis.mock.calls[1][0].start).toBe("2000-03");
+  });
+
+  it("reads only the chosen months", async () => {
+    renderAt(`${BUKHARA}&season=summer`);
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
+    const months = runAnalysis.mock.calls[0][0].months ?? [];
+    expect(months.length).toBeGreaterThan(20);
+    expect(new Set(months.map((m) => m.slice(5)))).toEqual(new Set(["06", "07", "08"]));
+    expect(runAnalysis.mock.calls[0][0].period?.calendarMonths).toEqual([6, 7, 8]);
+  });
+
+  it("compares two periods with a t-test", async () => {
+    renderAt(`${BUKHARA}&period=compare&base=2001-2010&recent=2016-2025&ds=vegetation,climate`);
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
+    const request = runAnalysis.mock.calls[0][0];
+    expect(request.period?.compare).toEqual({ baseline: [2001, 2010], recent: [2016, 2025] });
+    expect(request.months?.some((m) => m.startsWith("2012"))).toBe(false);
+    expect(await screen.findByRole("heading", { name: /Then \(2001–2010\) vs now \(2016–2025\)/ })).toBeInTheDocument();
+    expect(screen.getAllByText("Welch's t-test").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No clear difference").length).toBeGreaterThan(0);
+  });
+
+  it("waits for a click before reading a very large number of maps", async () => {
+    renderAt(`${BUKHARA}&period=all`);
+    const start = await screen.findByRole("button", { name: /Start the analysis/ });
+    expect(screen.getByText(/This is a big request/)).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(runAnalysis).not.toHaveBeenCalled();
+    fireEvent.click(start);
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
   });
 });

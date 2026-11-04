@@ -141,7 +141,14 @@ describe("labels and links", () => {
   it("open the full analysis on the hotspot's own outline and period", () => {
     const params = new URL(analysisHref(hotspot, "vegetation", area, plan, "2026-08"), "https://x.test").searchParams;
     expect(decodeGeometry(params.get("poly") as string)).toEqual(hotspot.geometry);
-    expect([params.get("start"), params.get("end"), params.get("ds")]).toEqual(["2015-01", "2025-12", "vegetation,climate"]);
+    // The growing season of each year, so the Analysis page tests the same months.
+    expect([params.get("start"), params.get("end"), params.get("season"), params.get("ds")]).toEqual(["2015-04", "2025-09", "m-4.5.6.7.8.9", "vegetation,climate"]);
+  });
+
+  it("send a comparison of two seasons to the Analysis page as a comparison", () => {
+    const versus = { ...plan, kind: "comparison" as const, baseline: [2003, 2003] as [number, number], recent: [2023, 2023] as [number, number] };
+    const params = new URL(analysisHref(hotspot, "vegetation", area, versus, "2026-08"), "https://x.test").searchParams;
+    expect([params.get("period"), params.get("base"), params.get("recent")]).toEqual(["compare", "2003-2003", "2023-2023"]);
   });
 
   it("open the full analysis for the whole area, on the same country or outline", () => {
