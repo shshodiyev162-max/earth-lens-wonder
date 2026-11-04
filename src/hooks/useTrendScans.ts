@@ -5,6 +5,7 @@ import { lookupOsm } from "@/lib/geo/geocode";
 import { bboxOf, centroidOf, type BBox } from "@/lib/geo/geometry";
 import { decodeGeometry } from "@/lib/geo/polyline";
 import { INDICATORS, seasonMonths, type IndicatorId } from "@/lib/query/indicators";
+import { fetchLandCover, measuresForEverything, type LandCover } from "@/lib/trends/landcover";
 import { MAX_GRIDS, planPeriod, type PeriodPlan } from "@/lib/query/period";
 import type { Hotspot } from "@/lib/trends/hotspots";
 import { AreaError, resolveArea, type ScanArea } from "@/lib/trends/place";
@@ -29,6 +30,10 @@ export interface TrendScansState {
   /** The place couldn't be found (nothing was scanned). */
   error: string | null;
   measures: Partial<Record<IndicatorId, MeasureScan>>;
+  /** The measures being scanned (for "what changed": the ones picked from the place's land cover). */
+  indicators: IndicatorId[];
+  /** The place's land cover, when "what changed" read it. */
+  cover: LandCover | null;
   /** Monthly NASA maps the whole search reads. */
   totalMaps: number;
   /** Hotspot names, filled in as the place-name service answers. */
@@ -83,6 +88,8 @@ export function useTrendScans(query: TrendQuery | null, view: BBox | null): Tren
   const [error, setError] = useState<string | null>(null);
   const [measures, setMeasures] = useState<Partial<Record<IndicatorId, MeasureScan>>>({});
   const [labels, setLabels] = useState<Record<string, string>>({});
+  const [chosen, setChosen] = useState<IndicatorId[] | null>(null);
+  const [cover, setCover] = useState<LandCover | null>(null);
   const [nonce, setNonce] = useState(0);
   const controller = useRef<AbortController | null>(null);
   const named = useRef(new Set<string>());
@@ -141,16 +148,33 @@ export function useTrendScans(query: TrendQuery | null, view: BBox | null): Tren
     controller.current = ac;
     setStatus("preparing");
     setError(null);
-    setMeasures(Object.fromEntries(current.indicators.map((id) => [id, { indicator: id, status: "waiting", plan: null, months: [], availability: null, progress: null, result: null, error: null }])));
+    // For "what changed" the measures are known once the place's land cover is read.
+    setMeasures(current.everything ? {} : Object.fromEntries(current.indicators.map((id) => [id, { indicator: id, status: "waiting", plan: null, months: [], availability: null, progress: null, result: null, error: null }])));
     setLabels({});
+    setChosen(current.everything ? null : current.indicators);
+    setCover(null);
     named.current = new Set();
 
     (async () => {
-      const [scanArea, availabilities] = await Promise.all([areaFor(current, view, ac.signal), Promise.all(current.indicators.map((id) => fetchAvailability(id)))]);
+      const scanArea = await areaFor(current, view, ac.signal);
       if (ac.signal.aborted) return;
       setArea(scanArea);
-      const budget = gridBudget(current.indicators.length);
-      const planned: MeasureScan[] = current.indicators.map((indicator, k) => {
+      // "What changed": pick the measures that suit the place from NASA land cover.
+      let indicators = current.indicators;
+      if (current.everything) {
+        const landCover = await fetchLandCover(scanArea.geometry, scanArea.bbox, { signal: ac.signal }).catch((err) => {
+          if (isAbortError(err)) throw err;
+          return null;
+        });
+        if (ac.signal.aborted) return;
+        setCover(landCover);
+        indicators = measuresForEverything(landCover, scanArea.center[0]);
+        setChosen(indicators);
+      }
+      const availabilities = await Promise.all(indicators.map((id) => fetchAvailability(id)));
+      if (ac.signal.aborted) return;
+      const budget = gridBudget(indicators.length);
+      const planned: MeasureScan[] = indicators.map((indicator, k) => {
         const months = current.months ?? seasonMonths(current.season ?? INDICATORS[indicator].season, scanArea.center[0]);
         const plan = planPeriod(current.time, months, availabilities[k].window, budget);
         const base: MeasureScan = { indicator, status: "waiting", plan: null, months, availability: availabilities[k], progress: null, result: null, error: null };
@@ -211,5 +235,6 @@ export function useTrendScans(query: TrendQuery | null, view: BBox | null): Tren
   );
 
   const totalMaps = Object.values(measures).reduce((sum, m) => sum + (m?.plan ? m.plan.years.length * m.plan.months.length : 0), 0);
-  return { status, area, error, measures, totalMaps, labels, cancel, retry, requestNames };
+  const indicators = chosen ?? (query?.everything ? [] : (query?.indicators ?? []));
+  return { status, area, error, measures, indicators, cover, totalMaps, labels, cancel, retry, requestNames };
 }

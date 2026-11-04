@@ -31,12 +31,45 @@ vi.mock("@/lib/trends/place", async (original) => {
   };
 });
 
+let coverShares: Record<string, number> | null = null;
+
+vi.mock("@/lib/trends/landcover", async (original) => {
+  const actual = (await original()) as typeof import("@/lib/trends/landcover");
+  return {
+    ...actual,
+    fetchLandCover: vi.fn(async () => {
+      if (!coverShares) throw new Error("NASA land cover didn't answer");
+      const shares = Object.fromEntries(actual.COVER_GROUPS.map((g) => [g, coverShares?.[g] ?? 0]));
+      return { year: 2024, shares, km2: shares, totalKm2: 1 };
+    }),
+  };
+});
+
 const query = queryFromParams(new URLSearchParams({ q: "vegetation and rainfall decline in Uzbekistan since 2015" }));
 
 describe("useTrendScans", () => {
   beforeEach(() => {
     calls.length = 0;
     hold = Promise.resolve();
+    coverShares = null;
+  });
+
+  it("scans the measures that suit the place for 'what changed'", async () => {
+    coverShares = { barren: 0.7, grass: 0.3 };
+    const everything = queryFromParams(new URLSearchParams({ q: "what changed in Uzbekistan" }));
+    expect(everything.everything).toBe(true);
+    const { result } = renderHook(() => useTrendScans(everything, null));
+    await waitFor(() => expect(result.current.status).toBe("done"));
+    expect(result.current.indicators).toEqual(["dust", "vegetation", "heat", "rainfall", "soil"]);
+    expect(calls).toEqual(["dust", "vegetation", "heat", "rainfall", "soil"]);
+    expect(result.current.cover?.shares.barren).toBe(0.7);
+  });
+
+  it("falls back to the six main measures when land cover can't be read", async () => {
+    const everything = queryFromParams(new URLSearchParams({ q: "what changed in Uzbekistan" }));
+    const { result } = renderHook(() => useTrendScans(everything, null));
+    await waitFor(() => expect(result.current.status).toBe("done"));
+    expect(result.current.indicators).toEqual(["vegetation", "heat", "rainfall", "soil", "dust", "snow"]);
   });
 
   it("scans each measure in turn and fills in their results", async () => {

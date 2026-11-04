@@ -14,6 +14,9 @@ import LayerLegend from "@/components/map/LayerLegend";
 import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
 import AreaPicker from "@/components/trends/AreaPicker";
 import AreaSummaryCard from "@/components/trends/AreaSummaryCard";
+import AreaCoverCard from "@/components/trends/AreaCoverCard";
+import { useLandCover } from "@/hooks/useLandCover";
+import { suggestMeasures } from "@/lib/trends/landcover";
 import Glossary from "@/components/common/Glossary";
 import { MEASURE_DEFINITIONS } from "@/lib/glossary";
 import GridImageLayer from "@/components/trends/GridImageLayer";
@@ -34,7 +37,7 @@ import { gridBudget, useTrendScans } from "@/hooks/useTrendScans";
 import { defaultEndMonth } from "@/lib/analysis/period";
 import { explainVerdict, signed } from "@/lib/analysis/stats";
 import { longerPeriodHint } from "@/lib/analysis/trend";
-import { bboxOf, formatArea, type BBox, type PolygonGeometry } from "@/lib/geo/geometry";
+import { bboxOf, centroidOf, formatArea, type BBox, type PolygonGeometry } from "@/lib/geo/geometry";
 import { encodeGeometryForLink } from "@/lib/geo/polyline";
 import { BASE_LAYER_ID, getLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { initialViewFrom } from "@/lib/mapView";
@@ -175,7 +178,9 @@ export default function Trends() {
 
   const scan = useTrendScans(applied, scanView);
   const area = scan.area;
-  const active: IndicatorId | null = applied ? (draft?.tab && applied.indicators.includes(draft.tab) ? draft.tab : (applied.indicators[0] ?? null)) : null;
+  // The measures being scanned: the chosen ones, or for "what changed" those picked from the place's land cover.
+  const scanned = scan.indicators;
+  const active: IndicatorId | null = applied ? (draft?.tab && scanned.includes(draft.tab) ? draft.tab : (scanned[0] ?? null)) : null;
   const measure = active ? scan.measures[active] : undefined;
   const result = measure?.result ?? null;
   const plan = measure?.plan ?? null;
@@ -190,7 +195,7 @@ export default function Trends() {
   // Hotspots for the current filter of every finished measure (re-clustered locally, no new maps).
   const rebuilt = useMemo(() => {
     const out: Partial<Record<IndicatorId, HotspotDetail[]>> = {};
-    for (const id of applied?.indicators ?? []) {
+    for (const id of scanned) {
       const done = scan.measures[id]?.result;
       if (done) out[id] = rebuildHotspots(done, filterOf(id));
     }
@@ -305,7 +310,7 @@ export default function Trends() {
     setParams(
       (current) => {
         const next = new URLSearchParams(current);
-        if (id === applied?.indicators[0]) next.delete("tab");
+        if (id === scanned[0]) next.delete("tab");
         else next.set("tab", id);
         return next;
       },
@@ -347,10 +352,19 @@ export default function Trends() {
     runSearch(next);
   };
 
+  // What the place is like: the exact outline when one is chosen, otherwise the area last scanned.
+  const coverGeometry = chosenGeometry ?? (area && !(draft?.place && draft.place !== applied?.place) ? area.geometry : null);
+  const coverName = chosenGeometry ? (draft?.area?.name ?? "This area") : area && coverGeometry ? (area.kind === "view" ? "The map view" : area.name) : null;
+  const landCover = useLandCover(coverGeometry);
+  const suggestions = useMemo(
+    () => (landCover.cover && coverGeometry ? suggestMeasures(landCover.cover, centroidOf(coverGeometry)[0]) : []),
+    [landCover.cover, coverGeometry],
+  );
+
   const busy = scan.status === "preparing" || scan.status === "scanning";
   const measureMaps = plan ? plan.years.length * plan.months.length : 0;
   const progressPct = measure?.progress ? Math.round((measure.progress.done / Math.max(1, measure.progress.total)) * 100) : 0;
-  const position = applied && active ? applied.indicators.indexOf(active) + 1 : 0;
+  const position = applied && active ? scanned.indexOf(active) + 1 : 0;
   const latest = measure?.availability?.window.latest ?? defaultEndMonth();
   const estimate = draft?.understood ? `About ${estimateMaps(draft)} monthly NASA maps · ${timeRange(estimateMaps(draft))} the first time.` : null;
   const minChange = indicator && filter ? indicator.minChange * filter.minFactor : 0;
@@ -369,7 +383,7 @@ export default function Trends() {
 
   const results =
     applied && active && indicator && filter ? (
-      <div id={panelId} role={applied.indicators.length > 1 ? "tabpanel" : undefined} aria-labelledby={applied.indicators.length > 1 ? `measure-tab-${active}` : undefined} className="space-y-4">
+      <div id={panelId} role={scanned.length > 1 ? "tabpanel" : undefined} aria-labelledby={scanned.length > 1 ? `measure-tab-${active}` : undefined} className="space-y-4">
         <p className="text-[11px] leading-relaxed text-panel-muted">
           <span className="font-semibold text-panel-soft">{indicator.label}:</span> {MEASURE_DEFINITIONS[active]}
         </p>
@@ -390,7 +404,7 @@ export default function Trends() {
               <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${Math.max(3, progressPct)}%` }} />
             </div>
             <p className="mt-2 text-[11px] text-panel-muted">
-              {applied.indicators.length > 1 ? `Measure ${position} of ${applied.indicators.length}. ` : ""}
+              {scanned.length > 1 ? `Measure ${position} of ${scanned.length}. ` : ""}
               {measureMaps > 0 && `About ${measureMaps} monthly NASA maps · ${timeRange(measureMaps)} the first time, depending on how busy NASA's map service is; seconds after that (kept on this device).`}
             </p>
             <button type="button" onClick={scan.cancel} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-panel-tint-strong px-2.5 py-1.5 text-xs text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11">
@@ -535,7 +549,23 @@ export default function Trends() {
         <SidebarSection title="Your search">
           <TrendForm
             query={draft}
-            where={<AreaPicker query={draft} foundName={area?.name ?? null} savedAreas={workspace.areas} drawMode={drawMode} onDraw={startDrawing} onEdit={edit} />}
+            where={
+              <div className="space-y-3">
+                <AreaPicker query={draft} foundName={area?.name ?? null} savedAreas={workspace.areas} drawMode={drawMode} onDraw={startDrawing} onEdit={edit} />
+                {coverName && (
+                  <AreaCoverCard
+                    name={coverName}
+                    status={landCover.status}
+                    cover={landCover.cover}
+                    first={landCover.first}
+                    suggestions={suggestions}
+                    selected={draft.everything ? scanned : draft.indicators}
+                    onAdd={(id) => edit({ indicators: [...(draft.everything ? scanned : draft.indicators), id] })}
+                    onUseAll={(ids) => edit({ indicators: ids })}
+                  />
+                )}
+              </div>
+            }
             years={{ first: 2000, last: LAST_YEAR }} onEdit={edit} onRun={() => runSearch(draft)} dirty={dirty} current={Boolean(applied) && scan.status !== "error" && scan.status !== "idle"} busy={busy} estimate={estimate} />
         </SidebarSection>
       )}
@@ -557,9 +587,9 @@ export default function Trends() {
       {applied && active && scan.status !== "idle" && scan.status !== "error" && (
         <SidebarSection title="Results">
           {dirty && <p className="mb-2 text-[11px] text-panel-muted">Showing results for: “{applied.text}”.</p>}
-          {applied.indicators.length > 1 && (
+          {scanned.length > 1 && (
             <div className="mb-3">
-              <MeasureTabs indicators={applied.indicators} measures={scan.measures} counts={counts} active={active} onChange={setTab} panelId={panelId} />
+              <MeasureTabs indicators={scanned} measures={scan.measures} counts={counts} active={active} onChange={setTab} panelId={panelId} />
             </div>
           )}
           {results}

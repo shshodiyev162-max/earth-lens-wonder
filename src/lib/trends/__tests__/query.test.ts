@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analysisHref, applyEdit, areaAnalysisHref, compareHref, decodeTime, describeQuestion, encodeTime, paramsFor, queryFromParams, representativeMonth, resultsHeading, scanKey, sentenceFor, type TrendQuery } from "../query";
+import { analysisHref, applyEdit, areaAnalysisHref, compareHref, decodeTime, describeQuestion, encodeTime, filterFor, paramsFor, queryFromParams, representativeMonth, resultsHeading, scanKey, sentenceFor, type TrendQuery } from "../query";
 import { decodeGeometry } from "../../geo/polyline";
 import { parseTrendQuery } from "../../query/parse";
 import { INDICATOR_ORDER, type Direction, type IndicatorId } from "../../query/indicators";
@@ -125,11 +125,41 @@ describe("the sentence reads back as the same search", () => {
   it(`checked ${4 * 4 * 4 * 6 * 10} combinations`, () => expect(checked).toBe(3840));
 });
 
+describe("measures picked for the place", () => {
+  it("are kept as a flag through links and edits", () => {
+    const q = queryFromParams(new URLSearchParams({ q: "what changed in Uzbekistan" }));
+    expect(q.everything).toBe(true);
+    const params = paramsFor(q);
+    expect(params.get("ind")).toBe("all");
+    expect(queryFromParams(params).everything).toBe(true);
+    expect(sentenceFor(q)).toBe("Everything that changed in Uzbekistan");
+    // Any measure picked for the place can be the open tab.
+    expect(queryFromParams(new URLSearchParams({ ...Object.fromEntries(params), tab: "sst" })).tab).toBe("sst");
+  });
+
+  it("are switched off by choosing measures, and back on by asking for suggestions", () => {
+    const q = queryFromParams(new URLSearchParams({ q: "everything that declined in Uzbekistan" }));
+    const picked = applyEdit(q, { indicators: ["vegetation"] });
+    expect(picked.everything).toBe(false);
+    expect(picked.text).toBe("Vegetation decline in Uzbekistan");
+    const back = applyEdit(picked, { everything: true });
+    expect(back.everything).toBe(true);
+    expect(back.text).toBe("Everything that declined in Uzbekistan");
+    // Measures picked later share the direction asked for everything.
+    expect(filterFor(back, "sst").direction).toBe("decline");
+  });
+
+  it("change what is scanned", () => {
+    const q = queryFromParams(new URLSearchParams({ q: "what changed in Uzbekistan" }));
+    expect(scanKey(q)).not.toBe(scanKey(applyEdit(q, { indicators: ["vegetation", "heat", "rainfall", "soil", "dust", "snow"] })));
+  });
+});
+
 describe("labels and links", () => {
   it("summarise a question for the search boxes", () => {
     expect(describeQuestion(parseTrendQuery("dust increase near the Aral Sea"))).toBe("Dust · Increase · near Aral Sea · last 10 years");
     expect(describeQuestion(parseTrendQuery("vegetation and rainfall decline in Uzbekistan since 2015"))).toBe("Vegetation + Rainfall · Decline · Uzbekistan · since 2015");
-    expect(describeQuestion(parseTrendQuery("what changed in Uzbekistan"))).toBe("Six main measures · Any change · Uzbekistan · last 10 years");
+    expect(describeQuestion(parseTrendQuery("what changed in Uzbekistan"))).toBe("Measures that suit the place · Any change · Uzbekistan · last 10 years");
     expect(describeQuestion(parseTrendQuery("is the Aral Sea drying up"))).toBe("Closest measures for “drying up” · Aral Sea · last 10 years");
   });
 

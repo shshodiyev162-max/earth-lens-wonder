@@ -35,8 +35,9 @@ const GROUPS: { id: "land" | "air" | "ocean"; label: string }[] = [
 ];
 
 function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: QueryEdit) => void }) {
-  const selected = new Set(query.indicators);
-  const main = selected.size === CORE_INDICATORS.length && CORE_INDICATORS.every((id) => selected.has(id));
+  const suggested = query.everything;
+  const selected = new Set(suggested ? [] : query.indicators);
+  const main = !suggested && selected.size === CORE_INDICATORS.length && CORE_INDICATORS.every((id) => selected.has(id));
   const directions = query.indicators.map((id) => filterFor(query, id).direction);
   // A measure added to a search that asks one direction for everything asks the same.
   const shared: Direction = directions.length && directions.every((d) => d === directions[0]) ? directions[0] : "any";
@@ -44,9 +45,25 @@ function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Qu
     indicators: ids,
     filters: Object.fromEntries(ids.map((id) => [id, query.filters[id] ?? { direction: shared, ...DEFAULT_FILTER }])),
   });
-  const toggle = (id: IndicatorId) => onEdit(withFilters(selected.has(id) ? query.indicators.filter((x) => x !== id) : [...query.indicators, id]));
+  const toggle = (id: IndicatorId) =>
+    onEdit(withFilters(suggested ? [id] : selected.has(id) ? query.indicators.filter((x) => x !== id) : [...query.indicators, id]));
   return (
     <div className="space-y-2">
+      <button
+        type="button"
+        aria-pressed={suggested}
+        onClick={() => onEdit(suggested ? withFilters([]) : { everything: true })}
+        className={cn(
+          "flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition pointer-coarse:min-h-11",
+          suggested ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-panel-line bg-panel-tint text-panel-soft hover:text-panel-foreground",
+        )}
+      >
+        <Check className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", suggested ? "opacity-100" : "opacity-0")} aria-hidden />
+        <span>
+          <span className="block font-medium">Suggested for this place</span>
+          <span className="block text-[11px] text-panel-muted">Up to six measures picked from NASA land cover once the place is found.</span>
+        </span>
+      </button>
       {GROUPS.map((group) => (
         <div key={group.id} className="space-y-1">
           <p id={`measure-group-${group.id}`} className="text-[10px] font-medium uppercase tracking-wide text-panel-muted">

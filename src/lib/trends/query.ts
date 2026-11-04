@@ -23,6 +23,11 @@ export interface TrendQuery {
   understood: boolean;
   /** Measures to scan, in INDICATOR_ORDER. */
   indicators: IndicatorId[];
+  /**
+   * "What changed": the measures are picked for the place from NASA land cover once it is found
+   * (the six main measures stand in until then, and if land cover can't be read).
+   */
+  everything: boolean;
   filters: Partial<Record<IndicatorId, ResultFilter>>;
   place: string | null;
   near: boolean;
@@ -44,7 +49,12 @@ const DIRECTIONS: Direction[] = ["decline", "increase", "any"];
 const isIndicator = (value: string): value is IndicatorId => (INDICATOR_ORDER as string[]).includes(value);
 
 export function filterFor(query: TrendQuery, indicator: IndicatorId): ResultFilter {
-  return query.filters[indicator] ?? { direction: "any", ...DEFAULT_FILTER };
+  const own = query.filters[indicator];
+  if (own) return own;
+  // A measure picked for the place shares the direction asked for everything.
+  const shared = query.everything ? Object.values(query.filters).map((f) => f?.direction) : [];
+  const direction = shared.length && shared.every((d) => d === shared[0]) ? (shared[0] as Direction) : "any";
+  return { direction, ...DEFAULT_FILTER };
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +166,8 @@ export function queryFromParams(params: URLSearchParams): TrendQuery {
   const parsed = parseTrendQuery(text);
   const ind = params.get("ind");
   const listed = ind?.split(",").filter(isIndicator);
-  const wanted = new Set(ind === "all" ? CORE_INDICATORS : listed?.length ? listed : parsed.indicators);
+  const everything = ind === "all" || (!ind && parsed.everything);
+  const wanted = new Set(everything ? CORE_INDICATORS : listed?.length ? listed : parsed.indicators);
   const indicators = INDICATOR_ORDER.filter((id) => wanted.has(id));
 
   const directions = decodeDirections(params.get("dir"), indicators) ?? parsed.directions;
@@ -174,6 +185,7 @@ export function queryFromParams(params: URLSearchParams): TrendQuery {
     text,
     understood: indicators.length > 0,
     indicators,
+    everything,
     filters,
     // An exact area from the map wins over any place named in the words.
     place: area ? null : params.has("place") ? params.get("place") || null : parsed.place,
@@ -184,11 +196,12 @@ export function queryFromParams(params: URLSearchParams): TrendQuery {
     area,
     // The reader's notes describe the typed words; once the choices are edited they no longer apply.
     notes: ind ? [] : parsed.notes,
-    tab: tab && indicators.includes(tab as IndicatorId) ? (tab as IndicatorId) : (indicators[0] ?? null),
+    // With measures picked for the place, any measure can be the open tab.
+    tab: tab && (everything ? isIndicator(tab) : indicators.includes(tab as IndicatorId)) ? (tab as IndicatorId) : (indicators[0] ?? null),
   };
 }
 
-export type QueryEdit = Partial<Pick<TrendQuery, "indicators" | "place" | "near" | "area" | "time" | "season" | "months" | "filters" | "tab">>;
+export type QueryEdit = Partial<Pick<TrendQuery, "indicators" | "everything" | "place" | "near" | "area" | "time" | "season" | "months" | "filters" | "tab">>;
 
 /** An exact area chosen on the map: a country, a drawn or saved outline, or a hotspot. */
 export type ExactArea = NonNullable<TrendQuery["area"]>;
@@ -196,6 +209,15 @@ export type ExactArea = NonNullable<TrendQuery["area"]>;
 /** Applies a change and writes every choice into the URL, with the sentence rewritten to match. */
 export function applyEdit(query: TrendQuery, edit: QueryEdit): TrendQuery {
   const next: TrendQuery = { ...query, ...edit };
+  if (edit.everything) {
+    // Measures picked for the place: the six main ones stand in, sharing one direction.
+    const directions = query.indicators.map((id) => filterFor(query, id).direction);
+    const direction = directions.length && directions.every((d) => d === directions[0]) ? directions[0] : "any";
+    edit = { ...edit, indicators: [...CORE_INDICATORS], filters: Object.fromEntries(CORE_INDICATORS.map((id) => [id, { direction, ...DEFAULT_FILTER }])) };
+    next.everything = true;
+  } else if (edit.indicators) {
+    next.everything = false;
+  }
   if (edit.indicators) {
     next.indicators = INDICATOR_ORDER.filter((id) => edit.indicators?.includes(id));
     const filters: Partial<Record<IndicatorId, ResultFilter>> = {};
@@ -211,7 +233,7 @@ export function applyEdit(query: TrendQuery, edit: QueryEdit): TrendQuery {
   }
   if ("months" in edit && edit.months) next.season = null;
   if ("season" in edit) next.months = edit.months ?? null;
-  if (!next.tab || !next.indicators.includes(next.tab)) next.tab = next.indicators[0] ?? null;
+  if (!next.tab || (!next.everything && !next.indicators.includes(next.tab))) next.tab = next.indicators[0] ?? null;
   next.understood = next.indicators.length > 0;
   next.notes = [];
   // Rewrite the words only when they would say something different (not for a slider or a tab).
@@ -223,7 +245,7 @@ export function applyEdit(query: TrendQuery, edit: QueryEdit): TrendQuery {
 export function paramsFor(query: TrendQuery): URLSearchParams {
   const next = new URLSearchParams();
   if (query.text) next.set("q", query.text);
-  next.set("ind", query.indicators.join(","));
+  next.set("ind", query.everything ? "all" : query.indicators.join(","));
   if (query.indicators.length) next.set("dir", encodeDirections(query));
   const filters = encodeFilters(query);
   if (filters) next.set("f", filters);
@@ -246,7 +268,7 @@ export function paramsForText(text: string): URLSearchParams {
 
 /** Everything that decides what is scanned (not how results are filtered). */
 export function scanKey(query: TrendQuery): string {
-  return JSON.stringify([query.indicators, query.place, query.near, query.area, encodeTime(query.time), encodeSeason(query.season, query.months)]);
+  return JSON.stringify([query.everything ? "all" : query.indicators, query.place, query.near, query.area, encodeTime(query.time), encodeSeason(query.season, query.months)]);
 }
 
 // ---------------------------------------------------------------------------
@@ -319,14 +341,13 @@ function monthsPhrase(season: SeasonChoice | null, months: number[] | null): str
  * The search in words, e.g. "Vegetation and rainfall decline in Uzbekistan since 2015, April to
  * September". Reading it back gives the same choices (see the round-trip test).
  */
-export function sentenceFor(query: Pick<TrendQuery, "indicators" | "filters" | "place" | "near" | "area" | "time" | "season" | "months">): string {
+export function sentenceFor(query: Pick<TrendQuery, "indicators" | "filters" | "place" | "near" | "area" | "time" | "season" | "months"> & { everything?: boolean }): string {
   const ids = INDICATOR_ORDER.filter((id) => query.indicators.includes(id));
   if (!ids.length) return "";
   const directions = ids.map((id) => query.filters[id]?.direction ?? "any");
   const shared = directions.every((d) => d === directions[0]) ? directions[0] : null;
   let what: string;
-  // "What changed" reads as the six main measures, so exactly those six read back as "everything".
-  if (ids.length === CORE_INDICATORS.length && CORE_INDICATORS.every((id) => ids.includes(id)) && shared) {
+  if (query.everything && shared) {
     what = shared === "any" ? "Everything that changed" : `Everything that ${shared === "decline" ? "declined" : "increased"}`;
   } else if (shared) {
     what = `${joinWords(ids.map((id) => NOUN[id]))} ${DIRECTION_WORD[shared]}`;
@@ -383,7 +404,7 @@ function describeTime(time: TimeSpec): string {
 export function describeQuestion(parsed: ParsedQuery): string {
   const values = parsed.indicators.map((id) => parsed.directions[id] ?? "any");
   const what = parsed.everything
-    ? "Six main measures"
+    ? "Measures that suit the place"
     : parsed.indicators.length
       ? parsed.indicators.map((id) => INDICATORS[id].label).join(" + ")
       : `Closest measures for “${parsed.notes[0]?.phrase ?? parsed.text}”`;

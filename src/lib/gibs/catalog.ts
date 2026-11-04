@@ -521,6 +521,22 @@ export const LAYERS: GibsLayer[] = [
   }),
 ];
 
+/** Yearly land cover (17 classes, 2001 onwards): what an area is like, to suggest measures for it. */
+LAYERS.push(
+  layer({
+    id: "MODIS_Combined_L3_IGBP_Land_Cover_Type_Annual",
+    name: "Land cover (yearly)",
+    source: "MODIS · Terra + Aqua · yearly",
+    description: "Yearly land cover type (IGBP classes) at ~500 m from MODIS.",
+    category: "vegetation",
+    format: "png",
+    matrixSet: "GoogleMapsCompatible_Level8",
+    period: "yearly",
+    needsBase: true,
+    hidden: true,
+  }),
+);
+
 /** Static land/water map used to leave lakes and seas out of the trend scan. */
 export const LAND_WATER_LAYER_ID = "OSM_Land_Water_Map";
 
