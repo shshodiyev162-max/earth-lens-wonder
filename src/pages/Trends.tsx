@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useMapEvents } from "react-leaflet";
-import { AlertTriangle, Info, Loader2, RefreshCw, ScanSearch, X } from "lucide-react";
+import { GeoJSON, Pane, useMapEvents } from "react-leaflet";
+import type { Feature } from "geojson";
+import { AlertTriangle, Info, ListChecks, Loader2, MessageSquareText, RefreshCw, ScanSearch, X } from "lucide-react";
+import AreasLayer from "@/components/map/AreasLayer";
 import BaseMap from "@/components/map/BaseMap";
+import DrawTools, { type DrawMode, type PickedCountry } from "@/components/map/DrawTools";
+import DrawToolbar, { DrawHint } from "@/components/map/DrawToolbar";
 import GibsTileLayer from "@/components/map/GibsTileLayer";
 import ReferenceOverlays from "@/components/map/ReferenceOverlays";
 import FlyTo, { type FlyTarget } from "@/components/map/FlyTo";
 import LayerLegend from "@/components/map/LayerLegend";
 import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
+import AreaPicker from "@/components/trends/AreaPicker";
 import GridImageLayer from "@/components/trends/GridImageLayer";
 import HotspotLayer from "@/components/trends/HotspotLayer";
 import HotspotList from "@/components/trends/HotspotList";
@@ -20,11 +25,13 @@ import TrendLegend from "@/components/trends/TrendLegend";
 import TrendQueryBox from "@/components/trends/TrendQueryBox";
 import TimeAnimator from "@/components/trends/TimeAnimator";
 import { useFrames, type FrameMode } from "@/hooks/useFrames";
-import { useWorkspace } from "@/context/WorkspaceContext";
+import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
+import { useExactAreaGeometry } from "@/hooks/useExactAreaGeometry";
 import { gridBudget, useTrendScans } from "@/hooks/useTrendScans";
 import { defaultEndMonth } from "@/lib/analysis/period";
 import { explainVerdict, signed } from "@/lib/analysis/stats";
-import { formatArea, type BBox } from "@/lib/geo/geometry";
+import { bboxOf, formatArea, type BBox, type PolygonGeometry } from "@/lib/geo/geometry";
+import { encodeGeometryForLink } from "@/lib/geo/polyline";
 import { BASE_LAYER_ID, getLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { initialViewFrom } from "@/lib/mapView";
 import { interpretWithAi, isQueryAiConfigured } from "@/lib/query/ai";
@@ -67,6 +74,49 @@ function BoundsTracker({ onChange }: { onChange: (bbox: BBox) => void }) {
   return null;
 }
 
+/** The area chosen on the map, outlined before (and while) it is scanned. */
+function ChosenAreaLayer({ geometry }: { geometry: PolygonGeometry }) {
+  return (
+    <Pane name="trend-chosen-area" style={{ zIndex: 426, pointerEvents: "none" }}>
+      <GeoJSON
+        key={JSON.stringify(geometry).length}
+        data={{ type: "Feature", properties: {}, geometry } as Feature}
+        interactive={false}
+        style={{ color: "#f8fafc", weight: 2.5, opacity: 0.95, dashArray: "7 5", fillColor: "#22d3ee", fillOpacity: 0.14 }}
+      />
+    </Pane>
+  );
+}
+
+type PanelMode = "ask" | "pick";
+
+/** Ask in words, or choose every part step by step. */
+function ModeSwitch({ mode, onChange }: { mode: PanelMode; onChange: (mode: PanelMode) => void }) {
+  const options: [PanelMode, string, typeof ListChecks][] = [
+    ["ask", "Ask a question", MessageSquareText],
+    ["pick", "Choose step by step", ListChecks],
+  ];
+  return (
+    <div className="flex rounded-xl border border-panel-line bg-panel-tint p-1 text-xs" role="radiogroup" aria-label="How to search">
+      {options.map(([value, label, Icon]) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={mode === value}
+          onClick={() => onChange(value)}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 font-medium transition pointer-coarse:min-h-11",
+            mode === value ? "bg-cyan-400/20 text-accent-cyan-soft" : "text-panel-muted hover:text-panel-foreground",
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" aria-hidden /> {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const base = getLayer(BASE_LAYER_ID) as GibsLayer;
 const LAST_YEAR = Number(defaultEndMonth().slice(0, 4)) - 1;
 
@@ -91,9 +141,10 @@ export default function Trends() {
   const [params, setParams] = useSearchParams();
   const workspace = useWorkspace();
   const [initialView] = useState(() => initialViewFrom(params, workspace.view));
+  const panelMode: PanelMode = params.get("mode") === "pick" ? "pick" : "ask";
   const hasSearch = Boolean(params.get("q") || params.get("ind") || params.get("country") || params.get("osm") || params.get("poly"));
-  /** The choices as they stand (they are the page address). */
-  const draft = useMemo(() => (hasSearch ? queryFromParams(params) : null), [params, hasSearch]);
+  /** The choices as they stand (they are the page address). Choosing step by step starts from an empty form. */
+  const draft = useMemo(() => (hasSearch || panelMode === "pick" ? queryFromParams(params) : null), [params, hasSearch, panelMode]);
   /** The choices the results were found for. */
   const [applied, setApplied] = useState<TrendQuery | null>(() => (draft?.understood ? draft : null));
   const [mapBounds, setMapBounds] = useState<BBox | null>(null);
@@ -105,7 +156,12 @@ export default function Trends() {
   const [frameIndex, setFrameIndex] = useState(0);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
   const [aiNote, setAiNote] = useState<string | null>(null);
+  const [drawMode, setDrawMode] = useState<DrawMode | null>(null);
+  const [vertexCount, setVertexCount] = useState(0);
+  const [finishSignal, setFinishSignal] = useState(0);
+  const [undoSignal, setUndoSignal] = useState(0);
   const panelId = useId();
+  const chosenGeometry = useExactAreaGeometry(draft?.area ?? null);
 
   // A search without a place scans the map view as it was when the search ran.
   useEffect(() => {
@@ -156,11 +212,48 @@ export default function Trends() {
 
   const edit = useCallback(
     (change: QueryEdit) => {
-      if (!draft) return;
-      setParams(paramsFor(applyEdit(draft, change)), { replace: true });
+      const next = paramsFor(applyEdit(draft ?? queryFromParams(new URLSearchParams()), change));
+      if (panelMode === "pick") next.set("mode", "pick");
+      setParams(next, { replace: true });
     },
-    [draft, setParams],
+    [draft, panelMode, setParams],
   );
+
+  const setPanelMode = (mode: PanelMode) =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (mode === "pick") next.set("mode", "pick");
+        else next.delete("mode");
+        return next;
+      },
+      { replace: true },
+    );
+
+  /** Drawing needs the map: on phones the panel steps aside until the shape is done. */
+  const startDrawing = (mode: DrawMode | null) => {
+    setDrawMode(mode);
+    setVertexCount(0);
+    if (mode && window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(false);
+  };
+
+  const onAreaComplete = (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => {
+    setDrawMode(null);
+    if (country) {
+      edit({ area: { country: country.countryId, name: country.name } });
+    } else {
+      // Drawn shapes are kept with your saved areas, so they can be reused here and in Explore and Analysis.
+      const saved = workspace.addArea({ geometry, kind });
+      edit({ area: { poly: encodeGeometryForLink(geometry), name: saved.name } });
+    }
+    setFlyTarget({ bbox: bboxOf(geometry), key: `chosen-${Date.now()}` });
+    if (window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(true);
+  };
+
+  const pickSavedArea = (id: string) => {
+    const area = workspace.getArea(id);
+    if (area) edit({ area: { poly: encodeGeometryForLink(area.geometry), name: area.name } });
+  };
 
   const runSearch = useCallback(
     (query: TrendQuery) => {
@@ -226,6 +319,16 @@ export default function Trends() {
     const hotspot = hotspots.find((h) => h.id === id);
     if (hotspot) setFlyTarget({ bbox: hotspot.bbox, key: `${id}-${Date.now()}` });
     if (window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(false);
+  };
+
+  /** Look closer: the same measures, scanned inside one hotspot. */
+  const scanHere = (hotspot: HotspotDetail) => {
+    if (!draft) return;
+    const next = applyEdit(draft, { area: { poly: encodeGeometryForLink(hotspot.geometry), name: hotspotTitle(hotspot) } });
+    const nextParams = paramsFor(next);
+    if (panelMode === "pick") nextParams.set("mode", "pick");
+    setParams(nextParams);
+    runSearch(next);
   };
 
   const busy = scan.status === "preparing" || scan.status === "scanning";
@@ -343,17 +446,33 @@ export default function Trends() {
   const sidebar = (
     <>
       <SidebarSection>
-        <TrendQueryBox value={draft?.text ?? ""} onSubmit={submit} showExamples={!draft} />
+        <ModeSwitch mode={panelMode} onChange={setPanelMode} />
       </SidebarSection>
 
-      {draft && !draft.understood && !draft.notes.length && !aiNote && (
+      {panelMode === "ask" ? (
+        <SidebarSection>
+          <TrendQueryBox value={draft?.text ?? ""} onSubmit={submit} showExamples={!draft} />
+        </SidebarSection>
+      ) : (
+        <p className="mb-4 text-xs leading-relaxed text-panel-muted">
+          Pick an area on the map, what to measure, the years and the months — then find changes.
+          {draft?.understood && (
+            <>
+              {" "}
+              In words: <span className="text-panel-soft">“{draft.text}”</span>
+            </>
+          )}
+        </p>
+      )}
+
+      {panelMode === "ask" && draft && !draft.understood && !draft.notes.length && !aiNote && (
         <SidebarSection>
           <p role="status" className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-3 text-xs leading-relaxed text-panel-soft">
             {draft.text ? `I couldn't tell what to measure in “${draft.text}”. ` : ""}Pick one or more measures below — vegetation, surface heat, rainfall, soil moisture, dust or snow — then find changes.
           </p>
         </SidebarSection>
       )}
-      {draft && draft.notes.length > 0 && (
+      {panelMode === "ask" && draft && draft.notes.length > 0 && (
         <SidebarSection>
           <ReaderNotes
             notes={draft.notes}
@@ -369,7 +488,10 @@ export default function Trends() {
 
       {draft && (
         <SidebarSection title="Your search">
-          <TrendForm query={draft} areaName={area?.name ?? null} years={{ first: 2000, last: LAST_YEAR }} onEdit={edit} onRun={() => runSearch(draft)} dirty={dirty} current={Boolean(applied) && scan.status !== "error" && scan.status !== "idle"} busy={busy} estimate={estimate} />
+          <TrendForm
+            query={draft}
+            where={<AreaPicker query={draft} foundName={area?.name ?? null} savedAreas={workspace.areas} drawMode={drawMode} onDraw={startDrawing} onEdit={edit} />}
+            years={{ first: 2000, last: LAST_YEAR }} onEdit={edit} onRun={() => runSearch(draft)} dirty={dirty} current={Boolean(applied) && scan.status !== "error" && scan.status !== "idle"} busy={busy} estimate={estimate} />
         </SidebarSection>
       )}
 
@@ -403,6 +525,21 @@ export default function Trends() {
 
   const overlay = (
     <>
+      <div className="absolute right-3 top-[3.75rem] lg:right-5">
+        <DrawToolbar
+          mode={drawMode}
+          onModeChange={startDrawing}
+          vertexCount={vertexCount}
+          onFinish={() => setFinishSignal((n) => n + 1)}
+          onUndo={() => setUndoSignal((n) => n + 1)}
+          showHint={false}
+        />
+      </div>
+      {drawMode && (
+        <div className="absolute inset-x-3 top-[3.75rem] flex justify-center lg:inset-x-auto lg:left-1/2 lg:-translate-x-1/2">
+          <DrawHint mode={drawMode} vertexCount={vertexCount} onFinish={() => setFinishSignal((n) => n + 1)} onUndo={() => setUndoSignal((n) => n + 1)} onCancel={() => startDrawing(null)} className="max-w-[20rem]" />
+        </div>
+      )}
       {selected && plan && indicator && active && area && (
         <>
           <div className="pointer-events-auto absolute left-16 top-[3.75rem] hidden lg:block">
@@ -413,6 +550,7 @@ export default function Trends() {
               plan={plan}
               analysisHref={analysisHref(selected, active, area, plan, latest)}
               compareHref={compareHref(selected, active, plan, months)}
+              onScanHere={() => scanHere(selected)}
               onClose={() => setSelectedId(null)}
             />
           </div>
@@ -424,6 +562,7 @@ export default function Trends() {
               plan={plan}
               analysisHref={analysisHref(selected, active, area, plan, latest)}
               compareHref={compareHref(selected, active, plan, months)}
+              onScanHere={() => scanHere(selected)}
               onClose={() => setSelectedId(null)}
               className="max-h-[55vh] overflow-y-auto"
             />
@@ -495,7 +634,10 @@ export default function Trends() {
         <GibsTileLayer layer={base} date={null} />
         {result && <GridImageLayer grid={result.grid} rgba={viewMode === "frames" ? frameRgba : changeRgba} opacity={viewMode === "frames" ? 0.95 : 1} />}
         <ReferenceOverlays />
+        {(panelMode === "pick" || drawMode || !result) && <AreasLayer areas={workspace.areas} activeId={null} onSelect={pickSavedArea} interactive={!drawMode} />}
+        {chosenGeometry && (dirty || !result) && <ChosenAreaLayer geometry={chosenGeometry} />}
         {result && <HotspotLayer hotspots={hotspots} selectedId={selectedId} onSelect={select} area={area?.kind === "view" ? null : (area?.geometry ?? null)} />}
+        <DrawTools mode={drawMode} onComplete={onAreaComplete} onCancel={() => startDrawing(null)} finishSignal={finishSignal} undoSignal={undoSignal} onVertexCount={setVertexCount} />
         <BoundsTracker onChange={setMapBounds} />
         <FlyTo target={flyTarget} maxZoom={10} />
       </BaseMap>

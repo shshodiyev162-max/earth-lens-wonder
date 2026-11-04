@@ -3,7 +3,7 @@
 // and every adjustment of it, is a shareable link.
 
 import { formatArea } from "../geo/geometry";
-import { encodeGeometry } from "../geo/polyline";
+import { encodeGeometryForLink } from "../geo/polyline";
 import { formatMonth } from "../gibs/time";
 import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId, type SeasonId } from "../query/indicators";
 import { parseTrendQuery, type ParsedQuery, type ReaderNote, type TimeSpec } from "../query/parse";
@@ -175,8 +175,9 @@ export function queryFromParams(params: URLSearchParams): TrendQuery {
     understood: indicators.length > 0,
     indicators,
     filters,
-    place: params.has("place") ? params.get("place") || null : parsed.place,
-    near: params.has("place") ? params.get("near") === "1" : parsed.near,
+    // An exact area from the map wins over any place named in the words.
+    place: area ? null : params.has("place") ? params.get("place") || null : parsed.place,
+    near: area ? false : params.has("place") ? params.get("near") === "1" : parsed.near,
     time: decodeTime(params.get("t")) ?? parsed.time,
     season: seasonChoice.season,
     months: seasonChoice.months,
@@ -187,7 +188,10 @@ export function queryFromParams(params: URLSearchParams): TrendQuery {
   };
 }
 
-export type QueryEdit = Partial<Pick<TrendQuery, "indicators" | "place" | "near" | "time" | "season" | "months" | "filters" | "tab">>;
+export type QueryEdit = Partial<Pick<TrendQuery, "indicators" | "place" | "near" | "area" | "time" | "season" | "months" | "filters" | "tab">>;
+
+/** An exact area chosen on the map: a country, a drawn or saved outline, or a hotspot. */
+export type ExactArea = NonNullable<TrendQuery["area"]>;
 
 /** Applies a change and writes every choice into the URL, with the sentence rewritten to match. */
 export function applyEdit(query: TrendQuery, edit: QueryEdit): TrendQuery {
@@ -199,7 +203,12 @@ export function applyEdit(query: TrendQuery, edit: QueryEdit): TrendQuery {
     next.filters = filters;
   }
   if ("place" in edit && !("near" in edit)) next.near = false;
-  if ("place" in edit) next.area = null;
+  if ("place" in edit && !("area" in edit)) next.area = null;
+  // An outline picked on the map replaces any typed place.
+  if (edit.area) {
+    next.place = null;
+    next.near = false;
+  }
   if ("months" in edit && edit.months) next.season = null;
   if ("season" in edit) next.months = edit.months ?? null;
   if (!next.tab || !next.indicators.includes(next.tab)) next.tab = next.indicators[0] ?? null;
@@ -406,7 +415,7 @@ function mid([a, b]: [number, number]): number {
 export function analysisHref(hotspot: Hotspot, indicator: IndicatorId, area: ScanArea, plan: PeriodPlan, latestMonth: string): string {
   const end = `${plan.endYear}-12` > latestMonth ? latestMonth : `${plan.endYear}-12`;
   const params = new URLSearchParams({
-    poly: encodeGeometry(hotspot.geometry),
+    poly: encodeGeometryForLink(hotspot.geometry),
     name: hotspotTitle(hotspot),
     ctx: `${area.kind === "view" ? "Map view" : area.name} · ${formatArea(hotspot.areaKm2)}`,
     period: "custom",

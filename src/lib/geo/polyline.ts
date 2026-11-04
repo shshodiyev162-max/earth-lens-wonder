@@ -2,7 +2,7 @@
 // at 1e5, ~10 m at 1e4). Rings are separated by "," and polygons by ";" — neither character
 // can appear inside an encoded polyline, whose alphabet runs from "?" to "~".
 
-import { isPolygonGeometry, type PolygonGeometry, type Position } from "./geometry";
+import { bboxOf, bboxPolygon, isPolygonGeometry, polygonsOf, type PolygonGeometry, type Position } from "./geometry";
 
 const PRECISION = 1e4;
 
@@ -82,4 +82,65 @@ export function decodeGeometry(text: string, precision = PRECISION): PolygonGeom
   }
   const geometry: PolygonGeometry = polygons.length === 1 ? { type: "Polygon", coordinates: polygons[0] } : { type: "MultiPolygon", coordinates: polygons };
   return isPolygonGeometry(geometry) ? geometry : null;
+}
+
+/** Most web servers refuse addresses over about 8 KB; a shared outline stays well below that. */
+export const MAX_LINK_OUTLINE = 1800;
+
+function ringAreaDeg(ring: Position[]): number {
+  let total = 0;
+  for (let i = 0; i < ring.length - 1; i++) total += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+  return Math.abs(total) / 2;
+}
+
+/** Douglas–Peucker on a closed ring (keeps at least a triangle). */
+function simplifyClosed(ring: Position[], tolerance: number): Position[] {
+  if (ring.length <= 5) return ring;
+  const open = ring.slice(0, -1);
+  const keep = new Uint8Array(open.length);
+  keep[0] = 1;
+  keep[open.length - 1] = 1;
+  const stack: [number, number][] = [[0, open.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop() as [number, number];
+    const [ax, ay] = open[a];
+    const [bx, by] = open[b];
+    const length = Math.hypot(bx - ax, by - ay) || 1e-12;
+    let worst = -1;
+    let index = -1;
+    for (let i = a + 1; i < b; i++) {
+      const distance = Math.abs((bx - ax) * (ay - open[i][1]) - (ax - open[i][0]) * (by - ay)) / length;
+      if (distance > worst) {
+        worst = distance;
+        index = i;
+      }
+    }
+    if (index >= 0 && worst > tolerance) {
+      keep[index] = 1;
+      stack.push([a, index], [index, b]);
+    }
+  }
+  const out = open.filter((_, i) => keep[i]);
+  return out.length >= 3 ? [...out, out[0]] : ring;
+}
+
+/**
+ * An outline short enough to share in a link: small islands and holes are dropped and the edges
+ * simplified, a step at a time, until it fits. The bounding box is the last resort.
+ */
+export function encodeGeometryForLink(geometry: PolygonGeometry, maxChars = MAX_LINK_OUTLINE): string {
+  const full = encodeGeometry(geometry);
+  if (full.length <= maxChars) return full;
+  const polygons = polygonsOf(geometry);
+  const [w, s, e, n] = bboxOf(geometry);
+  const span = Math.max(e - w, n - s) || 1;
+  for (let step = 0; step < 16; step++) {
+    const tolerance = span * 0.0005 * 1.6 ** step;
+    const minArea = (span * 0.004 * 1.35 ** step) ** 2;
+    const kept = polygons.map((rings) => [simplifyClosed(rings[0], tolerance)]).filter((rings) => rings[0].length >= 4 && ringAreaDeg(rings[0]) >= minArea);
+    if (!kept.length) break;
+    const text = encodeGeometry(kept.length === 1 ? { type: "Polygon", coordinates: kept[0] } : { type: "MultiPolygon", coordinates: kept });
+    if (text.length <= maxChars) return text;
+  }
+  return encodeGeometry(bboxPolygon([w, s, e, n]));
 }

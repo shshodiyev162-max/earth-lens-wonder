@@ -68,6 +68,20 @@ describe("search URLs", () => {
     expect(scanKey(applyEdit(q, { place: "Kazakhstan" }))).not.toBe(scanKey(q));
   });
 
+  it("use an area picked on the map instead of a typed place", () => {
+    const q = applyEdit(fromText("vegetation decline in Uzbekistan"), { area: { country: "TKM", name: "Turkmenistan" } });
+    expect(q).toMatchObject({ place: null, area: { country: "TKM", name: "Turkmenistan" }, text: "Vegetation decline in Turkmenistan" });
+    const back = queryFromParams(paramsFor(q));
+    expect(back.area).toEqual({ country: "TKM", osm: undefined, poly: undefined, name: "Turkmenistan" });
+    expect(scanKey(back)).toBe(scanKey(q));
+    // Typing a place again replaces the picked area.
+    expect(applyEdit(q, { place: "Tashkent" })).toMatchObject({ place: "Tashkent", area: null });
+    // Starting from nothing (step by step): an area first, then a measure.
+    const empty = queryFromParams(new URLSearchParams());
+    const drawn = applyEdit(applyEdit(empty, { area: { poly: "abc", name: "Area 1" } }), { indicators: ["vegetation"] });
+    expect(drawn).toMatchObject({ understood: true, text: "Vegetation change in Area 1" });
+  });
+
   it("asks before scanning things it can't measure", () => {
     const q = fromText("is the Aral Sea drying up");
     expect(q).toMatchObject({ understood: false, indicators: [], place: "Aral Sea" });

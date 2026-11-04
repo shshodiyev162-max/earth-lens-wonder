@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
-import { Check, Loader2, MapPin, Sparkles } from "lucide-react";
+import { Check, Loader2, Sparkles } from "lucide-react";
 import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
 import type { TimeSpec } from "@/lib/query/parse";
 import { DEFAULT_FILTER, filterFor, type QueryEdit, type SeasonChoice, type TrendQuery } from "@/lib/trends/query";
@@ -73,58 +73,6 @@ function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Qu
         {all ? "All six selected · clear" : "Everything (all six)"}
       </button>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Where
-
-function PlaceField({ query, areaName, onEdit }: { query: TrendQuery; areaName: string | null; onEdit: (edit: QueryEdit) => void }) {
-  const id = useId();
-  const current = query.area?.name ?? query.place ?? "";
-  const [text, setText] = useState(current);
-  useEffect(() => setText(current), [current]);
-  const commit = () => {
-    const next = text.trim() || null;
-    if (next !== (query.place ?? null) || query.area) onEdit({ place: next });
-  };
-  return (
-    <Field label="Where" htmlFor={id}>
-      <div className="flex gap-1.5">
-        <input
-          id={id}
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          onBlur={commit}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              commit();
-            }
-          }}
-          placeholder="Country, region or city"
-          autoComplete="off"
-          translate="no"
-          className={field}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            setText("");
-            onEdit({ place: null });
-          }}
-          aria-pressed={!query.place && !query.area}
-          className={cn(
-            "flex shrink-0 items-center gap-1 rounded-lg border px-2.5 text-xs font-medium transition pointer-coarse:min-h-11",
-            !query.place && !query.area ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-panel-line bg-panel-tint text-panel-soft hover:text-panel-foreground",
-          )}
-        >
-          <MapPin className="h-3.5 w-3.5" aria-hidden /> Map view
-        </button>
-      </div>
-      {query.near && current && <p className="text-[11px] text-panel-muted">Includes the surroundings of {current}.</p>}
-      {areaName && areaName !== current && current && <p className="text-[11px] text-panel-muted">Found: {areaName}</p>}
-    </Field>
   );
 }
 
@@ -267,7 +215,8 @@ function MonthsField({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Quer
 
 interface TrendFormProps {
   query: TrendQuery;
-  areaName: string | null;
+  /** The "where" step (drawing and picking on the map lives with the page). */
+  where: ReactNode;
   years: { first: number; last: number };
   onEdit: (edit: QueryEdit) => void;
   onRun: () => void;
@@ -281,14 +230,14 @@ interface TrendFormProps {
 }
 
 /** The whole search as a form: every part can be chosen without typing a sentence. */
-export default function TrendForm({ query, areaName, years, onEdit, onRun, dirty, current, busy, estimate }: TrendFormProps) {
+export default function TrendForm({ query, where, years, onEdit, onRun, dirty, current, busy, estimate }: TrendFormProps) {
   const ready = query.indicators.length > 0;
   return (
     <div className="space-y-4">
       <Field label="What to measure">
         <MeasurePicker query={query} onEdit={onEdit} />
       </Field>
-      <PlaceField query={query} areaName={areaName} onEdit={onEdit} />
+      {where}
       <PeriodField time={query.time} first={years.first} last={years.last} onEdit={onEdit} />
       <MonthsField query={query} onEdit={onEdit} />
       <div className="space-y-1.5">

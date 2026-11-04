@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BarChart3, Columns2, X } from "lucide-react";
+import { BarChart3, Columns2, ScanSearch, X } from "lucide-react";
 import { explainVerdict, signed } from "@/lib/analysis/stats";
 import { formatArea } from "@/lib/geo/geometry";
 import type { Indicator } from "@/lib/query/indicators";
@@ -15,12 +15,14 @@ interface HotspotCardProps {
   plan: PeriodPlan;
   analysisHref: string;
   compareHref: string;
+  /** Scan inside this hotspot for every chosen measure. */
+  onScanHere?: () => void;
   onClose: () => void;
   className?: string;
 }
 
 /** Details of one hotspot, with links to the full analysis and the then-vs-now swipe. */
-export default function HotspotCard({ hotspot, title, indicator, plan, analysisHref, compareHref, onClose, className }: HotspotCardProps) {
+export default function HotspotCard({ hotspot, title, indicator, plan, analysisHref, compareHref, onScanHere, onClose, className }: HotspotCardProps) {
   const color = hotspot.sign < 0 ? indicator.colors.decline : indicator.colors.increase;
   const verdict = hotspot.verdict;
   return (
@@ -70,6 +72,15 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
         <Link to={compareHref} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-panel-line bg-panel-tint px-3 py-2 text-xs font-semibold text-panel-foreground hover:border-cyan-400/50">
           <Columns2 className="h-3.5 w-3.5" /> Compare then vs now
         </Link>
+        {onScanHere && (
+          <button
+            type="button"
+            onClick={onScanHere}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-panel-line bg-panel-tint px-3 py-2 text-xs font-semibold text-panel-foreground hover:border-cyan-400/50 sm:col-span-2"
+          >
+            <ScanSearch className="h-3.5 w-3.5" /> Scan inside this area
+          </button>
+        )}
       </div>
     </section>
   );
