@@ -1,4 +1,4 @@
-// Things people ask about that TerraVision's NASA monthly maps don't measure directly. Each one
+// Things people ask about that TerraScope's NASA monthly maps don't measure directly. Each one
 // is explained in plain words with the closest real measures, so the reader never quietly swaps
 // in something else.
 
@@ -31,7 +31,7 @@ export const CONCEPTS: Concept[] = [
     id: "sealevel",
     kind: "unmeasured",
     pattern: /\bsea[\s-]+levels?(?:\s+rise)?\b/g,
-    message: "Sea level isn't measured here — TerraVision reads NASA's monthly maps of land.",
+    message: "Sea level isn't measured here — TerraScope reads NASA's monthly maps of land.",
     closest: [],
     direction: "increase",
   },
@@ -49,7 +49,7 @@ export const CONCEPTS: Concept[] = [
     pattern: /\bwater\s+(?:levels?|extent|area|bod(?:y|ies)|surface|loss)\b|\b(?:lake|river|reservoir)\s+levels?\b|\bdr(?:y|ies|ied|ying)\s+up\b|\bshrink(?:s|ing|age)?\b|\bshrank\b|\bshrunk(?:en)?\b|\bdisappear(?:s|ing|ed)?\b|\bwater\b/g,
     requires: WATER_BODY,
     onlyWithoutMeasures: true,
-    message: "Lake, sea and river water isn't measured here — TerraVision's NASA monthly maps cover land. The closest measures are rainfall, soil moisture and vegetation around the shore.",
+    message: "Lake, sea and river water isn't measured here — TerraScope's NASA monthly maps cover land. The closest measures are rainfall, soil moisture and vegetation around the shore.",
     closest: ["rainfall", "soil", "vegetation"],
     direction: "decline",
   },
@@ -97,7 +97,7 @@ export const CONCEPTS: Concept[] = [
     id: "glacier",
     kind: "approximate",
     pattern: /\bglaciers?\b|\bglacial\b|\bice\s+(?:cover|caps?|sheets?|fields?)\b|\bpermafrost\b/g,
-    message: "Glacier ice isn't measured directly. TerraVision uses MODIS snow cover, which includes snow lying on glaciers.",
+    message: "Glacier ice isn't measured directly. TerraScope uses MODIS snow cover, which includes snow lying on glaciers.",
     closest: ["snow"],
     direction: "any",
   },

@@ -245,7 +245,7 @@ export default function Landing() {
               Everything You Need to Understand Earth
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              From satellite imagery to environmental analytics, TerraVision gives you the tools
+              From satellite imagery to environmental analytics, TerraScope gives you the tools
               to explore, compare, and understand our planet.
             </p>
           </motion.div>
@@ -280,7 +280,7 @@ export default function Landing() {
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Every number comes from published NASA datasets. When data is missing or clouds hide an area,
-              TerraVision says so instead of filling the gap.
+              TerraScope says so instead of filling the gap.
             </p>
           </motion.div>
 
@@ -359,7 +359,7 @@ export default function Landing() {
             <div className="w-6 h-6 rounded gradient-primary flex items-center justify-center">
               <Globe className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-display font-semibold text-sm text-foreground">TerraVision</span>
+            <span className="font-display font-semibold text-sm text-foreground">TerraScope</span>
           </div>
           <p className="text-xs text-muted-foreground text-center md:text-right">
             Data provided by NASA GIBS &amp; NASA POWER · Places © OpenStreetMap contributors · Built for Earth observation and environmental awareness

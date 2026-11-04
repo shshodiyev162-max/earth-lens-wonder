@@ -3,19 +3,19 @@ import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 
 const TITLES: Record<string, string> = {
-  "/": "TerraVision — Explore and analyze Earth with NASA data",
-  "/map": "Explore · TerraVision",
-  "/split": "Compare · TerraVision",
-  "/sync": "Side by side · TerraVision",
-  "/analysis": "Area analysis · TerraVision",
-  "/trends": "Trend detective · TerraVision",
+  "/": "TerraScope — Explore and analyze Earth with NASA data",
+  "/map": "Explore · TerraScope",
+  "/split": "Compare · TerraScope",
+  "/sync": "Side by side · TerraScope",
+  "/analysis": "Area analysis · TerraScope",
+  "/trends": "Trend detective · TerraScope",
 };
 
 export default function Layout() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    document.title = TITLES[pathname] ?? "Page not found · TerraVision";
+    document.title = TITLES[pathname] ?? "Page not found · TerraScope";
   }, [pathname]);
 
   useEffect(() => {

@@ -474,7 +474,7 @@ export default function Trends() {
   return (
     <MapPageShell
       title="Trend detective"
-      description="Ask where Earth is changing. TerraVision reads NASA's monthly maps, tests every pixel for a real trend and ranks the places that changed most."
+      description="Ask where Earth is changing. TerraScope reads NASA's monthly maps, tests every pixel for a real trend and ranks the places that changed most."
       sidebar={sidebar}
       topRight={
         viewMoved ? (

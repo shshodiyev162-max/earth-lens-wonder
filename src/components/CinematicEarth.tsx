@@ -50,8 +50,8 @@ const SPIN_SECONDS_PER_TURN = 80;
 const STAR_COUNT = 1000;
 // Dim, warm city lights on the night side.
 const NIGHT_LIGHTS = 0.45;
-// A faint warm band where it is sunrise or sunset.
-const TWILIGHT = 0.025;
+// The sun's brightness on the planet (dimmed a little from the original 1.2).
+const SUN_INTENSITY = 1.0;
 // On arrival the planet turns this far (radians) to bring the visitor's part of the world into view.
 const INTRO_TURN = 1.1;
 const INTRO_SECONDS = 3.4;
@@ -122,12 +122,6 @@ const NIGHT_LIGHTS_FRAGMENT = `
     vec3 cityLights = pow(texture2D(uNightMap, vMapUv).rgb, vec3(1.4)) * vec3(1.0, 0.52, 0.15) * uNightStrength;
     totalEmissiveRadiance += cityLights * night;
   }
-`;
-
-// A soft sunrise/sunset glow along the line between day and night.
-const TWILIGHT_FRAGMENT = `
-  outgoingLight += vec3(1.0, 0.55, 0.22) * exp(-pow(sunHeight * 8.0, 2.0)) * uTwilight;
-  #include <opaque_fragment>
 `;
 
 // ── "You are here": a bright point with soft ripples, lying on the surface ──
@@ -320,16 +314,11 @@ function EarthScene({ interaction, settings, hourStore, home, label }: EarthScen
       shader.uniforms.uNightMap = { value: nightTexture };
       shader.uniforms.uSunView = { value: sun.view };
       shader.uniforms.uNightStrength = { value: NIGHT_LIGHTS };
-      shader.uniforms.uTwilight = { value: TWILIGHT };
       shader.fragmentShader = shader.fragmentShader
-        .replace(
-          "#include <common>",
-          "#include <common>\nuniform sampler2D uNightMap;\nuniform vec3 uSunView;\nuniform float uNightStrength;\nuniform float uTwilight;",
-        )
-        .replace("#include <emissivemap_fragment>", NIGHT_LIGHTS_FRAGMENT)
-        .replace("#include <opaque_fragment>", TWILIGHT_FRAGMENT);
+        .replace("#include <common>", "#include <common>\nuniform sampler2D uNightMap;\nuniform vec3 uSunView;\nuniform float uNightStrength;")
+        .replace("#include <emissivemap_fragment>", NIGHT_LIGHTS_FRAGMENT);
     };
-    material.customProgramCacheKey = () => "terravision-earth-night-lights";
+    material.customProgramCacheKey = () => "terrascope-earth-night-lights";
     return material;
   }, [earthTexture, nightTexture, sun]);
 
@@ -550,7 +539,7 @@ function EarthScene({ interaction, settings, hourStore, home, label }: EarthScen
   return (
     <>
       {/* The sun: the original key light, placed where the real sun is. */}
-      <directionalLight ref={sunLightRef} position={[6, 3, 8]} intensity={1.2} color="#fff5e8" />
+      <directionalLight ref={sunLightRef} position={[6, 3, 8]} intensity={SUN_INTENSITY} color="#fff5e8" />
 
       <group position={position} scale={radius}>
         <group ref={groupRef} rotation={[0.08, -1.05, -0.16]}>

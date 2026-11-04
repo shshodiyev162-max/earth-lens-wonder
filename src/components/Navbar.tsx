@@ -65,11 +65,11 @@ export default function Navbar() {
   return (
     <nav aria-label="Main" className="fixed top-0 left-0 right-0 z-[2000] glass-strong">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="TerraVision home">
+        <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="TerraScope home">
           <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
             <Globe className="w-5 h-5 text-primary-foreground" />
           </div>
-          <span className="font-display font-bold text-lg text-foreground">TerraVision</span>
+          <span className="font-display font-bold text-lg text-foreground">TerraScope</span>
         </Link>
 
         {/* Desktop nav */}

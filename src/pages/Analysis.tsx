@@ -252,7 +252,7 @@ export default function Analysis() {
             <h1 className="text-3xl font-display font-bold text-foreground">Area Analysis</h1>
           </div>
           <p className="text-muted-foreground">
-            Choose a place, a time range and the NASA datasets to read. TerraVision measures that exact area in NASA satellite imagery and climate records and explains
+            Choose a place, a time range and the NASA datasets to read. TerraScope measures that exact area in NASA satellite imagery and climate records and explains
             what changed — every number is measured, not simulated.
           </p>
         </motion.div>

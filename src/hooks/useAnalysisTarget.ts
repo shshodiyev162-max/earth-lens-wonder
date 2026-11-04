@@ -140,7 +140,7 @@ export function useAnalysisTarget(params: URLSearchParams): TargetState {
         setCountryState({
           key: countryId,
           target: null,
-          error: index ? "That country is not in TerraVision's map." : "Couldn't load the country outlines. Check your connection and try again.",
+          error: index ? "That country is not in TerraScope's map." : "Couldn't load the country outlines. Check your connection and try again.",
         });
         return;
       }

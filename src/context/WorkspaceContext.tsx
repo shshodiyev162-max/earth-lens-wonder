@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { areaKm2, bboxOf, centroidOf, isPolygonGeometry, type BBox, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
-import { readJson, writeJson } from "@/lib/storage";
+import { readJson, renameKey, writeJson } from "@/lib/storage";
 
 export type AreaKind = "rectangle" | "polygon" | "circle" | "place";
 
@@ -34,8 +34,11 @@ interface WorkspaceValue {
   setView: (view: MapView) => void;
 }
 
-const AREAS_KEY = "terravision.areas.v1";
-const VIEW_KEY = "terravision.view.v1";
+const AREAS_KEY = "terrascope.areas.v1";
+const VIEW_KEY = "terrascope.view.v1";
+// Saved before the app was renamed from TerraVision.
+renameKey("terravision.areas.v1", AREAS_KEY);
+renameKey("terravision.view.v1", VIEW_KEY);
 export const DEFAULT_VIEW: MapView = { center: [25, 20], zoom: 3 };
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);

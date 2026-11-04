@@ -94,7 +94,7 @@ export function ResultsHeader({
             <button
               type="button"
               disabled={!result}
-              onClick={() => result && downloadText(`terravision-${slugify(target.name)}-${result.start}-to-${result.end}.csv`, buildCsv(result))}
+              onClick={() => result && downloadText(`terrascope-${slugify(target.name)}-${result.start}-to-${result.end}.csv`, buildCsv(result))}
               className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium gradient-primary text-primary-foreground hover:opacity-90 disabled:opacity-60"
             >
               <Download className="h-4 w-4" /> Download CSV

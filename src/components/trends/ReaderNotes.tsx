@@ -9,7 +9,7 @@ interface ReaderNotesProps {
   onAdd: (indicators: IndicatorId[], note: ReaderNote) => void;
 }
 
-/** What the question asked for that TerraVision can't measure, and the closest real measures. */
+/** What the question asked for that TerraScope can't measure, and the closest real measures. */
 export default function ReaderNotes({ notes, chosen, onAdd }: ReaderNotesProps) {
   if (!notes.length) return null;
   return (

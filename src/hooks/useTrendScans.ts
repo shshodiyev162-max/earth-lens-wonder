@@ -55,7 +55,7 @@ async function areaFor(query: TrendQuery, view: BBox | null, signal: AbortSignal
   if (given?.country) {
     const index = await loadCountries();
     const country = index ? findCountry(index, given.country) : null;
-    if (!country) throw new AreaError("That country isn't in TerraVision's map.");
+    if (!country) throw new AreaError("That country isn't in TerraScope's map.");
     return { name: country.name, context: "Country", geometry: country.geometry, bbox: country.bbox, center: centroidOf(country.geometry), kind: "country" };
   }
   if (given?.osm) {

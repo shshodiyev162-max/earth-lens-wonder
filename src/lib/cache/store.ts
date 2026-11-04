@@ -39,7 +39,9 @@ export function memoryBackend(): CacheBackend {
   };
 }
 
-const DB_NAME = "terravision-cache";
+const DB_NAME = "terrascope-cache";
+/** The cache's name before the app was renamed; it is deleted to free the space. */
+const OLD_DB_NAME = "terravision-cache";
 const STORE = "entries";
 
 function request<T>(req: IDBRequest<T>): Promise<T> {
@@ -61,6 +63,11 @@ function indexedDbBackend(): CacheBackend | null {
         req.onerror = () => reject(req.error);
         req.onblocked = () => reject(new Error("Cache database is blocked"));
       });
+      try {
+        indexedDB.deleteDatabase(OLD_DB_NAME);
+      } catch {
+        /* nothing to clean up */
+      }
       // Remove expired entries once per visit, in the background.
       opening
         .then((db) => {

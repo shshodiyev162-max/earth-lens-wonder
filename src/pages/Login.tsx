@@ -34,13 +34,13 @@ export default function Login() {
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6 py-12 gradient-hero">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-6" aria-label="TerraVision home">
+          <Link to="/" className="inline-flex items-center gap-2 mb-6" aria-label="TerraScope home">
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <Globe className="w-6 h-6 text-primary-foreground" />
             </div>
           </Link>
           <h1 className="text-2xl font-display font-bold text-foreground">{isSignUp ? "Create Account" : "Welcome Back"}</h1>
-          <p className="text-muted-foreground text-sm mt-2">{isSignUp ? "Join TerraVision to save your areas across devices" : "Sign in to continue exploring Earth"}</p>
+          <p className="text-muted-foreground text-sm mt-2">{isSignUp ? "Join TerraScope to save your areas across devices" : "Sign in to continue exploring Earth"}</p>
         </div>
 
         {demo && (

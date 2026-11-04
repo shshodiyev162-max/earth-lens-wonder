@@ -1,4 +1,4 @@
-# TerraVision
+# TerraScope
 
 See any place on Earth through NASA's eyes. Search a city, region or coordinates, browse live NASA satellite layers, compare dates side by side, and get a measured report on vegetation, heat, rainfall, soil moisture, dust and snow for exactly the area you choose.
 
@@ -11,11 +11,11 @@ Everything runs in the browser against public NASA and OpenStreetMap services �
 - **Draw and measure** — rectangle, polygon and circle tools, plus **Pick a country**: point at a country to see its name and click to select the whole country. Saved areas show live statistics of the active layer (mean, 10th–90th percentile range, share of the area measured) and stay on the device.
 - **Compare** — one map with a draggable divider: two layers, or one layer on two dates.
 - **Side by side** — two maps locked together for pan and zoom, with dates linked or independent.
-- **Analysis** — pick a searched place, a country picked on the map, a saved or freshly drawn area, a clicked point with a radius, or your location. TerraVision pulls up to 10 years of monthly NASA data for that exact outline and explains what changed in plain language: headline, concern level, indicators with sparklines, charts, findings with their thresholds, and a methodology section. Reports are shareable links and can be downloaded as CSV.
+- **Analysis** — pick a searched place, a country picked on the map, a saved or freshly drawn area, a clicked point with a radius, or your location. TerraScope pulls up to 10 years of monthly NASA data for that exact outline and explains what changed in plain language: headline, concern level, indicators with sparklines, charts, findings with their thresholds, and a methodology section. Reports are shareable links and can be downloaded as CSV.
 
 ## How the analysis works
 
-1. **Satellite series (NASA GIBS).** For every month, TerraVision requests a WMS image of the area's bounding box at the product's native resolution (at most 320 px across), rasterizes the area's outline onto it, and converts each pixel back to its physical value using NASA's published colormap for that product (an exact RGB match). It then takes the mean, the 10th–90th percentile spread and the share of the area that had valid data.
+1. **Satellite series (NASA GIBS).** For every month, TerraScope requests a WMS image of the area's bounding box at the product's native resolution (at most 320 px across), rasterizes the area's outline onto it, and converts each pixel back to its physical value using NASA's published colormap for that product (an exact RGB match). It then takes the mean, the 10th–90th percentile spread and the share of the area that had valid data.
    - Vegetation: MODIS Terra monthly NDVI
    - Surface heat: MODIS Terra monthly daytime land surface temperature
    - Aerosols & dust: MERRA-2 monthly aerosol optical thickness
@@ -50,7 +50,7 @@ Copy `.env.example` to `.env`.
 | Variable                    | Purpose                                                                                                                                                                         |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `VITE_API_BASE_URL`         | Backend for accounts (`/auth/login`, `/auth/register`, `/auth/logout`, `/auth/me`). Accounts are switched off for now (`ACCOUNTS_ENABLED` in `src/config.ts`); every page is open. |
-| `VITE_AI_ANALYSIS_ENDPOINT` | Your own endpoint for an optional AI briefing on the Analysis page. TerraVision POSTs the measured findings and expects `{ "summary": string, "bullets": string[] }`.             |
+| `VITE_AI_ANALYSIS_ENDPOINT` | Your own endpoint for an optional AI briefing on the Analysis page. TerraScope POSTs the measured findings and expects `{ "summary": string, "bullets": string[] }`.             |
 
 Never put secrets (model API keys, database credentials) in `VITE_` variables — they end up in the browser bundle. Keep them on the backend.
 

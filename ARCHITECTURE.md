@@ -1,6 +1,6 @@
 # Architecture
 
-TerraVision is a single-page React app (Vite, TypeScript, Tailwind, shadcn/ui, react-leaflet, Recharts, three.js). There is no required backend: every map tile, measurement and search result comes straight from public NASA and OpenStreetMap services, and the app's own state lives in the URL and on the device.
+TerraScope is a single-page React app (Vite, TypeScript, Tailwind, shadcn/ui, react-leaflet, Recharts, three.js). There is no required backend: every map tile, measurement and search result comes straight from public NASA and OpenStreetMap services, and the app's own state lives in the URL and on the device.
 
 ## Routes
 

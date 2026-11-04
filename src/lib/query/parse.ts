@@ -2,7 +2,7 @@
 //   "where did vegetation decline in Uzbekistan since 2015"
 //   "vegetation and rainfall decline in Uzbekistan since 2015"
 //   "summer 2023 vs summer 2013 heat in Tashkent"
-// Each part of the text is claimed once, in this order: time → things TerraVision can't measure
+// Each part of the text is claimed once, in this order: time → things TerraScope can't measure
 // → measures → directions → place, so a word is never read twice. No AI service is needed.
 
 import { CONCEPTS, type ConceptId } from "./concepts";
