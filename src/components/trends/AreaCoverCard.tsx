@@ -1,4 +1,5 @@
 import { Loader2, Plus, Sparkles, Trees } from "lucide-react";
+import { demoAttr } from "@/lib/demo/scripts";
 import { INDICATORS, type IndicatorId } from "@/lib/query/indicators";
 import { COVER_COLOR, COVER_GROUPS, COVER_LABEL, coverChanges, describeCover, type LandCover, type Suggestion } from "@/lib/trends/landcover";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ export default function AreaCoverCard({ name, status, cover, first, suggestions,
   const allChosen = suggestions.length > 0 && suggestions.every((s) => selected.includes(s.indicator)) && selected.length === suggestions.length;
 
   return (
-    <section aria-labelledby="area-cover-title" className="space-y-3 rounded-xl border border-panel-line bg-panel-tint p-3">
+    <section {...demoAttr("cover")} aria-labelledby="area-cover-title" className="space-y-3 rounded-xl border border-panel-line bg-panel-tint p-3">
       <div>
         <h3 id="area-cover-title" className="flex items-center gap-1.5 text-xs font-semibold text-panel-foreground">
           <Trees className="h-3.5 w-3.5 text-accent-cyan" aria-hidden /> What <span translate="no">{name}</span> is like

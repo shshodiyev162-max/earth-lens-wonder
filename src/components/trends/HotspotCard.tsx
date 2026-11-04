@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { demoAttr } from "@/lib/demo/scripts";
 import { BarChart3, Columns2, ScanSearch, X } from "lucide-react";
 import { explainVerdict, formatP, signed } from "@/lib/analysis/stats";
 import { formatArea } from "@/lib/geo/geometry";
@@ -26,7 +27,7 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
   const color = hotspot.sign < 0 ? indicator.colors.decline : indicator.colors.increase;
   const verdict = hotspot.verdict;
   return (
-    <section aria-label={`Hotspot ${hotspot.rank}: ${title}`} className={cn("w-full max-w-sm rounded-2xl border border-panel-line bg-panel/95 p-4 text-panel-foreground shadow-2xl backdrop-blur-xl", className)}>
+    <section {...demoAttr("hotspot-card")} aria-label={`Hotspot ${hotspot.rank}: ${title}`} className={cn("w-full max-w-sm rounded-2xl border border-panel-line bg-panel/95 p-4 text-panel-foreground shadow-2xl backdrop-blur-xl", className)}>
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-cyan">Hotspot {hotspot.rank}</p>

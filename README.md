@@ -1,29 +1,69 @@
 # TerraScope
 
-See any place on Earth through NASA's eyes. Search a city, region or coordinates, browse live NASA satellite layers, compare dates side by side, and get a measured report on vegetation, heat, rainfall, soil moisture, dust and snow for exactly the area you choose.
+**An Earth system trend detective, built on NASA data.** Ask "where did vegetation decline in Uzbekistan since 2015?" or "is the Mediterranean getting warmer?", or pick a measure, a place and the years yourself. TerraScope reads one NASA map per month, tests every pixel and the whole area for a real trend, ranks the places that changed most, and says plainly when a change is *not* significant.
 
-Everything runs in the browser against public NASA and OpenStreetMap services — no API keys, no backend required.
+Built for the NASA Space Apps Challenge 2026, **Be an Earth System Trend Detective**. Everything runs in the browser against public NASA and OpenStreetMap services: no API keys, no backend, no simulated numbers.
 
-## Features
+**Try it:** `npm install && npm run dev`, open the app and press **Watch a demo** on the home page. Three worked examples play through the app with live NASA data (script for presenters: [DEMO.md](DEMO.md)).
 
-- **Explore** — 17 NASA GIBS layers (true color, false color, vegetation, land surface temperature, aerosols, carbon monoxide, precipitation, sea surface temperature, chlorophyll, snow, night lights). Every layer and its maximum zoom were checked against GIBS. The date picker snaps to days that actually exist for that product, legends come from NASA's own colormaps, and clicking the map reads the real value at that spot.
-- **Search everywhere** — places, regions, countries, lakes, deserts and coordinates (`39.77, 64.42`, `39.77N 64.42E`, `lat: 40.7 lon: -74`). Search-as-you-type in every map and on the landing page, plus a global palette with <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> (or <kbd>/</kbd>) that also finds NASA layers. Selected places are outlined with their real boundary.
-- **Draw and measure** — rectangle, polygon and circle tools, plus **Pick a country**: point at a country to see its name and click to select the whole country. Saved areas show live statistics of the active layer (mean, 10th–90th percentile range, share of the area measured) and stay on the device.
-- **Compare** — one map with a draggable divider: two layers, or one layer on two dates.
-- **Side by side** — two maps locked together for pan and zoom, with dates linked or independent.
-- **Analysis** — pick a searched place, a country picked on the map, a saved or freshly drawn area, a clicked point with a radius, or your location. TerraScope pulls up to 10 years of monthly NASA data for that exact outline and explains what changed in plain language: headline, concern level, indicators with sparklines, charts, findings with their thresholds, and a methodology section. Reports are shareable links and can be downloaded as CSV.
+## How TerraScope meets the challenge
 
-## How the analysis works
+| The challenge asks for… | Where it is in TerraScope |
+| --- | --- |
+| **Variables that may be trending** | 13 measures on land, in the air, at sea and in the upper atmosphere (table below), each with a one-line plain definition. A question reader turns everyday words ("drought", "ozone hole shrinking", "SO2", "warmer seas") into measures. Things NASA's monthly maps can't show (sea level, NO₂, river flow, fires…) are named as such, with the closest real measures offered. **"What changed?"** picks the measures that suit the place from NASA's land cover map: dust and heat for deserts, surface heat and SO₂ for cities, sea temperature for seas. |
+| **Data for a particular region** | Any country, any place with an OpenStreetMap boundary, named regions and seas (with real outlines), a rectangle, polygon or circle drawn on the map, a saved area, or the map view. Land measures leave out lakes and seas, sea measures leave out land, and air measures cover both. |
+| **A time series long enough for statistics** | Monthly NASA maps from 2000 (MERRA-2 records reach back to 1980; the scan starts at the MODIS era). Each pixel and each area become one value per year for the chosen months, so the seasonal cycle can't fake a trend. Year-by-year charts for the whole area and every hotspot, a monthly animation on the map, monthly charts on the Analysis page, and a CSV download. |
+| **Rate of change and significance** (t-test, Mann–Kendall, confidence intervals) | **Mann–Kendall** trend test (tie-corrected; seasonal version for monthly data) and **Sen's slope** with its **95% confidence range**, per year and per decade, for the whole area, every hotspot and every pixel. **Welch's t-test** when comparing two periods (e.g. 2001–2010 vs 2016–2025). When a trend isn't significant, TerraScope says so and offers to test the whole record. |
 
-1. **Satellite series (NASA GIBS).** For every month, TerraScope requests a WMS image of the area's bounding box at the product's native resolution (at most 320 px across), rasterizes the area's outline onto it, and converts each pixel back to its physical value using NASA's published colormap for that product (an exact RGB match). It then takes the mean, the 10th–90th percentile spread and the share of the area that had valid data.
-   - Vegetation: MODIS Terra monthly NDVI
-   - Surface heat: MODIS Terra monthly daytime land surface temperature
-   - Aerosols & dust: MERRA-2 monthly aerosol optical thickness
-   - Snow: MODIS Terra monthly snow cover
-2. **Climate (NASA POWER).** Monthly air temperature (mean and monthly extremes), rainfall, sunshine, humidity, wind and root-zone soil wetness at 1, 3 or 5 points inside the area (depending on its size), compared with the 2001–2020 climatology.
-3. **Findings.** Plain rules with fixed, stated thresholds. Examples: rainfall below 60 % of normal, monthly surface temperature above 45 °C, aerosol optical depth above 0.4, and a seasonally adjusted vegetation trend. Nothing is simulated. If a product has not been published yet for recent months, the report says so.
+The challenge's other suggestions are covered too:
+- **Audience: students and the public.** Plain words throughout, a "What does each one measure?" list, and a "Words used here" glossary of trend, p-value, 95% range, Sen's slope and the rest.
+- **A short series of questions about what and where.** "Choose step by step" mode: what to measure, where, when and which months, without typing.
+- **Demonstration examples users can watch.** Three guided demos with live data.
+- **Data that suits a kind of place.** Land-cover-based suggestions, made by fixed written rules rather than AI.
+- **Seasonal cycles removed.** Seasonal statistics and same-months-every-year comparisons.
+- **"A trend is interesting even if it doesn't reach significance."** Every rate is shown with its range, and there's a one-click "test every year since 2000".
 
-This was checked against the live services on 2 October 2026: all 21 layers load, all 13 science colormaps decode with 100 % exact color matches, and a full 24-month analysis of Bukhara takes about 10 seconds. The real Bukhara result is kept as a test fixture (`src/lib/analysis/__tests__/fixtures/bukhara-real.json`).
+## The measures
+
+| Group | Measure | NASA product | Record |
+| --- | --- | --- | --- |
+| Land | Vegetation (NDVI) | MODIS Terra monthly NDVI (MOD13A3), ~1 km | 2000– |
+| Land | Surface heat | MODIS Terra monthly daytime land surface temperature (MOD11C3), ~5 km | 2000– |
+| Land | Soil moisture | MERRA-2 root-zone soil water, ~50 km | 1980– |
+| Land | Snow cover | MODIS Terra monthly snow cover (MOD10CM), ~5 km | 2000– |
+| Land | Evaporation | MERRA-2 evaporation from land, ~50 km | 1980– |
+| Air | Rainfall | MERRA-2 bias-corrected precipitation, ~50 km | 1980– |
+| Air | Dust | MERRA-2 dust surface concentration, ~50 km | 1980– |
+| Air | Air temperature (2 m) | MERRA-2 2-metre air temperature, ~50 km | 1980– |
+| Air | Sulphur dioxide | MERRA-2 SO₂ column, ~50 km | 1980– |
+| Air | Carbon monoxide (~5 km up) | AIRS (Aqua) CO at 500 hPa, ~100 km | 2002– |
+| Air | Upper air (~10 km) | MERRA-2 air temperature at 250 hPa | 1980– |
+| Air | Ozone layer (~20 km) | MERRA-2 ozone at 50 hPa | 1980– |
+| Sea | Sea temperature | MODIS Terra night-time sea surface temperature, ~4 km | 2000– |
+
+The Analysis page also reads NASA POWER (air temperature, rainfall, sunshine, humidity, wind and soil wetness, with 2001–2020 normals) and MERRA-2 aerosol optical depth. Land cover comes from MODIS yearly land cover type (IGBP classes, 2001–2024). Every layer, matrix set and colour scale was checked against NASA GIBS capabilities in November 2026.
+
+**Examples measured with the app (5 November 2026):**
+- Mediterranean Sea, night-time sea surface temperature 2003–2025: **+0.61 °C per decade**, 95% range +0.43 to +0.93, Mann–Kendall p < 0.001.
+- Ozone at 50 hPa over Antarctica since 2005: a small rise (+0.009 ppm a year, p = 0.048), consistent with early signs of ozone-layer recovery.
+- Uzbekistan growing-season NDVI since 2000: **no clear trend** for the country as a whole (p = 0.80), while hotspots on the dried-up Aral Sea shore show significant browning (Muynoq district: −0.0044 NDVI a year, 95% range −0.0060 to −0.0030, p < 0.001).
+
+## How the trend detective works
+
+1. **Reading the question.** A rule-based reader (`src/lib/query/parse.ts`) claims parts of the sentence in order: time, things it can't measure, measures, directions, then the place. Several measures and per-measure directions are supported ("vegetation decline and heat increase"). The form shows every choice, and editing it rewrites the sentence. An optional AI reader (`VITE_AI_ANALYSIS_ENDPOINT`) is only asked when the rules understand nothing.
+2. **Reading NASA's maps.** For each month, a WMS image of the area is requested from NASA GIBS on a grid no finer than the product (at most 200 px on the long side) and turned back into physical values pixel by pixel using NASA's published colour scale. At most 180 monthly maps are read per measure (120 when scanning three or more); longer periods use evenly spread years, and the notes say so. Maps are cached on the device (IndexedDB) and requests are de-duplicated, cancelled when stale and limited to 6 at a time.
+3. **Per-pixel trends.** Each pixel's chosen months become one value per year: the mean of the months measured, with at least half of them required. The change is the recent window minus the baseline window. The trend test is Mann–Kendall with Sen's slope. On the Analysis page, a year missing a month is adjusted using that month's own long-run mean.
+4. **Hotspots.** Pixels that changed by at least the chosen amount, with their own trend pointing the same way (p < 0.1, or p < 0.05 with "Only clear trends"), are grouped into 8-connected patches. Patches are ranked by area × size of change, and very large areas are re-read finer for the top hotspots. The filters (direction, smallest change, smallest area, strictness) regroup the pixels already read, without new maps.
+5. **The whole area and each hotspot.** An area-weighted yearly series gets a Mann–Kendall test, Sen's slope and its 95% range (Gilbert 1987), and a plain-language verdict.
+6. **Analysis page.** For any place: monthly charts for every dataset, a trend card per measure (or a then-vs-now card with Welch's t-test), findings that lead with significant trends, and a CSV that includes the test results.
+
+## Honest limits
+
+- Values are decoded from the colour bins of NASA's map images, so their precision is that of the colour scale. When at least 5% of readings sit at the top of a scale (e.g. SO₂ over very polluted regions), the results say that real values and changes there may be larger.
+- MERRA-2 is a reanalysis: a NASA model constrained by observations, at about 50 km. The MODIS products have cloud gaps, which are left as gaps. Sea temperature is night-time only, carbon monoxide is about 5 km up rather than at ground level, and SO₂ is the whole air column.
+- Mann–Kendall assumes years are independent. Per-pixel tests are many tests at once, so hotspots also require a connected patch, a minimum change and a minimum area; "Only clear trends" tightens the test to p < 0.05.
+- Land cover is classified by computer, so small shifts between years can be noise; the app says so where it shows them.
+- Not measured, and the app says so: sea level, lake and river levels, groundwater, river flow, burned area, NO₂, CO₂, methane and ground-level ozone.
 
 ## Getting started
 
@@ -34,79 +74,83 @@ npm run dev
 
 Open the printed local URL (default `http://localhost:8080`).
 
-| Script               | What it does                          |
-| -------------------- | ------------------------------------- |
-| `npm run dev`        | Start the Vite dev server             |
-| `npm run build`      | Production build to `dist/`           |
-| `npm run preview`    | Serve the production build locally    |
-| `npm run lint`       | ESLint                                |
-| `npm test`           | Run the Vitest suite once             |
-| `npm run test:watch` | Vitest in watch mode                  |
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run typecheck` | TypeScript check of the app |
+| `npm run lint` | ESLint |
+| `npm test` | Run the Vitest suite once |
+| `npm run test:watch` | Vitest in watch mode |
 
 ## Environment variables (all optional)
 
 Copy `.env.example` to `.env`.
 
-| Variable                    | Purpose                                                                                                                                                                         |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VITE_API_BASE_URL`         | Backend for accounts (`/auth/login`, `/auth/register`, `/auth/logout`, `/auth/me`). Accounts are switched off for now (`ACCOUNTS_ENABLED` in `src/config.ts`); every page is open. |
-| `VITE_AI_ANALYSIS_ENDPOINT` | Your own endpoint for an optional AI briefing on the Analysis page. TerraScope POSTs the measured findings and expects `{ "summary": string, "bullets": string[] }`.             |
+| Variable | Purpose |
+| --- | --- |
+| `VITE_API_BASE_URL` | Backend for accounts. Accounts are switched off for now (`ACCOUNTS_ENABLED` in `src/config.ts`), so every page is open. |
+| `VITE_AI_ANALYSIS_ENDPOINT` | Your own endpoint for two optional AI helpers: a briefing on the Analysis page, and reading a Trends question the built-in reader didn't understand. Everything works without it. |
 
-Never put secrets (model API keys, database credentials) in `VITE_` variables — they end up in the browser bundle. Keep them on the backend.
+Never put secrets (model API keys and the like) in `VITE_` variables: they end up in the browser bundle.
 
 ## Data sources
 
-| Data                     | Source                                                                                         |
-| ------------------------ | ---------------------------------------------------------------------------------------------- |
-| Satellite layers         | [NASA EOSDIS GIBS](https://www.earthdata.nasa.gov/gibs) (WMTS tiles, WMS, colormaps, time domains) |
-| Climate                  | [NASA POWER](https://power.larc.nasa.gov/) monthly and climatology point API                     |
-| Place search, boundaries | [OpenStreetMap](https://www.openstreetmap.org/copyright) via [Photon](https://photon.komoot.io/) and [Nominatim](https://nominatim.org/) |
-| Country outlines         | [Natural Earth](https://www.naturalearthdata.com/) 1:50m borders and coastlines (bundled in `public/data`, rebuilt with `npm run data:borders`) |
-| Globe textures           | Day and clouds: three.js examples. Night lights: NASA GIBS VIIRS Black Marble, rebuilt with `npm run data:earth`. All bundled in `public/textures` |
-| Time zone cities         | [IANA tz database](https://www.iana.org/time-zones) (public domain), used to mark the visitor's part of the world on the landing globe from their browser's time zone (nothing is asked or sent). Rebuilt with `npm run data:timezones` |
-
-Nominatim is limited to one request per second; the app queues its calls accordingly. Near-real-time GIBS layers can be incomplete for the most recent day, and the newest months of MERRA-2 and of POWER's sunshine data appear with a delay. The app shows the latest available date in each case.
+| Data | Source |
+| --- | --- |
+| Monthly maps, land cover, colour scales, time domains | [NASA EOSDIS GIBS](https://www.earthdata.nasa.gov/gibs): MODIS, MERRA-2, AIRS |
+| Climate at points | [NASA POWER](https://power.larc.nasa.gov/) monthly and climatology API |
+| Place search, boundaries | [OpenStreetMap](https://www.openstreetmap.org/copyright) via [Photon](https://photon.komoot.io/) and [Nominatim](https://nominatim.org/) (queued to one request a second) |
+| Country outlines | [Natural Earth](https://www.naturalearthdata.com/) 1:50m (bundled in `public/data`) |
+| Globe textures | three.js examples (day, clouds); NASA GIBS VIIRS Black Marble (night lights) |
 
 ## Project structure
 
 ```
 src/
-├── App.tsx                  # Routes (lazy-loaded pages), providers, error boundary
+├── pages/            # Landing, Trends, Analysis, Explore, Split, Sync, 404
 ├── components/
-│   ├── analysis/            # Location picker, period and dataset controls, charts, report panels
-│   ├── map/                 # Base map, GIBS tile layers, drawing, legends, date control, swipe clip…
-│   ├── search/              # Inline place search and the Ctrl/⌘+K palette
-│   ├── CinematicEarth.tsx   # Three.js globe on the landing page (real day and night)
-│   ├── landing/             # Day and night control and the sun-position helpers
-│   ├── Layout.tsx, Navbar.tsx, ErrorBoundary.tsx, RequireAuth.tsx
-│   └── ui/                  # shadcn/ui primitives
-├── context/
-│   ├── AuthContext.tsx      # Accounts (demo mode without a backend)
-│   └── WorkspaceContext.tsx # Saved areas and last map view (kept on this device)
-├── hooks/                   # Place search/selection, layer dates, analysis target and run
+│   ├── trends/       # Question box, form, area picker, land cover card, tabs, filters, whole-area and hotspot cards
+│   ├── analysis/     # Location picker, period/months/dataset controls, charts, trend cards, report panels
+│   ├── demo/         # The guided demo player
+│   ├── common/       # Month picker, glossary
+│   ├── map/          # Base map, GIBS layers, drawing, legends
+│   └── search/       # Navbar search and the Ctrl/⌘K palette
 ├── lib/
-│   ├── gibs/                # Layer catalog, time domains, colormap decoding, area sampling
-│   ├── geo/                 # Geometry (areas, centroids, circles) and geocoding
-│   ├── analysis/            # Analysis engine, NASA POWER client, statistics, insights, CSV export
-│   ├── async.ts             # Request de-duplication, cancellation and concurrency limits
-│   └── analysisClient.ts    # Optional AI briefing endpoint
-└── pages/                   # Landing, Explore, Split (SplitView), Sync (SyncView), Analysis, Login (off for now), 404
+│   ├── query/        # Question reader, measures, unmeasurable concepts, period planning
+│   ├── trends/       # Monthly grids, land/sea masks, per-pixel trends, hotspots, scans, land cover, URL state
+│   ├── analysis/     # Analysis engine, statistics (Mann–Kendall, Sen, Welch), trend tests, insights, CSV
+│   ├── gibs/         # Layer catalog, time domains, colour-scale decoding, area sampling
+│   ├── geo/          # Geometry, geocoding, country outlines, link-safe outlines
+│   ├── demo/         # Demo scripts
+│   └── glossary.ts   # Plain definitions of measures and statistics words
+└── hooks/            # Trend scans, land cover, analysis runs, frames
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together.
 
-## Deploying to Netlify
-
-`netlify.toml` builds with `npm run build`, publishes `dist/` and redirects every route to `index.html` so deep links such as `/analysis?osm=R13070474` work.
-
-- **From Git:** import the repository at [app.netlify.com/start](https://app.netlify.com/start). Optionally set the environment variables above under *Site settings → Environment variables*.
-- **Drag and drop:** run `npm run build` and drop the `dist/` folder on [app.netlify.com/drop](https://app.netlify.com/drop).
-- **CLI:** `netlify deploy --prod --dir dist`.
-
 ## Tests
 
 ```sh
-npm test
+npm run typecheck && npm run lint && npm test
 ```
 
-Vitest covers colormap decoding, time-domain resolution, area rasterization and statistics, geocoding and coordinate parsing, geometry, the NASA POWER parser, the insight rules (including the real Bukhara fixture), the async helpers, and the Login and Analysis pages.
+The Vitest suite covers:
+- the question reader (a golden table of about 60 questions)
+- sentence ⇄ choices round trips
+- URL state
+- statistics against textbook values (Mann–Kendall, Sen's slope and its range, Welch's t-test)
+- yearly aggregation and period comparison
+- per-pixel trends, hotspot clustering and whole-area summaries on synthetic grids
+- land/sea/air masks and the top-of-scale note
+- colour-scale decoding and unit conversions
+- land cover grouping and suggestions
+- the scan hook
+- the Analysis page (trend cards, compare mode, picked months, big-request gate)
+- the demo player
+- plain-language checks on every definition
+
+## Deploying
+
+`netlify.toml` builds with `npm run build`, publishes `dist/` and sends every route to `index.html`, so deep links like `/trends?q=…` work. You can import the repository at [app.netlify.com/start](https://app.netlify.com/start), or run `netlify deploy --prod --dir dist`.

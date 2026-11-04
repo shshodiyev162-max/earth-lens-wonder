@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { demoAttr } from "@/lib/demo/scripts";
 import type { Direction, Indicator } from "@/lib/query/indicators";
 import type { ResultFilter } from "@/lib/trends/query";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,7 @@ export default function ResultFilters({ indicator, filter, tested, onChange }: R
     ["any", "Both"],
   ];
   return (
-    <div className="space-y-3 rounded-xl border border-panel-line bg-panel-tint p-3">
+    <div {...demoAttr("filters")} className="space-y-3 rounded-xl border border-panel-line bg-panel-tint p-3">
       <div className="flex rounded-lg bg-panel-tint-strong p-0.5 text-xs" role="radiogroup" aria-label="Show">
         {options.map(([value, label]) => (
           <button

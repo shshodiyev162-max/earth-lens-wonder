@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
+import { demoAttr } from "@/lib/demo/scripts";
 import { Check, Loader2, Sparkles } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
 import { MEASURE_DEFINITIONS } from "@/lib/glossary";
@@ -262,14 +263,14 @@ interface TrendFormProps {
 export default function TrendForm({ query, where, years, onEdit, onRun, dirty, current, busy, estimate }: TrendFormProps) {
   const ready = query.indicators.length > 0;
   return (
-    <div className="space-y-4">
+    <div {...demoAttr("form")} className="space-y-4">
       <Field label="What to measure">
         <MeasurePicker query={query} onEdit={onEdit} />
       </Field>
       {where}
       <PeriodField time={query.time} first={years.first} last={years.last} onEdit={onEdit} />
       <MonthsField query={query} onEdit={onEdit} />
-      <div className="space-y-1.5">
+      <div {...demoAttr("find")} className="space-y-1.5">
         <button
           type="button"
           onClick={onRun}

@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { demoAttr, demoById } from "@/lib/demo/scripts";
+import DemoPlayer, { type DemoControls } from "@/components/demo/DemoPlayer";
 import { useSearchParams } from "react-router-dom";
 import { GeoJSON, Pane, useMapEvents } from "react-leaflet";
 import type { Feature } from "geojson";
-import { AlertTriangle, Info, ListChecks, Loader2, MessageSquareText, RefreshCw, ScanSearch, X } from "lucide-react";
+import { AlertTriangle, Info, ListChecks, Loader2, MessageSquareText, PlayCircle, RefreshCw, ScanSearch, X } from "lucide-react";
 import AreasLayer from "@/components/map/AreasLayer";
 import BaseMap from "@/components/map/BaseMap";
 import DrawTools, { type DrawMode, type PickedCountry } from "@/components/map/DrawTools";
@@ -158,6 +160,8 @@ export default function Trends() {
   const [mapBounds, setMapBounds] = useState<BBox | null>(null);
   const [scanView, setScanView] = useState<BBox | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
+  /** A worked example being played ("choose" shows the list). Started with ?demo=… or the Demo button. */
+  const [demo, setDemo] = useState<string | null>(() => params.get("demo"));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"change" | "frames">("change");
   const [frameMode, setFrameMode] = useState<FrameMode>("yearly");
@@ -383,7 +387,7 @@ export default function Trends() {
 
   const results =
     applied && active && indicator && filter ? (
-      <div id={panelId} role={scanned.length > 1 ? "tabpanel" : undefined} aria-labelledby={scanned.length > 1 ? `measure-tab-${active}` : undefined} className="space-y-4">
+      <div {...demoAttr("results")} id={panelId} role={scanned.length > 1 ? "tabpanel" : undefined} aria-labelledby={scanned.length > 1 ? `measure-tab-${active}` : undefined} className="space-y-4">
         <p className="text-[11px] leading-relaxed text-panel-muted">
           <span className="font-semibold text-panel-soft">{indicator.label}:</span> {MEASURE_DEFINITIONS[active]}
         </p>
@@ -459,7 +463,9 @@ export default function Trends() {
             )}
             <h2 className="text-sm font-semibold leading-snug text-panel-foreground">{resultsHeading(hotspots.length, active, filter.direction, area, plan)}</h2>
             {hotspots.length > 0 ? (
-              <HotspotList hotspots={hotspots} labels={scan.labels} indicator={indicator} plan={plan} selectedId={selectedId} onSelect={select} />
+              <div {...demoAttr("hotspots")}>
+                <HotspotList hotspots={hotspots} labels={scan.labels} indicator={indicator} plan={plan} selectedId={selectedId} onSelect={select} />
+              </div>
             ) : (
               <p className="rounded-xl border border-panel-line bg-panel-tint p-3 text-xs leading-relaxed text-panel-soft">
                 No area changed by at least {minChange} {indicator.unit} {filter.direction === "any" ? "either way" : "in this direction"}
@@ -505,12 +511,25 @@ export default function Trends() {
   const sidebar = (
     <>
       <SidebarSection>
-        <ModeSwitch mode={panelMode} onChange={setPanelMode} />
+        <div className="flex items-start gap-2">
+          <div {...demoAttr("mode")} className="min-w-0 flex-1">
+            <ModeSwitch mode={panelMode} onChange={setPanelMode} />
+          </div>
+          <button
+            type="button"
+            onClick={() => setDemo("choose")}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-panel-line bg-panel-tint px-2.5 py-2 text-xs font-medium text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11"
+          >
+            <PlayCircle className="h-3.5 w-3.5 text-accent-cyan" aria-hidden /> Demo
+          </button>
+        </div>
       </SidebarSection>
 
       {panelMode === "ask" ? (
         <SidebarSection>
-          <TrendQueryBox value={draft?.text ?? ""} onSubmit={submit} showExamples={!draft} />
+          <div {...demoAttr("question")}>
+            <TrendQueryBox value={draft?.text ?? ""} onSubmit={submit} showExamples={!draft} />
+          </div>
         </SidebarSection>
       ) : (
         <p className="mb-4 text-xs leading-relaxed text-panel-muted">
@@ -551,7 +570,9 @@ export default function Trends() {
             query={draft}
             where={
               <div className="space-y-3">
-                <AreaPicker query={draft} foundName={area?.name ?? null} savedAreas={workspace.areas} drawMode={drawMode} onDraw={startDrawing} onEdit={edit} />
+                <div {...demoAttr("where")}>
+                  <AreaPicker query={draft} foundName={area?.name ?? null} savedAreas={workspace.areas} drawMode={drawMode} onDraw={startDrawing} onEdit={edit} />
+                </div>
                 {coverName && (
                   <AreaCoverCard
                     name={coverName}
@@ -588,7 +609,7 @@ export default function Trends() {
         <SidebarSection title="Results">
           {dirty && <p className="mb-2 text-[11px] text-panel-muted">Showing results for: “{applied.text}”.</p>}
           {scanned.length > 1 && (
-            <div className="mb-3">
+            <div {...demoAttr("tabs")} className="mb-3">
               <MeasureTabs indicators={scanned} measures={scan.measures} counts={counts} active={active} onChange={setTab} panelId={panelId} />
             </div>
           )}
@@ -685,37 +706,78 @@ export default function Trends() {
 
   const viewMoved = Boolean(applied && !applied.place && !applied.area && mapBounds && scanView && mapBounds.some((v, i) => Math.abs(v - scanView[i]) > 0.01));
 
-  return (
-    <MapPageShell
-      title="Trend detective"
-      description="Ask where Earth is changing. TerraScope reads NASA's monthly maps, tests every pixel for a real trend and ranks the places that changed most."
-      sidebar={sidebar}
-      topRight={
-        viewMoved ? (
-          <button type="button" onClick={() => setScanView(mapBounds)} className="flex items-center gap-2 rounded-lg border border-panel-line bg-panel/90 px-3 py-2 text-xs font-medium text-panel-foreground shadow-xl backdrop-blur hover:border-cyan-400/50">
-            <ScanSearch className="h-3.5 w-3.5 text-accent-cyan" /> Scan this view
-          </button>
-        ) : indicator && plan ? (
-          <div role="status" className="rounded-lg border border-panel-line bg-panel/85 px-3 py-2 text-[11px] text-panel-muted backdrop-blur">
-            NASA {indicator.product.split(" (")[0].split(",")[0]} · {plan.kind === "comparison" ? `${plan.baseline[0]} vs ${plan.recent[0]}` : `${plan.startYear}–${plan.endYear}`}
-          </div>
-        ) : null
+  // What the demo player can do on this page; rebuilt every render so it sees the latest state.
+  const demoControls: DemoControls = {
+    act: (action) => {
+      switch (action.kind) {
+        case "ask":
+          submit(action.text);
+          break;
+        case "mode":
+          setPanelMode(action.mode);
+          break;
+        case "edit":
+          edit(action.edit);
+          break;
+        case "run":
+          if (draft) runSearch(draft);
+          break;
+        case "filter":
+          if (filter) setFilter({ ...filter, direction: action.direction });
+          break;
+        case "select-hotspot": {
+          const hotspot = hotspots[action.rank - 1];
+          if (hotspot) select(hotspot.id);
+          break;
+        }
+        case "close-hotspot":
+          setSelectedId(null);
+          break;
       }
-      overlay={overlay}
-      panelOpen={panelOpen}
-      onPanelOpenChange={setPanelOpen}
-    >
-      <BaseMap initialView={initialView} onViewChange={workspace.setView}>
-        <GibsTileLayer layer={base} date={null} />
-        {result && <GridImageLayer grid={result.grid} rgba={viewMode === "frames" ? frameRgba : changeRgba} opacity={viewMode === "frames" ? 0.95 : 1} />}
-        <ReferenceOverlays />
-        {(panelMode === "pick" || drawMode || !result) && <AreasLayer areas={workspace.areas} activeId={null} onSelect={pickSavedArea} interactive={!drawMode} />}
-        {chosenGeometry && (dirty || !result) && <ChosenAreaLayer geometry={chosenGeometry} />}
-        {result && <HotspotLayer hotspots={hotspots} selectedId={selectedId} onSelect={select} area={area?.kind === "view" ? null : (area?.geometry ?? null)} />}
-        <DrawTools mode={drawMode} onComplete={onAreaComplete} onCancel={() => startDrawing(null)} finishSignal={finishSignal} undoSignal={undoSignal} onVertexCount={setVertexCount} />
-        <BoundsTracker onChange={setMapBounds} />
-        <FlyTo target={flyTarget} maxZoom={10} />
-      </BaseMap>
-    </MapPageShell>
+    },
+    ready: (wait) => (wait === "scan-done" ? scan.status === "done" || scan.status === "error" : landCover.status === "done" || landCover.status === "error"),
+    setPanel: (open) => {
+      if (window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(open);
+      else setPanelOpen(true);
+    },
+  };
+  const demoRef = useRef(demoControls);
+  demoRef.current = demoControls;
+
+  return (
+    <>
+      <MapPageShell
+        title="Trend detective"
+        description="Ask where Earth is changing. TerraScope reads NASA's monthly maps, tests every pixel for a real trend and ranks the places that changed most."
+        sidebar={sidebar}
+        topRight={
+          viewMoved ? (
+            <button type="button" onClick={() => setScanView(mapBounds)} className="flex items-center gap-2 rounded-lg border border-panel-line bg-panel/90 px-3 py-2 text-xs font-medium text-panel-foreground shadow-xl backdrop-blur hover:border-cyan-400/50">
+              <ScanSearch className="h-3.5 w-3.5 text-accent-cyan" /> Scan this view
+            </button>
+          ) : indicator && plan ? (
+            <div role="status" className="rounded-lg border border-panel-line bg-panel/85 px-3 py-2 text-[11px] text-panel-muted backdrop-blur">
+              NASA {indicator.product.split(" (")[0].split(",")[0]} · {plan.kind === "comparison" ? `${plan.baseline[0]} vs ${plan.recent[0]}` : `${plan.startYear}–${plan.endYear}`}
+            </div>
+          ) : null
+        }
+        overlay={overlay}
+        panelOpen={panelOpen}
+        onPanelOpenChange={setPanelOpen}
+      >
+        <BaseMap initialView={initialView} onViewChange={workspace.setView}>
+          <GibsTileLayer layer={base} date={null} />
+          {result && <GridImageLayer grid={result.grid} rgba={viewMode === "frames" ? frameRgba : changeRgba} opacity={viewMode === "frames" ? 0.95 : 1} />}
+          <ReferenceOverlays />
+          {(panelMode === "pick" || drawMode || !result) && <AreasLayer areas={workspace.areas} activeId={null} onSelect={pickSavedArea} interactive={!drawMode} />}
+          {chosenGeometry && (dirty || !result) && <ChosenAreaLayer geometry={chosenGeometry} />}
+          {result && <HotspotLayer hotspots={hotspots} selectedId={selectedId} onSelect={select} area={area?.kind === "view" ? null : (area?.geometry ?? null)} />}
+          <DrawTools mode={drawMode} onComplete={onAreaComplete} onCancel={() => startDrawing(null)} finishSignal={finishSignal} undoSignal={undoSignal} onVertexCount={setVertexCount} />
+          <BoundsTracker onChange={setMapBounds} />
+          <FlyTo target={flyTarget} maxZoom={10} />
+        </BaseMap>
+      </MapPageShell>
+      {demo && <DemoPlayer script={demoById(demo)} controls={() => demoRef.current} onChoose={setDemo} onClose={() => setDemo(null)} />}
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, useState, type ComponentType } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Globe, Map, Columns, GitCompare, BarChart3, PenTool, Search, ArrowRight, Satellite, ScanSearch, CalendarClock, Database } from "lucide-react";
+import { Globe, Map, Columns, BarChart3, PenTool, Search, ArrowRight, Satellite, ScanSearch, Database, LineChart, PlayCircle, Sigma } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { openGlobalSearch } from "@/components/search/openSearch";
 import DayNightControl from "@/components/landing/DayNightControl";
@@ -22,6 +22,14 @@ interface Feature {
 
 const features: Feature[] = [
   {
+    icon: LineChart,
+    title: "Trend Detective",
+    description:
+      "Ask where Earth is changing. Thirteen NASA measures — land, air, sea and the ozone layer — with every pixel tested for a real trend and the hotspots ranked.",
+    to: "/trends",
+    color: "text-glow-blue",
+  },
+  {
     icon: Map,
     title: "Explore NASA Layers",
     description: "Browse daily satellite imagery, vegetation, land heat, aerosols, rain, snow and night lights — for any date NASA has published, back to 2000.",
@@ -30,22 +38,15 @@ const features: Feature[] = [
   },
   {
     icon: Columns,
-    title: "Swipe Compare",
-    description: "Compare two layers or two dates on one map with an interactive slider divider.",
+    title: "Compare Then and Now",
+    description: "Swipe between two dates on one map, or see them side by side in maps that move together.",
     to: "/split",
     color: "text-earth-blue",
   },
   {
-    icon: GitCompare,
-    title: "Side-by-Side View",
-    description: "View the same location with different layers in synchronized maps that move together.",
-    to: "/sync",
-    color: "text-earth-green",
-  },
-  {
     icon: BarChart3,
     title: "Area Analysis",
-    description: "Pick any place and get measured vegetation, heat, rainfall, soil moisture and dust trends from NASA data, with plain-language findings.",
+    description: "Pick any place and test every measure for a trend year by year — with the rate, its 95% range, and a t-test to compare two periods.",
     to: "/analysis",
     color: "text-earth-orange",
   },
@@ -68,25 +69,25 @@ const features: Feature[] = [
 const steps = [
   {
     icon: ScanSearch,
-    title: "1. Pick a place",
-    description: "Search a city, region or country, click the map, or draw your own field or district.",
+    title: "1. Ask, or choose",
+    description: "Ask in plain words, or pick the measure, the place, the years and the months yourself — draw an area or click a country.",
   },
   {
     icon: Satellite,
-    title: "2. Read NASA's pixels",
-    description: "Monthly MODIS and MERRA-2 imagery is decoded inside your outline using NASA's own color scales.",
+    title: "2. Read NASA's maps",
+    description: "One NASA map per month (MODIS, MERRA-2, AIRS) is turned back into numbers pixel by pixel, using NASA's own colour scales.",
   },
   {
-    icon: CalendarClock,
-    title: "3. See what changed",
-    description: "Trends, differences from the 2001–2020 normal and clear findings — download everything as CSV.",
+    icon: Sigma,
+    title: "3. Test for a trend",
+    description: "Mann–Kendall tests and Sen's slope with its 95% range say whether a change is real — and honestly say so when it isn't.",
   },
 ];
 
 const sources = [
   { name: "NASA GIBS", detail: "MODIS & VIIRS imagery, vegetation, heat, aerosols, snow, oceans" },
   { name: "NASA POWER", detail: "Monthly temperature, rainfall, sunshine and soil moisture, with 2001–2020 normals" },
-  { name: "MERRA-2", detail: "NASA reanalysis of aerosols and dust" },
+  { name: "MERRA-2 & AIRS", detail: "NASA reanalysis and satellite data: air temperature, rain, soil, evaporation, dust, SO₂, CO and the ozone layer" },
   { name: "OpenStreetMap", detail: "Place search and boundaries" },
 ];
 
@@ -211,6 +212,13 @@ export default function Landing() {
               >
                 <BarChart3 className="w-5 h-5 text-earth-orange" />
                 Analyze a place
+              </Link>
+              <Link
+                to="/trends?demo=choose"
+                className="pointer-events-auto inline-flex items-center gap-2 px-6 py-4 rounded-xl font-display font-semibold glass text-foreground hover:bg-card/80 transition-colors"
+              >
+                <PlayCircle className="w-5 h-5 text-glow-blue" />
+                Watch a demo
               </Link>
             </div>
 

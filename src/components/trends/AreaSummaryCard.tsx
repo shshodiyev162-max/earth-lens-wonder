@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { demoAttr } from "@/lib/demo/scripts";
 import { BarChart3, Columns2, History, Maximize2 } from "lucide-react";
 import { explainVerdict, formatP, signed } from "@/lib/analysis/stats";
 import { formatArea } from "@/lib/geo/geometry";
@@ -54,7 +55,7 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
   const groundWord = ground.toLowerCase();
 
   return (
-    <section aria-label={`The whole area: ${name}`} className="rounded-2xl border border-cyan-400/30 bg-panel-tint p-4">
+    <section {...demoAttr("whole-area")} aria-label={`The whole area: ${name}`} className="rounded-2xl border border-cyan-400/30 bg-panel-tint p-4">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-cyan">The whole area</p>
       <h2 translate="no" className="text-base font-semibold leading-snug text-panel-foreground">
         {name}
@@ -143,7 +144,7 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
         label={`${indicator.subject} across ${name}, year by year${verdict ? ", with the trend line and its 95% range" : ""}`}
       />
       {hint && onTryAllYears && (
-        <div className="mt-3 space-y-2 rounded-lg border border-panel-line bg-panel p-3">
+        <div {...demoAttr("hint")} className="mt-3 space-y-2 rounded-lg border border-panel-line bg-panel p-3">
           <p className="text-[11px] leading-relaxed text-panel-soft">{hint.text}</p>
           <button
             type="button"

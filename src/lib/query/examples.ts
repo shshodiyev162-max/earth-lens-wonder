@@ -6,4 +6,6 @@ export const EXAMPLE_QUERIES = [
   "dust increase near the Aral Sea",
   "snow cover loss in the Pamirs",
   "areas that experienced a decline in vegetation health",
+  "is the Mediterranean sea temperature rising since 2003",
+  "ozone layer recovery over Antarctica since 2005",
 ];
