@@ -4,7 +4,7 @@ import { sanitizeInterpretation } from "../ai";
 describe("sanitizeInterpretation", () => {
   it("keeps a well-formed answer", () => {
     expect(sanitizeInterpretation({ indicator: "heat", direction: "increase", place: "Cairo", time: { kind: "since", start: 2010 } })).toEqual({
-      indicator: "heat",
+      indicators: ["heat"],
       direction: "increase",
       place: "Cairo",
       time: { kind: "since", start: 2010 },
@@ -15,11 +15,12 @@ describe("sanitizeInterpretation", () => {
     expect(sanitizeInterpretation({ indicator: "ozone" })).toBeNull();
     expect(sanitizeInterpretation("text")).toBeNull();
     expect(sanitizeInterpretation({ indicator: "dust", direction: "sideways", place: 42, time: { kind: "since", start: 1200 } })).toEqual({
-      indicator: "dust",
+      indicators: ["dust"],
       direction: "any",
       place: null,
       time: { kind: "default" },
     });
+    expect(sanitizeInterpretation({ indicators: ["snow", "vegetation", "ozone"] })?.indicators).toEqual(["vegetation", "snow"]);
     expect(sanitizeInterpretation({ indicator: "snow", time: { kind: "range", start: 2020, end: 2012 } })?.time).toEqual({ kind: "range", start: 2012, end: 2020 });
   });
 });

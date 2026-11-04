@@ -3,11 +3,12 @@
 // Without the endpoint the rule-based parser is all there is — and it handles the common phrasings.
 
 import { AI_ENDPOINT } from "../analysisClient";
-import { INDICATORS, type Direction, type IndicatorId } from "./indicators";
+import { INDICATOR_ORDER, INDICATORS, type Direction, type IndicatorId } from "./indicators";
 import type { TimeSpec } from "./parse";
 
 export interface AiInterpretation {
-  indicator: IndicatorId;
+  /** One or more measures, in the order of INDICATOR_ORDER. */
+  indicators: IndicatorId[];
   direction: Direction;
   place: string | null;
   time: TimeSpec;
@@ -19,8 +20,11 @@ const YEAR = (value: unknown) => (typeof value === "number" && Number.isInteger(
 export function sanitizeInterpretation(json: unknown): AiInterpretation | null {
   if (!json || typeof json !== "object") return null;
   const data = json as Record<string, unknown>;
-  const indicator = typeof data.indicator === "string" && data.indicator in INDICATORS ? (data.indicator as IndicatorId) : null;
-  if (!indicator) return null;
+  // "indicators": [...] (several measures), or the older single "indicator".
+  const asked = Array.isArray(data.indicators) ? data.indicators : [data.indicator];
+  const wanted = new Set(asked.filter((id): id is IndicatorId => typeof id === "string" && id in INDICATORS));
+  const indicators = INDICATOR_ORDER.filter((id) => wanted.has(id));
+  if (!indicators.length) return null;
   const direction: Direction = data.direction === "decline" || data.direction === "increase" ? data.direction : "any";
   const place = typeof data.place === "string" && data.place.trim() && data.place.length <= 80 ? data.place.trim() : null;
   let time: TimeSpec = { kind: "default" };
@@ -33,7 +37,7 @@ export function sanitizeInterpretation(json: unknown): AiInterpretation | null {
     else if (t.kind === "range" && start && end) time = { kind: "range", start: Math.min(start, end), end: Math.max(start, end) };
     else if (t.kind === "last" && years) time = { kind: "last", years };
   }
-  return { indicator, direction, place, time };
+  return { indicators, direction, place, time };
 }
 
 export function isQueryAiConfigured(): boolean {
@@ -51,7 +55,7 @@ export async function interpretWithAi(text: string, signal?: AbortSignal): Promi
       task: "interpret-trend-question",
       text,
       instructions:
-        'Return JSON {"indicator": one of "vegetation","heat","rainfall","soil","dust","snow"; "direction": "decline"|"increase"|"any"; "place": string or null; "time": {"kind":"since","start":year} | {"kind":"range","start":year,"end":year} | {"kind":"last","years":n} | {"kind":"default"}}. Do not add any other text.',
+        'Return JSON {"indicators": a list of one or more of "vegetation","heat","rainfall","soil","dust","snow"; "direction": "decline"|"increase"|"any"; "place": string or null; "time": {"kind":"since","start":year} | {"kind":"range","start":year,"end":year} | {"kind":"last","years":n} | {"kind":"default"}}. Do not add any other text.',
     }),
   });
   if (!response.ok) return null;

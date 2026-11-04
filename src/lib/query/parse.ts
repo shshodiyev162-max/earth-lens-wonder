@@ -1,10 +1,12 @@
 // A rule-based reader for trend questions such as
 //   "where did vegetation decline in Uzbekistan since 2015"
+//   "vegetation and rainfall decline in Uzbekistan since 2015"
 //   "summer 2023 vs summer 2013 heat in Tashkent"
-// It pulls out the indicator, the direction of change, the place and the time, and leaves
-// anything it can't place in `place` (to be geocoded) — no AI service is needed.
+// Each part of the text is claimed once, in this order: time → things TerraVision can't measure
+// → measures → directions → place, so a word is never read twice. No AI service is needed.
 
-import type { Direction, IndicatorId, SeasonId } from "./indicators";
+import { CONCEPTS, type ConceptId } from "./concepts";
+import { INDICATOR_ORDER, type Direction, type IndicatorId, type SeasonId } from "./indicators";
 
 export type TimeSpec =
   | { kind: "default" }
@@ -14,11 +16,30 @@ export type TimeSpec =
   | { kind: "year"; year: number }
   | { kind: "versus"; baseline: number; recent: number };
 
+export interface ReaderNote {
+  id: ConceptId;
+  kind: "unmeasured" | "approximate";
+  /** The words that raised the note, as typed. */
+  phrase: string;
+  message: string;
+  /** The closest real measures to offer. */
+  closest: IndicatorId[];
+  direction: Direction;
+}
+
 export interface ParsedQuery {
   text: string;
-  /** True when the text asks about an environmental indicator (not just a place). */
+  /** True when the text asks about change (a measure, "what changed", or something we can't measure). */
   isTrendQuery: boolean;
+  /** Every measure mentioned, in the order written (all six for "what changed…"). */
+  indicators: IndicatorId[];
+  /** "What changed", "everything": no measure named, so all of them. */
+  everything: boolean;
+  /** The direction asked for each measure. */
+  directions: Partial<Record<IndicatorId, Direction>>;
+  /** The first measure (or null). */
   indicator: IndicatorId | null;
+  /** The shared direction, or the first measure's when they differ. */
   direction: Direction;
   place: string | null;
   /** "near the Aral Sea": widen the area around the place. */
@@ -27,6 +48,8 @@ export interface ParsedQuery {
   season: Exclude<SeasonId, "custom"> | null;
   /** Explicit months ("July 2023 vs July 2013"), 1–12. */
   months: number[] | null;
+  /** Things that can't be measured directly, with the closest measures. */
+  notes: ReaderNote[];
 }
 
 const YEAR = String.raw`((?:19|20)\d{2})`;
@@ -54,32 +77,58 @@ const NUMBER_WORDS: Record<string, number> = {
   couple: 2,
 };
 
-// Indicator words, most specific first (that order also breaks ties).
-const INDICATOR_PATTERNS: [IndicatorId, RegExp][] = [
-  ["soil", /\bsoils?(?:\s+(?:moisture|water|wetness))?\b|\bmoisture\b/],
-  ["snow", /\bsnow(?:\s?cover|pack|fall|line)?\b|\bglaciers?\b|\bice\s+cover\b/],
-  ["vegetation", /\bvegetation\b|\bndvi\b|\bevi\b|\bgreen(?:ness|er|ing)\b|\bplants?\b|\bcrops?\b|\bcropland\b|\bfarm(?:land|s)?\b|\bforests?\b|\bdeforestation\b|\bdesertification\b|\bbrowning\b|\bpastures?\b|\bgrass(?:land)?s?\b/],
-  ["dust", /\bdust(?:y|ier|storms?)?\b|\baerosols?\b|\bhaz(?:e|y|ier)\b|\baod\b|\bsand\s?storms?\b|\bair\s+(?:quality|pollution)\b|\bparticulates?\b/],
-  ["heat", /\bhot(?:ter|test)?\b|\bheat(?:\s?waves?|ing)?\b|\bwarm(?:er|ing|est|th)?\b|\btemperatures?\b|\blst\b|\bcool(?:er|ing)\b/],
-  ["rainfall", /\brain(?:fall|s|y|ier)?\b|\bprecipitation\b|\bdroughts?\b|\bdr(?:y|ier|ying|ied)\b|\bwetter\b|\bmonsoon\b|\barid(?:ity)?\b/],
+/**
+ * Words for each measure. "Strong" words name the measure; "weak" words describe weather
+ * ("hotter", "drought") and only count when no measure is named, or when they're listed with one
+ * ("heat and drought"), so "vegetation decline during the drought" stays about vegetation.
+ */
+const MEASURES: { id: IndicatorId; strong: RegExp; weak?: RegExp }[] = [
+  { id: "soil", strong: /\bsoils?(?:\s+(?:moisture|water|wetness))?\b|\bmoisture\b/ },
+  { id: "snow", strong: /\bsnow(?:\s?cover|pack|fall|line|y)?\b/ },
+  {
+    id: "vegetation",
+    strong:
+      /\bvegetation\b|\bndvi\b|\bevi\b|\bgreen(?:ness|er|ing)\b|\bplants?\b|\bcrops?\b|\bcropland\b|\bfarm(?:land|s)?\b|\bforests?\b|\bdeforestation\b|\bdesertification\b|\bbrowning\b|\bpastures?\b|\bgrass(?:land)?s?\b|\brain\s?forests?\b|\bjungles?\b|\bwoodlands?\b|\btrees?\b|\bland\s+(?:is\s+)?degrad\w*|\bland\s+degradation\b|\bdegraded\s+land\b/,
+  },
+  { id: "dust", strong: /\bdust(?:y|ier|storms?)?\b|\baerosols?\b|\bhaz(?:e|y|ier)\b|\baod\b|\bsand\s?storms?\b|\bparticulates?\b/ },
+  { id: "heat", strong: /\bheat(?:\s?waves?|ing)?\b|\btemperatures?\b|\blst\b/, weak: /\bhot(?:ter|test)?\b|\bwarm(?:er|ing|est|th)?\b|\bcool(?:er|ing)\b/ },
+  { id: "rainfall", strong: /\brain(?:fall|s|y|ier)?\b|\bprecipitation\b|\bmonsoon\b/, weak: /\bdroughts?\b|\bdr(?:y|ier|ying|ied)\b|\barid(?:ity)?\b|\bwetter\b/ },
 ];
 
-// Words that imply a direction for one indicator ("hotter" is an increase in heat).
-const IMPLIED: { indicator: IndicatorId | "any"; direction: Exclude<Direction, "any">; pattern: RegExp }[] = [
-  { indicator: "rainfall", direction: "decline", pattern: /\bdroughts?\b|\bdr(?:y|ier|ying|ied)\b|\barid(?:ity)?\b/ },
+// A direction carried by the measure's own word ("hotter" is a rise in heat).
+const OWN_DIRECTION: { indicator: IndicatorId; direction: Exclude<Direction, "any">; pattern: RegExp }[] = [
+  { indicator: "heat", direction: "increase", pattern: /hotter|hottest|warm(?:er|ing)|heat\s?waves?|heating/ },
+  { indicator: "heat", direction: "decline", pattern: /cool(?:er|ing)/ },
+  { indicator: "rainfall", direction: "decline", pattern: /drought|dr(?:y|ier|ying|ied)|arid/ },
+  { indicator: "rainfall", direction: "increase", pattern: /wetter|rainier/ },
+  { indicator: "vegetation", direction: "increase", pattern: /greening|greener/ },
+  { indicator: "vegetation", direction: "decline", pattern: /browning|deforestation|desertification|degrad/ },
+  { indicator: "dust", direction: "increase", pattern: /dustier|hazier|sand\s?storms?/ },
+];
+
+// A direction implied by other words in the same part of the sentence ("drying soils").
+const CLAUSE_DIRECTION: { indicator: IndicatorId; direction: Exclude<Direction, "any">; pattern: RegExp }[] = [
   { indicator: "soil", direction: "decline", pattern: /\bdr(?:y|ier|ying|ied)\b|\bdroughts?\b/ },
-  { indicator: "vegetation", direction: "decline", pattern: /\bbrowning\b|\bdeforestation\b|\bdesertification\b|\bdie-?off\b|\bdroughts?\b/ },
-  { indicator: "vegetation", direction: "increase", pattern: /\bgreening\b|\bgreener\b/ },
-  { indicator: "heat", direction: "increase", pattern: /\bhotter\b|\bhottest\b|\bwarm(?:er|ing)\b|\bheat\s?waves?\b|\bheating\b/ },
-  { indicator: "heat", direction: "decline", pattern: /\bcool(?:er|ing)\b/ },
-  { indicator: "rainfall", direction: "increase", pattern: /\bwetter\b|\brainier\b|\bflood(?:s|ing)?\b/ },
+  { indicator: "vegetation", direction: "decline", pattern: /\bdroughts?\b|\bdie-?(?:off|back)\b/ },
   { indicator: "snow", direction: "decline", pattern: /\bmelt(?:s|ing|ed)?\b|\bretreat(?:s|ing|ed)?\b/ },
-  { indicator: "dust", direction: "increase", pattern: /\bdustier\b|\bhazier\b|\bsand\s?storms?\b/ },
 ];
 
-const DECLINE = /\b(?:declin\w*|decreas\w*|loss(?:es)?|lost|losing|lose|less|fewer|drop\w*|fell|falling|fallen|falls|shrink\w*|shrank|degrad\w*|retreat\w*|melt\w*|reduc\w*|lower\w*|weaken\w*|worsen\w*|die-?off|dying|thinn\w*|disappear\w*|vanish\w*|deplet\w*)\b/;
-const INCREASE = /\b(?:increas\w*|gain\w*|more|ris(?:e|es|ing|en)|rose|grow(?:s|ing|n|th)?|higher|expand\w*|spread\w*|surg\w*|spik\w*|intensif\w*|boost\w*)\b/;
-const ANY = /\b(?:chang\w*|trend\w*|shift\w*|anomal\w*|differen\w*|evolv\w*)\b/;
+const DECLINE =
+  /\b(?:declin\w*|decreas\w*|loss(?:es)?|lost|losing|lose|less|fewer|drop\w*|fell|falling|fallen|falls|shrink\w*|shrank|degrad\w*|retreat\w*|melt\w*|reduc\w*|lower\w*|weaken\w*|worsen\w*|die-?off|die-?back|dying|thinn\w*|disappear\w*|vanish\w*|deplet\w*|fail\w*|collaps\w*|downward)\b/;
+const INCREASE = /\b(?:increas\w*|gain\w*|more|ris(?:e|es|ing|en)|rose|grow(?:s|ing|n|th)?|higher|expand\w*|spread\w*|surg\w*|spik\w*|intensif\w*|boost\w*|upward)\b/;
+const ANY = /\b(?:chang(?:e|es|ed|ing)|trends?|trending|shift(?:s|ed|ing)?|anomal(?:y|ies|ous)|differen(?:ce|ces|t)|evolv(?:e|es|ed|ing)|variation|variations)\b/;
+const UP = String.raw`(?:increases?|rises?|gains?|growth|grow|up)`;
+const DOWN = String.raw`(?:decreases?|declines?|loss|losses|drops?|falls?|down)`;
+/** "increase or decrease", "gains and losses", "both ways": either direction. */
+const BOTH = new RegExp(
+  String.raw`\b${UP}\s*(?:or|and|/|&)\s*${DOWN}\b|\b${DOWN}\s*(?:or|and|/|&)\s*${UP}\b|\bups\s+and\s+downs\b|\bboth\s+(?:ways|directions)\b|\beither\s+(?:way|direction)\b|\bany\s+(?:change|direction)\b`,
+);
+/** No measure named, but asking what changed: all six measures. */
+const EVERYTHING = /\b(?:everything|anything|all\s+(?:the\s+)?(?:measures|indicators|changes|data|datasets))\b/;
+/** Joins the parts of a sentence that can each carry their own direction. */
+const CLAUSE_BREAK = /,|;|\band\b|\bbut\b|\bwhile\b|\bwhereas\b|\bplus\b|\bas\s+well\s+as\b/g;
+/** Words that may sit between two listed measures ("heat and drought", "rain, soil and snow"). */
+const LIST_GAP = /^\s*(?:(?:,|&|\/|\band\b|\bor\b|\bplus\b|\bas\s+well\s+as\b)\s*)+(?:the\s+)?$/;
 
 const FILLER = new Set(
   (
@@ -88,7 +137,8 @@ const FILLER = new Set(
     "that have has had did does do is are was were been be being experienced experiencing experience saw seen see getting got gets get become became becoming " +
     "with a an the of in on near around over during and or to by for from at within inside across throughout between than since after before " +
     "health cover index level levels condition conditions amount amounts value values rate rates there it its this these those any all some " +
-    "years year decade decades last past previous recent recently ago now today vs versus compared against per"
+    "years year decade decades last past previous recent recently ago now today vs versus compared against per " +
+    "up down out away off happening happened happen going much many very still really both either way ways direction directions"
   ).split(" "),
 );
 
@@ -105,6 +155,17 @@ function normalise(text: string): string {
 
 function blank(text: string, start: number, end: number): string {
   return text.slice(0, start) + " ".repeat(end - start) + text.slice(end);
+}
+
+/** Every match of a pattern (the pattern's own flags are ignored). */
+function matchesOf(pattern: RegExp, text: string): RegExpExecArray[] {
+  const global = new RegExp(pattern.source, "g");
+  const out: RegExpExecArray[] = [];
+  for (let match = global.exec(text); match; match = global.exec(text)) {
+    if (match[0].length === 0) global.lastIndex += 1;
+    else out.push(match);
+  }
+  return out;
 }
 
 function seasonFromWord(word: string | undefined): Exclude<SeasonId, "custom"> | null {
@@ -206,33 +267,154 @@ function parseTime(lower: string): TimeResult {
   return { time, season, months, rest };
 }
 
-function firstMatch(pattern: RegExp, text: string): number {
-  const match = pattern.exec(text);
-  return match ? match.index : -1;
+// ---------------------------------------------------------------------------
+// Measures, directions and things we can't measure
+
+interface Mention {
+  indicator: IndicatorId;
+  start: number;
+  end: number;
+  strong: boolean;
+  /** Direction carried by the word itself ("hotter"). */
+  own: Exclude<Direction, "any"> | null;
 }
 
-function parseIndicator(lower: string): IndicatorId | null {
-  // Specific nouns win over generic weather words ("vegetation decline during a drought" is about vegetation).
-  for (const [id, pattern] of INDICATOR_PATTERNS) if (pattern.test(lower)) return id;
-  return null;
+interface DirectionWord {
+  direction: Direction;
+  start: number;
 }
 
-function parseDirection(lower: string, indicator: IndicatorId | null): Direction {
-  for (const rule of IMPLIED) {
-    if ((rule.indicator === indicator || rule.indicator === "any") && rule.pattern.test(lower)) return rule.direction;
+function ownDirection(indicator: IndicatorId, word: string): Exclude<Direction, "any"> | null {
+  return OWN_DIRECTION.find((rule) => rule.indicator === indicator && rule.pattern.test(word))?.direction ?? null;
+}
+
+function hasMeasureWord(text: string, includeWeak = true): boolean {
+  return MEASURES.some((m) => m.strong.test(text) || (includeWeak && Boolean(m.weak?.test(text))));
+}
+
+function readConcepts(text: string, lower: string, rest: string): { notes: ReaderNote[]; mentions: Mention[]; rest: string } {
+  const notes: ReaderNote[] = [];
+  const mentions: Mention[] = [];
+  const measured = hasMeasureWord(rest, false);
+  for (const concept of CONCEPTS) {
+    if (concept.onlyWithoutMeasures && measured) continue;
+    if (concept.requires && !concept.requires.test(lower)) continue;
+    const found = matchesOf(concept.pattern, rest);
+    if (!found.length) continue;
+    for (const match of found) {
+      rest = blank(rest, match.index, match.index + match[0].length);
+      if (concept.kind === "approximate") {
+        for (const indicator of concept.closest) mentions.push({ indicator, start: match.index, end: match.index + match[0].length, strong: true, own: null });
+      }
+    }
+    const first = found[0];
+    notes.push({
+      id: concept.id,
+      kind: concept.kind,
+      phrase: text.slice(first.index, first.index + first[0].length),
+      message: concept.message,
+      closest: concept.closest,
+      direction: concept.direction,
+    });
   }
-  const positions: [Direction, number][] = [
-    ["decline", firstMatch(DECLINE, lower)],
-    ["increase", firstMatch(INCREASE, lower)],
-    ["any", firstMatch(ANY, lower)],
-  ];
-  const found = positions.filter(([, index]) => index >= 0).sort((a, b) => a[1] - b[1]);
-  return found.length ? found[0][0] : "any";
+  return { notes, mentions, rest };
+}
+
+function readMeasures(rest: string, lower: string): { mentions: Mention[]; rest: string } {
+  const strong: Mention[] = [];
+  const weak: Mention[] = [];
+  for (const measure of MEASURES) {
+    for (const match of matchesOf(measure.strong, rest)) {
+      strong.push({ indicator: measure.id, start: match.index, end: match.index + match[0].length, strong: true, own: ownDirection(measure.id, match[0]) });
+      rest = blank(rest, match.index, match.index + match[0].length);
+    }
+  }
+  for (const measure of MEASURES) {
+    if (!measure.weak) continue;
+    for (const match of matchesOf(measure.weak, rest)) {
+      weak.push({ indicator: measure.id, start: match.index, end: match.index + match[0].length, strong: false, own: ownDirection(measure.id, match[0]) });
+      rest = blank(rest, match.index, match.index + match[0].length);
+    }
+  }
+  // Weather words count when nothing is named, or when listed next to another measure.
+  const listed = (a: Mention, b: Mention) => {
+    const [first, second] = a.start < b.start ? [a, b] : [b, a];
+    return LIST_GAP.test(lower.slice(first.end, second.start));
+  };
+  const all = [...strong, ...weak];
+  const keptWeak = strong.length ? weak.filter((w) => all.some((other) => other !== w && listed(w, other))) : weak;
+  return { mentions: [...strong, ...keptWeak].sort((a, b) => a.start - b.start), rest };
+}
+
+/** "increase or decrease": read before measures are removed, so "decline and heat increase" stays two directions. */
+function readBothWays(rest: string): { words: DirectionWord[]; rest: string } {
+  const words: DirectionWord[] = [];
+  for (const match of matchesOf(BOTH, rest)) {
+    words.push({ direction: "any", start: match.index });
+    rest = blank(rest, match.index, match.index + match[0].length);
+  }
+  return { words, rest };
+}
+
+function readDirectionWords(rest: string, both: DirectionWord[]): { words: DirectionWord[]; rest: string } {
+  const words: DirectionWord[] = [...both];
+  for (const [direction, pattern] of [
+    ["decline", DECLINE],
+    ["increase", INCREASE],
+    ["any", ANY],
+  ] as const) {
+    for (const match of matchesOf(pattern, rest)) {
+      words.push({ direction, start: match.index });
+      rest = blank(rest, match.index, match.index + match[0].length);
+    }
+  }
+  return { words: words.sort((a, b) => a.start - b.start), rest };
+}
+
+/** Gives each measure the direction asked for it. */
+function assignDirections(mentions: Mention[], words: DirectionWord[], clauseText: string): Partial<Record<IndicatorId, Direction>> {
+  const breaks = matchesOf(CLAUSE_BREAK, clauseText).map((m) => m.index);
+  const clauseOf = (position: number) => breaks.filter((b) => b < position).length;
+  const clauseBounds = (clause: number) => [clause === 0 ? 0 : breaks[clause - 1], clause < breaks.length ? breaks[clause] : clauseText.length] as const;
+  const resolved = new Map<Mention, Direction>();
+  /** Directions written as words ("decline"), which listed measures may share. */
+  const asked = new Set<Mention>();
+
+  for (const mention of mentions) {
+    if (mention.own) {
+      resolved.set(mention, mention.own);
+      continue;
+    }
+    const clause = clauseOf(mention.start);
+    const near = words.filter((w) => clauseOf(w.start) === clause).sort((a, b) => Math.abs(a.start - mention.start) - Math.abs(b.start - mention.start))[0];
+    if (near) {
+      resolved.set(mention, near.direction);
+      asked.add(mention);
+      continue;
+    }
+    const [from, to] = clauseBounds(clause);
+    const implied = CLAUSE_DIRECTION.find((rule) => rule.indicator === mention.indicator && rule.pattern.test(clauseText.slice(from, to)));
+    if (implied) resolved.set(mention, implied.direction);
+  }
+  // "vegetation and rainfall decline": a listed measure shares its neighbour's direction.
+  for (const mention of mentions) {
+    if (resolved.has(mention)) continue;
+    const neighbour = [...asked].sort((a, b) => Math.abs(a.start - mention.start) - Math.abs(b.start - mention.start))[0];
+    resolved.set(mention, neighbour ? (resolved.get(neighbour) as Direction) : "any");
+  }
+
+  const out: Partial<Record<IndicatorId, Direction>> = {};
+  for (const indicator of new Set(mentions.map((m) => m.indicator))) {
+    const asked = new Set(mentions.filter((m) => m.indicator === indicator).map((m) => resolved.get(m) as Direction).filter((d) => d !== "any"));
+    // Two different directions for one measure ("greening and browning"): either way.
+    out[indicator] = asked.size === 1 ? [...asked][0] : "any";
+  }
+  return out;
 }
 
 function isDescriptorOnly(phrase: string): boolean {
   const lower = phrase.toLowerCase();
-  if (INDICATOR_PATTERNS.some(([, pattern]) => pattern.test(lower))) return true;
+  if (hasMeasureWord(lower)) return true;
   if (DECLINE.test(lower) || INCREASE.test(lower) || ANY.test(lower)) return true;
   return lower.split(/\s+/).every((word) => FILLER.has(word) || /^\d+$/.test(word));
 }
@@ -247,7 +429,7 @@ function cleanPlace(phrase: string): string {
 }
 
 function parsePlace(text: string, rest: string): { place: string | null; near: boolean } {
-  // The original text (with its capitals) minus everything the time parser already used.
+  // The original text (with its capitals) minus everything already read.
   const original = Array.from(text, (char, i) => (rest[i] === " " ? " " : char)).join("");
   // Candidates follow a preposition and run until a stop word or the end.
   const pattern = /\b(in|near|around|across|over|of|at|within|inside|throughout|for|close to|next to)\s+([^,?.!;]+)/g;
@@ -284,13 +466,50 @@ function parsePlace(text: string, rest: string): { place: string | null; near: b
   return { place: leftover, near: false };
 }
 
+/** Words that, with no measure named, ask about every measure ("what changed in Uzbekistan"). */
+const ASKS_FOR_CHANGE = /\b(?:declin\w*|decreas\w*|increas\w*|chang(?:e|es|ed|ing)|trends?|shift(?:s|ed|ing)?|anomal(?:y|ies|ous))\b/;
+
 /** Reads a free-text question into its parts. Never throws. */
 export function parseTrendQuery(input: string): ParsedQuery {
   const text = input.trim().replace(/\s+/g, " ");
   const lower = normalise(text);
-  const { time, season, months, rest } = parseTime(lower);
-  const indicator = parseIndicator(rest);
-  const direction = parseDirection(rest, indicator);
-  const { place, near } = parsePlace(text, rest);
-  return { text, isTrendQuery: indicator !== null, indicator, direction, place, near, time, season, months };
+  const time = parseTime(lower);
+  const concepts = readConcepts(text, lower, time.rest);
+  const both = readBothWays(concepts.rest);
+  const measures = readMeasures(both.rest, time.rest);
+  const directions = readDirectionWords(measures.rest, both.words);
+  const mentions = [...concepts.mentions, ...measures.mentions].sort((a, b) => a.start - b.start);
+
+  let indicators = [...new Set(mentions.map((m) => m.indicator))];
+  const clauseText = both.words.length ? matchesOf(BOTH, time.rest).reduce((acc, m) => blank(acc, m.index, m.index + m[0].length), time.rest) : time.rest;
+  let perIndicator = assignDirections(mentions, directions.words, clauseText);
+  let everything = false;
+  const unmeasured = concepts.notes.some((n) => n.kind === "unmeasured");
+  if (!indicators.length && !unmeasured && (EVERYTHING.test(time.rest) || BOTH.test(time.rest) || ASKS_FOR_CHANGE.test(time.rest))) {
+    everything = true;
+    indicators = [...INDICATOR_ORDER];
+    const direction = directions.words[0]?.direction ?? "any";
+    perIndicator = Object.fromEntries(indicators.map((id) => [id, direction]));
+  }
+  const values = indicators.map((id) => perIndicator[id] ?? "any");
+  const direction: Direction = values.length && values.every((d) => d === values[0]) ? values[0] : (values[0] ?? (directions.words[0]?.direction ?? "any"));
+
+  // Everything is read except the place: remove it all, and what's left (after a preposition) is the place.
+  const placeText = matchesOf(EVERYTHING, directions.rest).reduce((acc, m) => blank(acc, m.index, m.index + m[0].length), directions.rest);
+  const { place, near } = parsePlace(text, placeText);
+  return {
+    text,
+    isTrendQuery: indicators.length > 0 || unmeasured,
+    indicators,
+    everything,
+    directions: perIndicator,
+    indicator: indicators[0] ?? null,
+    direction,
+    place,
+    near,
+    time: time.time,
+    season: time.season,
+    months: time.months,
+    notes: concepts.notes,
+  };
 }

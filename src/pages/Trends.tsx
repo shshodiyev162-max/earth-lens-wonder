@@ -97,7 +97,7 @@ export default function Trends() {
         setAiNote("Read with the help of the optional AI service — check the chips below.");
         setParams((current) => {
           const next = new URLSearchParams(current);
-          next.set("ind", answer.indicator);
+          next.set("ind", answer.indicators[0]);
           next.set("dir", answer.direction);
           next.set("place", answer.place ?? "");
           next.set("t", encodeTime(answer.time));
