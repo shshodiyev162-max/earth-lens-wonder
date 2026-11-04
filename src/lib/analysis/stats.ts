@@ -556,10 +556,14 @@ export function formatP(p: number): string {
 export function explainVerdict(verdict: TrendVerdict, subject: string, unit: string, decimals: number): string {
   const fmt = (value: number) => `${signed(value, decimals)}${unit ? ` ${unit}` : ""}`;
   const rate = verdict.slopePerDecade !== null ? `${fmt(verdict.slopePerYear)} per year (${fmt(verdict.slopePerDecade)} per decade)` : `${fmt(verdict.slopePerYear)} per year`;
-  if (verdict.direction === "none") {
-    return `${subject} went up and down without a consistent direction over ${Math.round(verdict.years)} years (${formatP(verdict.p)}). The middle estimate is ${rate}, but a pattern this weak can easily come from natural year-to-year variation.`;
-  }
   const range = `95% range ${fmt(verdict.lowerPerYear)} to ${fmt(verdict.upperPerYear)} per year`;
+  if (verdict.direction === "none") {
+    // The range and the test agree almost always; only say "includes no change" when it does.
+    const spansZero = verdict.lowerPerYear <= 0 && verdict.upperPerYear >= 0;
+    return `${subject} went up and down without a consistent direction over ${Math.round(verdict.years)} years (${formatP(verdict.p)}). The middle estimate is ${rate}${
+      spansZero ? `, but the ${range} includes no change at all` : ` (${range})`
+    }; a pattern this weak can easily come from natural year-to-year variation.`;
+  }
   const chance = verdict.p < 0.001 ? "fewer than 1 in 1,000" : verdict.p < 0.01 ? "fewer than 1 in 100" : "fewer than 1 in 20";
   return `${subject} ${verdict.direction === "decline" ? "fell" : "rose"} by ${rate} (${range}). A run this consistent would appear by chance in ${chance} records without a real trend (${formatP(verdict.p)}).`;
 }

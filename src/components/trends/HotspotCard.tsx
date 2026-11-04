@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { BarChart3, Columns2, ScanSearch, X } from "lucide-react";
-import { explainVerdict, signed } from "@/lib/analysis/stats";
+import { explainVerdict, formatP, signed } from "@/lib/analysis/stats";
 import { formatArea } from "@/lib/geo/geometry";
 import type { Indicator } from "@/lib/query/indicators";
 import type { PeriodPlan } from "@/lib/query/period";
@@ -55,16 +55,36 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
             <dd className="text-right font-medium">{Math.round(hotspot.significantShare * 100)}%</dd>
           </>
         )}
+        {verdict && (
+          <>
+            <dt className="text-panel-muted">Trend (Sen's slope)</dt>
+            <dd className="text-right font-medium">
+              {signed(verdict.slopePerYear, indicator.decimals + 1)} {indicator.unit}/yr
+              <span className="block text-[10px] font-normal text-panel-muted">
+                95% range {signed(verdict.lowerPerYear, indicator.decimals + 1)} to {signed(verdict.upperPerYear, indicator.decimals + 1)} · {formatP(verdict.p)}
+              </span>
+            </dd>
+          </>
+        )}
       </dl>
       {verdict && (
         <p className="mb-2 text-xs leading-relaxed text-panel-soft">
           <span className={cn("font-semibold", verdict.direction === "none" ? "text-panel-foreground" : verdict.direction === indicator.concern ? "text-tone-warn" : "text-tone-good")}>
             {verdict.label}
           </span>
-          . {explainVerdict(verdict, `${indicator.subject} here`, indicator.unit, indicator.decimals)}
+          . {explainVerdict(verdict, `${indicator.subject} here`, indicator.unit, indicator.decimals + 1)}
         </p>
       )}
-      <YearTrendChart series={hotspot.series} baseline={plan.baseline} recent={plan.recent} color={color} unit={indicator.unit} decimals={indicator.decimals} label={`${indicator.subject} in ${title}, year by year`} />
+      <YearTrendChart
+        series={hotspot.series}
+        baseline={plan.baseline}
+        recent={plan.recent}
+        color={color}
+        unit={indicator.unit}
+        decimals={indicator.decimals}
+        showRange={Boolean(verdict)}
+        label={`${indicator.subject} in ${title}, year by year${verdict ? ", with the trend line and its 95% range" : ""}`}
+      />
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <Link to={analysisHref} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-300">
           <BarChart3 className="h-3.5 w-3.5" /> Open full analysis

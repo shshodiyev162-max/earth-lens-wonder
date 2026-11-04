@@ -31,6 +31,7 @@ import { useExactAreaGeometry } from "@/hooks/useExactAreaGeometry";
 import { gridBudget, useTrendScans } from "@/hooks/useTrendScans";
 import { defaultEndMonth } from "@/lib/analysis/period";
 import { explainVerdict, signed } from "@/lib/analysis/stats";
+import { longerPeriodHint } from "@/lib/analysis/trend";
 import { bboxOf, formatArea, type BBox, type PolygonGeometry } from "@/lib/geo/geometry";
 import { encodeGeometryForLink } from "@/lib/geo/polyline";
 import { BASE_LAYER_ID, getLayer, type GibsLayer } from "@/lib/gibs/catalog";
@@ -333,6 +334,17 @@ export default function Trends() {
     runSearch(next);
   };
 
+  /** The same search over every year of the record (offered when a short record shows no clear trend). */
+  const tryAllYears = () => {
+    const base = applied ?? draft;
+    if (!base) return;
+    const next = applyEdit(base, { time: { kind: "since", start: 2000 } });
+    const nextParams = paramsFor(next);
+    if (panelMode === "pick") nextParams.set("mode", "pick");
+    setParams(nextParams);
+    runSearch(next);
+  };
+
   const busy = scan.status === "preparing" || scan.status === "scanning";
   const measureMaps = plan ? plan.years.length * plan.months.length : 0;
   const progressPct = measure?.progress ? Math.round((measure.progress.done / Math.max(1, measure.progress.total)) * 100) : 0;
@@ -418,6 +430,8 @@ export default function Trends() {
                 hotspotKm2={shownKm2}
                 analysisHref={areaAnalysisHref(area, applied.area, active, plan, latest)}
                 compareHref={compareHref({ center: area.center, areaKm2: summary.scannedKm2 }, active, plan, months)}
+                hint={plan.kind === "trend" ? longerPeriodHint(result.region.verdict, plan.startYear) : null}
+                onTryAllYears={tryAllYears}
                 onZoom={() => {
                   setFlyTarget({ bbox: area.bbox, key: `whole-${Date.now()}` });
                   if (window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(false);

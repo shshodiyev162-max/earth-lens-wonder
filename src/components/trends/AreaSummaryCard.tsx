@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BarChart3, Columns2, Maximize2 } from "lucide-react";
+import { BarChart3, Columns2, History, Maximize2 } from "lucide-react";
 import { explainVerdict, formatP, signed } from "@/lib/analysis/stats";
 import { formatArea } from "@/lib/geo/geometry";
 import type { Indicator } from "@/lib/query/indicators";
@@ -7,6 +7,7 @@ import type { PeriodPlan } from "@/lib/query/period";
 import type { ResultFilter } from "@/lib/trends/query";
 import type { AreaSummary, YearValue } from "@/lib/trends/scan";
 import type { TrendVerdict } from "@/lib/analysis/stats";
+import type { LongerPeriodHint } from "@/lib/analysis/trend";
 import { cn } from "@/lib/utils";
 import YearTrendChart from "./YearTrendChart";
 
@@ -28,6 +29,9 @@ interface AreaSummaryCardProps {
   analysisHref: string;
   compareHref: string;
   onZoom: () => void;
+  /** "No clear trend" on a short record: offer the whole record. */
+  hint?: LongerPeriodHint | null;
+  onTryAllYears?: () => void;
 }
 
 function share(part: number, whole: number): string {
@@ -38,7 +42,7 @@ function share(part: number, whole: number): string {
 
 /** The whole scanned area in the same detail as a hotspot: numbers, verdict, chart and links. */
 export default function AreaSummaryCard(props: AreaSummaryCardProps) {
-  const { name, kind, summary, verdict, series, indicator, plan, filter, seasonSubject, hotspotCount, hotspotKm2, analysisHref, compareHref, onZoom } = props;
+  const { name, kind, summary, verdict, series, indicator, plan, filter, seasonSubject, hotspotCount, hotspotKm2, analysisHref, compareHref, onZoom, hint, onTryAllYears } = props;
   const value = (v: number) => `${v.toFixed(indicator.decimals)} ${indicator.unit}`;
   const percent = summary.change !== null && summary.baselineMean && indicator.unit !== "°C" && Math.abs(summary.baselineMean) > 1e-6 ? (summary.change / Math.abs(summary.baselineMean)) * 100 : null;
   const threshold = `${(indicator.minChange * filter.minFactor).toFixed(Math.max(indicator.decimals, 2)).replace(/\.?0+$/, "")} ${indicator.unit}`;
@@ -78,8 +82,11 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
             <dd className="text-right font-medium text-panel-foreground">
               {signed(verdict.slopePerYear, indicator.decimals + 1)} {indicator.unit}/yr
               <span className="block text-[10px] font-normal text-panel-muted">
-                {verdict.slopePerDecade !== null ? `${signed(verdict.slopePerDecade, indicator.decimals)} per decade · ` : ""}
+                {verdict.slopePerDecade !== null ? `${signed(verdict.slopePerDecade, indicator.decimals + 1)} per decade · ` : ""}
                 {formatP(verdict.p)}
+              </span>
+              <span className="block text-[10px] font-normal text-panel-muted">
+                95% range {signed(verdict.lowerPerYear, indicator.decimals + 1)} to {signed(verdict.upperPerYear, indicator.decimals + 1)} /yr
               </span>
             </dd>
           </>
@@ -102,7 +109,7 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
 
       {verdict ? (
         <p className="mb-2 text-xs leading-relaxed text-panel-soft">
-          <span className={cn("font-semibold", tone)}>{verdict.label}</span>. {explainVerdict(verdict, seasonSubject, indicator.unit, indicator.decimals)}
+          <span className={cn("font-semibold", tone)}>{verdict.label}</span>. {explainVerdict(verdict, seasonSubject, indicator.unit, indicator.decimals + 1)}
         </p>
       ) : (
         summary.change !== null && (
@@ -117,7 +124,28 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
           : "“Fell” and “rose” count land by the change between the two seasons, including small patches too scattered to be listed as hotspots."}
       </p>
 
-      <YearTrendChart series={series} baseline={plan.baseline} recent={plan.recent} color="#22d3ee" unit={indicator.unit} decimals={indicator.decimals} label={`${indicator.subject} across ${name}, year by year`} />
+      <YearTrendChart
+        series={series}
+        baseline={plan.baseline}
+        recent={plan.recent}
+        color="#22d3ee"
+        unit={indicator.unit}
+        decimals={indicator.decimals}
+        showRange={Boolean(verdict)}
+        label={`${indicator.subject} across ${name}, year by year${verdict ? ", with the trend line and its 95% range" : ""}`}
+      />
+      {hint && onTryAllYears && (
+        <div className="mt-3 space-y-2 rounded-lg border border-panel-line bg-panel p-3">
+          <p className="text-[11px] leading-relaxed text-panel-soft">{hint.text}</p>
+          <button
+            type="button"
+            onClick={onTryAllYears}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-panel-line bg-panel-tint px-3 py-1.5 text-xs font-semibold text-panel-foreground hover:border-cyan-400/50 pointer-coarse:min-h-11"
+          >
+            <History className="h-3.5 w-3.5" aria-hidden /> Scan every year since {hint.startYear}
+          </button>
+        </div>
+      )}
 
       <div className="mt-3 grid gap-2">
         <Link to={analysisHref} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-300 pointer-coarse:min-h-11">

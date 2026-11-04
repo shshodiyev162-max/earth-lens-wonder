@@ -139,7 +139,12 @@ describe("verdicts", () => {
     const verdict = monthlyTrendVerdict(series);
     expect(verdict?.label).toBe("No clear trend");
     expect(verdict?.slopePerDecade).toBeNull();
-    expect(explainVerdict(verdict!, "Plant greenness", "NDVI", 3)).toContain("without a consistent direction");
+    const text = explainVerdict(verdict!, "Plant greenness", "NDVI", 3);
+    expect(text).toContain("without a consistent direction");
+    // The likely range is stated too, and it straddles zero.
+    expect(verdict!.lowerPerYear).toBeLessThanOrEqual(0);
+    expect(verdict!.upperPerYear).toBeGreaterThanOrEqual(0);
+    expect(text).toMatch(/95% range [−+]\d.* to [−+]\d.* per year includes no change at all/);
   });
 
   it("works on one value per year", () => {
