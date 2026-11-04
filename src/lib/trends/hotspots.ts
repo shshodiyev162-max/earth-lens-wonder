@@ -63,7 +63,7 @@ export const PIXEL_SIGNIFICANCE = 0.1;
  * tested, the pixel's slope must point the same way and its Mann–Kendall p-value be below
  * PIXEL_SIGNIFICANCE, so a hotspot is a supported change rather than one unusual year.
  */
-export function flagPixels(trends: PixelTrends, sign: -1 | 1, minChange: number): Uint8Array {
+export function flagPixels(trends: PixelTrends, sign: -1 | 1, minChange: number, maxP = PIXEL_SIGNIFICANCE): Uint8Array {
   const flags = new Uint8Array(trends.change.length);
   for (let i = 0; i < flags.length; i++) {
     const change = trends.change[i];
@@ -71,7 +71,7 @@ export function flagPixels(trends: PixelTrends, sign: -1 | 1, minChange: number)
     const slope = trends.slope[i];
     if (Number.isFinite(slope) && slope * sign < 0) continue;
     const p = trends.p[i];
-    if (Number.isFinite(p) && p >= PIXEL_SIGNIFICANCE) continue;
+    if (Number.isFinite(p) && p >= maxP) continue;
     flags[i] = 1;
   }
   return flags;
@@ -271,6 +271,34 @@ export interface HotspotOptions {
   minChange: number;
   maxHotspots?: number;
   minPixels?: number;
+  /** A pixel's trend p-value must be below this (default PIXEL_SIGNIFICANCE). */
+  maxP?: number;
+  /** Hotspots smaller than this (km²) are left out. */
+  minAreaKm2?: number;
+}
+
+/** How a person filters one measure's results; changing it never needs new NASA maps. */
+export interface HotspotFilter {
+  direction: Direction;
+  /** Smallest change, as a multiple of the measure's usual threshold. */
+  minFactor: number;
+  /** Smallest hotspot, km² (0 = any size). */
+  minAreaKm2: number;
+  /** Only pixels whose yearly trend passes p < 0.05 (instead of 0.1). */
+  strict: boolean;
+}
+
+export const STRICT_P = 0.05;
+
+export function hotspotOptions(filter: HotspotFilter, minChange: number, coarse: boolean): HotspotOptions {
+  return {
+    direction: filter.direction,
+    minChange: minChange * filter.minFactor,
+    maxP: filter.strict ? STRICT_P : PIXEL_SIGNIFICANCE,
+    minAreaKm2: filter.minAreaKm2,
+    maxHotspots: 10,
+    minPixels: coarse ? 3 : 4,
+  };
 }
 
 /** Clusters, measures and ranks the pixels that changed in the asked direction. */
@@ -279,7 +307,7 @@ export function buildHotspots(trends: PixelTrends, grid: GridSpec, options: Hots
   const { dx, dy } = pixelSize(grid);
   const all: Hotspot[] = [];
   for (const sign of signs) {
-    const clusters = clusterPixels(flagPixels(trends, sign, options.minChange), grid.width, grid.height, options.minPixels ?? 4);
+    const clusters = clusterPixels(flagPixels(trends, sign, options.minChange, options.maxP), grid.width, grid.height, options.minPixels ?? 4);
     for (const pixels of clusters) {
       let area = 0;
       let weightedChange = 0;
@@ -317,18 +345,20 @@ export function buildHotspots(trends: PixelTrends, grid: GridSpec, options: Hots
         minCol = Math.min(minCol, col);
         maxCol = Math.max(maxCol, col);
       }
+      if (area < (options.minAreaKm2 ?? 0)) continue;
       const meanChange = weightedChange / area;
       const significantShare = tested ? significant / tested : 0;
       const [w, , , n] = grid.bbox;
       all.push({
-        id: "",
+        // Stable across filter changes: the same cluster keeps its id.
+        id: `${sign < 0 ? "d" : "i"}${pixels.reduce((m, v) => (v < m ? v : m), Infinity)}`,
         rank: 0,
         sign,
         pixels,
         areaKm2: area,
         center: [lat / area, lon / area],
         bbox: [w + minCol * dx, n - (maxRow + 1) * dy, w + (maxCol + 1) * dx, n - minRow * dy],
-        geometry: traceOutline(pixels, grid, Math.min(dx, dy) * 0.5),
+        geometry: { type: "Polygon", coordinates: [] },
         meanChange,
         meanSlope: slopeCount ? slopeTotal / slopeCount : NaN,
         significantShare,
@@ -339,5 +369,5 @@ export function buildHotspots(trends: PixelTrends, grid: GridSpec, options: Hots
   return all
     .sort((a, b) => b.score - a.score)
     .slice(0, options.maxHotspots ?? 10)
-    .map((hotspot, i) => ({ ...hotspot, rank: i + 1, id: `h${i + 1}` }));
+    .map((hotspot, i) => ({ ...hotspot, rank: i + 1, geometry: traceOutline(hotspot.pixels, grid, Math.min(dx, dy) * 0.5) }));
 }

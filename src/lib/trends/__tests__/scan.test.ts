@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runScan, ScanError, type ScanLoaders } from "../scan";
+import { rebuildHotspots, runScan, ScanError, type ScanLoaders } from "../scan";
 import { scanGrid, decodeGrid } from "../grid";
 import { AreaError, matchCountry, resolveArea, widen, type ScanArea } from "../place";
 import { planPeriod, type PeriodPlan } from "../../query/period";
@@ -69,7 +69,29 @@ describe("runScan", () => {
     expect(Number.isNaN(result.trends.change[0])).toBe(true);
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({ phase: "done" }));
     expect(result.yearGrids).toHaveLength(11);
-    expect(result.monthGrids.size).toBe(66);
+    expect(result.monthsRead).toHaveLength(66);
+  });
+
+  it("rebuilds hotspots for other filters without reading any map again", async () => {
+    const load = loaders();
+    const monthGrid = vi.fn(load.monthGrid);
+    const result = await runScan({
+      indicator: "vegetation",
+      filter: { direction: "decline", minFactor: 1, minAreaKm2: 0, strict: false },
+      area: AREA,
+      plan: plan(),
+      availability: { window: { earliest: "2000-03", latest: "2026-08" }, available: null },
+      loaders: { ...load, monthGrid },
+      maxSize: 20,
+    });
+    const reads = monthGrid.mock.calls.length;
+    expect(rebuildHotspots(result, result.filter)).toBe(result.hotspots);
+    expect(rebuildHotspots(result, { ...result.filter, direction: "increase" })).toHaveLength(0);
+    const both = rebuildHotspots(result, { ...result.filter, direction: "any" });
+    expect(both.map((h) => h.id)).toEqual(result.hotspots.map((h) => h.id));
+    expect(both[0].verdict?.label).toBe("Significant decline");
+    expect(rebuildHotspots(result, { ...result.filter, minFactor: 10 })).toHaveLength(0);
+    expect(monthGrid.mock.calls.length).toBe(reads);
   });
 
   it("skips a few failed months but gives up when NASA mostly fails", async () => {

@@ -13,7 +13,7 @@ import { domainWindow, fetchTimeDomain, monthsInDomain } from "../gibs/time";
 import { INDICATORS, type Direction, type IndicatorId } from "../query/indicators";
 import { seasonYearMonths, type DataWindow, type PeriodPlan } from "../query/period";
 import { fetchLandMask, fetchMonthGrid, scanGrid } from "./grid";
-import { clusterPixels, flagPixels, pixelAreaKm2, pixelCenter, pixelSize, traceOutline, buildHotspots, type GridSpec, type Hotspot } from "./hotspots";
+import { buildHotspots, clusterPixels, flagPixels, hotspotOptions, pixelAreaKm2, pixelCenter, pixelSize, traceOutline, type GridSpec, type Hotspot, type HotspotFilter } from "./hotspots";
 import { computePixelTrends, seasonMeanGrids, type PixelTrends } from "./pixels";
 import type { ScanArea } from "./place";
 
@@ -39,7 +39,8 @@ export interface HotspotDetail extends Hotspot {
 
 export interface ScanResult {
   indicator: IndicatorId;
-  direction: Direction;
+  /** The filter the hotspots below were built with. */
+  filter: HotspotFilter;
   area: ScanArea;
   plan: PeriodPlan;
   layerId: string;
@@ -49,8 +50,8 @@ export interface ScanResult {
   trends: PixelTrends;
   /** Season mean per year (for the yearly animation). */
   yearGrids: Float32Array[];
-  /** Every monthly map read (for the monthly animation). */
-  monthGrids: Map<string, Float32Array>;
+  /** Every monthly map read, oldest first (the maps stay in the device cache for the monthly animation). */
+  monthsRead: string[];
   hotspots: HotspotDetail[];
   region: {
     series: YearValue[];
@@ -103,7 +104,9 @@ const NETWORK: ScanLoaders = { monthGrid: fetchMonthGrid, landMask: fetchLandMas
 
 export interface ScanRequest {
   indicator: IndicatorId;
-  direction: Direction;
+  /** How hotspots are picked at first (the direction is enough; the rest has defaults). */
+  filter?: HotspotFilter;
+  direction?: Direction;
   area: ScanArea;
   plan: PeriodPlan;
   availability: DataAvailability;
@@ -175,7 +178,8 @@ async function loadMonths(
 }
 
 export async function runScan(request: ScanRequest): Promise<ScanResult> {
-  const { indicator, direction, area, plan, availability, signal, onProgress } = request;
+  const { indicator, area, plan, availability, signal, onProgress } = request;
+  const filter = filterOf(request);
   const loaders = request.loaders ?? NETWORK;
   const info = INDICATORS[indicator];
   const layer = getLayer(info.layerId) as GibsLayer;
@@ -245,7 +249,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
     signal,
   });
 
-  const found = buildHotspots(trends, grid, { direction, minChange: info.minChange, maxHotspots: 10, minPixels: coarse ? 3 : 4 });
+  const found = buildHotspots(trends, grid, hotspotOptions(filter, info.minChange, coarse));
   let hotspots: HotspotDetail[] = found.map((h) => {
     const series = yearlySeries(yearGrids, plan.years, h.pixels, grid);
     return { ...h, series, verdict: plan.kind === "trend" ? verdictOf(series) : null, refined: false };
@@ -276,7 +280,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   report("done", "Done");
   return {
     indicator,
-    direction,
+    filter,
     area,
     plan,
     layerId: layer.id,
@@ -284,7 +288,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
     mask,
     trends,
     yearGrids,
-    monthGrids,
+    monthsRead: [...monthGrids.keys()].sort(),
     hotspots,
     region: {
       series: regionSeries,
@@ -301,6 +305,32 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   };
 }
 
+const DEFAULT_FILTER: Omit<HotspotFilter, "direction"> = { minFactor: 1, minAreaKm2: 0, strict: false };
+
+function filterOf(request: ScanRequest): HotspotFilter {
+  return request.filter ?? { direction: request.direction ?? "any", ...DEFAULT_FILTER };
+}
+
+function sameFilter(a: HotspotFilter, b: HotspotFilter): boolean {
+  return a.direction === b.direction && a.minFactor === b.minFactor && a.minAreaKm2 === b.minAreaKm2 && a.strict === b.strict;
+}
+
+/**
+ * The hotspots for another filter, re-clustered from the scan's own pixel trends — no new maps.
+ * A hotspot that is the same cluster as before keeps its sharper (refined) outline.
+ */
+export function rebuildHotspots(result: ScanResult, filter: HotspotFilter): HotspotDetail[] {
+  if (sameFilter(filter, result.filter)) return result.hotspots;
+  const before = new Map(result.hotspots.map((h) => [h.id, h]));
+  const info = INDICATORS[result.indicator];
+  return buildHotspots(result.trends, result.grid, hotspotOptions(filter, info.minChange, result.coarse)).map((hotspot) => {
+    const previous = before.get(hotspot.id);
+    if (previous && previous.pixels.length === hotspot.pixels.length) return { ...previous, rank: hotspot.rank };
+    const series = yearlySeries(result.yearGrids, result.plan.years, hotspot.pixels, result.grid);
+    return { ...hotspot, series, verdict: result.plan.kind === "trend" ? verdictOf(series) : null, refined: false };
+  });
+}
+
 /**
  * Large areas are scanned coarsely; the top hotspots are then re-read at finer resolution over the
  * baseline and recent years only, and their outlines and areas re-drawn from that.
@@ -310,11 +340,12 @@ async function refineHotspots(
   context: { request: ScanRequest; layer: GibsLayer; grid: GridSpec; loaders: ScanLoaders; report: (phase: ScanProgress["phase"], message: string) => void },
 ): Promise<HotspotDetail[]> {
   const { request, layer, grid: coarseGrid, loaders, report } = context;
-  const { plan, area, availability, signal, direction } = request;
+  const { plan, area, availability, signal } = request;
   const info = INDICATORS[request.indicator];
+  const minChange = info.minChange * filterOf(request).minFactor;
   const years = plan.years.filter((y) => (y >= plan.baseline[0] && y <= plan.baseline[1]) || (y >= plan.recent[0] && y <= plan.recent[1]));
   const months = monthsFor(plan, years).filter((m) => !availability.available || availability.available.has(m));
-  if (!months.length || direction === "any") return hotspots;
+  if (!months.length) return hotspots;
   const coarseStep = pixelSize(coarseGrid).dx;
   let budget = REFINE_BUDGET;
   const out = [...hotspots];
@@ -354,7 +385,7 @@ async function refineHotspots(
         const col = Math.floor((lon - coarseGrid.bbox[0]) / cdx);
         return row >= 0 && col >= 0 && row < coarseGrid.height && col < coarseGrid.width && coarsePixels.has(row * coarseGrid.width + col);
       };
-      const flags = flagPixels(trends, hotspot.sign, info.minChange);
+      const flags = flagPixels(trends, hotspot.sign, minChange);
       for (let i = 0; i < flags.length; i++) if (flags[i] && !insideCoarse(i)) flags[i] = 0;
       const pixels = clusterPixels(flags, grid.width, grid.height, 4).flat();
       if (!pixels.length) continue;

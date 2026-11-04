@@ -89,11 +89,32 @@ describe("hotspots", () => {
     const declines = buildHotspots(trends, GRID, { direction: "decline", minChange: 0.02 });
     expect(declines).toHaveLength(2);
     expect(declines[0].pixels).toHaveLength(25);
-    expect(declines[0]).toMatchObject({ rank: 1, id: "h1", sign: -1 });
+    expect(declines[0]).toMatchObject({ rank: 1, sign: -1 });
+    expect(declines[0].id).toMatch(/^d\d+$/);
     expect(declines[0].meanChange).toBeCloseTo(-0.07, 5);
     expect(declines[0].significantShare).toBe(1);
     const any = buildHotspots(trends, GRID, { direction: "any", minChange: 0.02 });
     expect(any.map((h) => h.sign).sort()).toEqual([-1, -1, 1]);
+  });
+
+  it("filters by size of change, size of area and strictness", async () => {
+    const trends = await run(
+      yearGrids([
+        { rows: [0, 1], cols: [0, 1], rate: -0.02 },
+        { rows: [5, 9], cols: [5, 9], rate: -0.004 },
+      ]),
+    );
+    const base = { direction: "decline" as const, minChange: 0.02 };
+    expect(buildHotspots(trends, GRID, base)).toHaveLength(2);
+    // Twice the usual threshold: only the strong block is left.
+    expect(buildHotspots(trends, GRID, { ...base, minChange: 0.04 }).map((h) => h.pixels.length)).toEqual([4]);
+    // Only big areas: the 25-pixel block is left.
+    const big = buildHotspots(trends, GRID, { ...base, minAreaKm2: 4 * pixelAreaKm2(GRID, 9) });
+    expect(big.map((h) => h.pixels.length)).toEqual([25]);
+    // Ids don't depend on the filter, so the same cluster is recognised.
+    expect(big[0].id).toBe(buildHotspots(trends, GRID, base).find((h) => h.pixels.length === 25)?.id);
+    // A p-value below 0 is impossible: nothing passes.
+    expect(buildHotspots(trends, GRID, { ...base, maxP: 0 })).toHaveLength(0);
   });
 
   it("measures area with latitude", () => {

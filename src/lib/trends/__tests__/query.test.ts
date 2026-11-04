@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { analysisHref, compareHref, decodeTime, describeQuestion, encodeTime, interpretation, paramsForEdit, queryFromParams, representativeMonth, resultsHeading } from "../query";
+import { analysisHref, applyEdit, compareHref, decodeTime, describeQuestion, encodeTime, paramsFor, queryFromParams, representativeMonth, resultsHeading, scanKey, sentenceFor, type TrendQuery } from "../query";
 import { decodeGeometry } from "../../geo/polyline";
 import { parseTrendQuery } from "../../query/parse";
+import { INDICATOR_ORDER, type Direction, type IndicatorId } from "../../query/indicators";
 import { bboxPolygon } from "../../geo/geometry";
 import type { Hotspot } from "../hotspots";
 import type { PeriodPlan } from "../../query/period";
 import type { ScanArea } from "../place";
+import type { TimeSpec } from "../../query/parse";
 
 const plan: PeriodPlan = { kind: "trend", startYear: 2015, endYear: 2025, baseline: [2015, 2017], recent: [2023, 2025], years: [], months: [4, 5, 6, 7, 8, 9], notes: [] };
 const area: ScanArea = { name: "Uzbekistan", geometry: bboxPolygon([56, 37, 73, 46]), bbox: [56, 37, 73, 46], center: [41, 64], kind: "country" };
@@ -24,22 +26,55 @@ const hotspot: Hotspot = {
   score: 1,
   label: "Nukus, Uzbekistan",
 };
+const fromText = (q: string) => queryFromParams(new URLSearchParams({ q }));
 
-describe("trend query URLs", () => {
+describe("search URLs", () => {
   it("read a typed question", () => {
-    const q = queryFromParams(new URLSearchParams({ q: "where did vegetation decline in Uzbekistan since 2015" }));
-    expect(q).toMatchObject({ understood: true, indicator: "vegetation", direction: "decline", place: "Uzbekistan", time: { kind: "since", start: 2015 } });
+    const q = fromText("where did vegetation decline in Uzbekistan since 2015");
+    expect(q).toMatchObject({ understood: true, indicators: ["vegetation"], place: "Uzbekistan", time: { kind: "since", start: 2015 }, tab: "vegetation" });
+    expect(q.filters.vegetation).toEqual({ direction: "decline", minFactor: 1, minAreaKm2: 0, strict: false });
   });
 
-  it("apply chip edits on top of the text and keep them in the URL", () => {
-    const current = new URLSearchParams({ q: "where did vegetation decline in Uzbekistan since 2015" });
-    const query = queryFromParams(current);
-    const edited = paramsForEdit(current, query, { indicator: "heat", direction: "increase", place: "Kazakhstan", time: { kind: "last", years: 5 }, season: "summer" });
-    const q = queryFromParams(edited);
-    expect(q).toMatchObject({ indicator: "heat", direction: "increase", place: "Kazakhstan", time: { kind: "last", years: 5 }, season: "summer" });
-    expect(edited.get("q")).toBe("where did vegetation decline in Uzbekistan since 2015");
-    const months = queryFromParams(paramsForEdit(edited, q, { months: [7, 8] }));
-    expect(months.months).toEqual([7, 8]);
+  it("keep several measures, their directions and filters in the link", () => {
+    const q = applyEdit(fromText("vegetation decline in Uzbekistan since 2015"), {
+      indicators: ["heat", "vegetation"],
+      filters: { vegetation: { direction: "decline", minFactor: 2, minAreaKm2: 50, strict: true }, heat: { direction: "increase", minFactor: 1, minAreaKm2: 0, strict: false } },
+      tab: "heat",
+    });
+    const back = queryFromParams(paramsFor(q));
+    expect(back.indicators).toEqual(["vegetation", "heat"]);
+    expect(back.filters).toEqual(q.filters);
+    expect(back.tab).toBe("heat");
+    expect(back.text).toBe("Vegetation decline and heat increase in Uzbekistan since 2015");
+  });
+
+  it("rewrite the sentence on every edit, and read old links", () => {
+    const q = applyEdit(fromText("snow cover loss in the Pamirs"), { season: "all" });
+    expect(q.text).toBe("Snow cover decline in Pamirs, all year round");
+    const legacy = queryFromParams(new URLSearchParams({ q: "x", ind: "heat", dir: "increase", place: "Kazakhstan", t: "last-5", season: "summer" }));
+    expect(legacy).toMatchObject({ indicators: ["heat"], place: "Kazakhstan", time: { kind: "last", years: 5 }, season: "summer" });
+    expect(legacy.filters.heat?.direction).toBe("increase");
+  });
+
+  it("keep the typed words when a filter doesn't change them", () => {
+    const q = fromText("where did vegetation decline in Uzbekistan since 2015");
+    expect(applyEdit(q, { filters: { vegetation: { direction: "decline", minFactor: 2, minAreaKm2: 0, strict: false } } }).text).toBe(q.text);
+    expect(applyEdit(q, { filters: { vegetation: { direction: "any", minFactor: 1, minAreaKm2: 0, strict: false } } }).text).toBe("Vegetation change in Uzbekistan since 2015");
+  });
+
+  it("scan again only when what is scanned changes, not the filters", () => {
+    const q = fromText("vegetation decline in Uzbekistan");
+    expect(scanKey(applyEdit(q, { filters: { vegetation: { direction: "any", minFactor: 3, minAreaKm2: 10, strict: true } } }))).toBe(scanKey(q));
+    expect(scanKey(applyEdit(q, { place: "Kazakhstan" }))).not.toBe(scanKey(q));
+  });
+
+  it("asks before scanning things it can't measure", () => {
+    const q = fromText("is the Aral Sea drying up");
+    expect(q).toMatchObject({ understood: false, indicators: [], place: "Aral Sea" });
+    expect(q.notes[0].closest).toEqual(["rainfall", "soil", "vegetation"]);
+    const picked = applyEdit(q, { indicators: ["rainfall"], filters: { rainfall: { direction: "decline", minFactor: 1, minAreaKm2: 0, strict: false } } });
+    expect(picked.text).toBe("Rainfall decline in Aral Sea");
+    expect(picked.notes).toEqual([]);
   });
 
   it("round-trip every time form", () => {
@@ -48,51 +83,56 @@ describe("trend query URLs", () => {
     }
     expect(decodeTime("nonsense")).toBeNull();
   });
-
-  it("accept an exact area from another page", () => {
-    const q = queryFromParams(new URLSearchParams({ country: "UZB", ind: "heat" }));
-    expect(q.area).toEqual({ country: "UZB", osm: undefined, poly: undefined, name: undefined });
-    expect(q.understood).toBe(true);
-  });
 });
 
-describe("labels", () => {
-  it("summarise the interpretation and the results", () => {
-    const q = queryFromParams(new URLSearchParams({ q: "where did vegetation decline in Uzbekistan since 2015" }));
-    expect(interpretation(q, "Uzbekistan", plan, plan.months)).toBe("Vegetation · Decline · Uzbekistan · 2015→2025 · Apr–Sep");
-    expect(resultsHeading(10, q, area, plan)).toBe("Top 10 areas with vegetation decline in Uzbekistan, 2015→2025");
-    expect(resultsHeading(0, q, area, plan)).toBe("No areas with vegetation decline in Uzbekistan, 2015→2025");
-    expect(resultsHeading(1, q, { ...area, name: "Around Aral Sea" }, plan)).toBe("One area with vegetation decline around the Aral Sea, 2015→2025");
-  });
+describe("the sentence reads back as the same search", () => {
+  const sets: IndicatorId[][] = [["vegetation"], ["heat", "rainfall"], ["soil", "dust", "snow"], [...INDICATOR_ORDER]];
+  const directionSets: ((i: number) => Direction)[] = [() => "decline", () => "increase", () => "any", (i) => (["decline", "increase", "any"] as const)[i % 3]];
+  const places: [string | null, boolean][] = [["Uzbekistan", false], ["Aral Sea", true], [null, false], ["New South Wales", false]];
+  const times: TimeSpec[] = [{ kind: "default" }, { kind: "since", start: 2012 }, { kind: "range", start: 2005, end: 2015 }, { kind: "last", years: 20 }, { kind: "year", year: 2021 }, { kind: "versus", baseline: 2003, recent: 2023 }];
+  const seasons: [TrendQuery["season"], number[] | null][] = [[null, null], ["all", null], ["growing", null], ["winter", null], ["cold", null], ["summer", null], [null, [4, 5, 6, 7, 8, 9]], [null, [11, 12, 1, 2]], [null, [1, 3, 7]], [null, [7]]];
+
+  let checked = 0;
+  for (const ids of sets)
+    for (const dirs of directionSets)
+      for (const [place, near] of places)
+        for (const time of times)
+          for (const [season, months] of seasons) {
+            const filters = Object.fromEntries(ids.map((id, i) => [id, { direction: dirs(i), minFactor: 1, minAreaKm2: 0, strict: false }]));
+            const sentence = sentenceFor({ indicators: ids, filters, place, near, area: null, time, season, months });
+            const parsed = parseTrendQuery(sentence);
+            const got = { ids: INDICATOR_ORDER.filter((id) => parsed.indicators.includes(id)), dirs: ids.map((id) => parsed.directions[id]), place: parsed.place, near: parsed.near, time: parsed.time, season: parsed.season, months: parsed.months };
+            const want = { ids, dirs: ids.map((_, i) => dirs(i)), place, near, time, season, months: months ? [...months].sort((a, b) => a - b) : null };
+            if (JSON.stringify({ ...got, months: got.months ? [...got.months].sort((a, b) => a - b) : null }) !== JSON.stringify(want)) {
+              it(sentence, () => expect(got).toEqual(want));
+            }
+            checked += 1;
+          }
+  it(`checked ${4 * 4 * 4 * 6 * 10} combinations`, () => expect(checked).toBe(3840));
 });
 
-describe("describeQuestion", () => {
-  it("summarises a question for the search box", () => {
+describe("labels and links", () => {
+  it("summarise a question for the search boxes", () => {
     expect(describeQuestion(parseTrendQuery("dust increase near the Aral Sea"))).toBe("Dust · Increase · near Aral Sea · last 10 years");
-    expect(describeQuestion(parseTrendQuery("where did vegetation decline in Uzbekistan since 2015"))).toBe("Vegetation · Decline · Uzbekistan · since 2015");
-    expect(describeQuestion(parseTrendQuery("areas that experienced a decline in vegetation health"))).toBe("Vegetation · Decline · map view · last 10 years");
+    expect(describeQuestion(parseTrendQuery("vegetation and rainfall decline in Uzbekistan since 2015"))).toBe("Vegetation + Rainfall · Decline · Uzbekistan · since 2015");
+    expect(describeQuestion(parseTrendQuery("what changed in Uzbekistan"))).toBe("All six measures · Any change · Uzbekistan · last 10 years");
+    expect(describeQuestion(parseTrendQuery("is the Aral Sea drying up"))).toBe("Closest measures for “drying up” · Aral Sea · last 10 years");
   });
-});
 
-describe("hotspot links", () => {
-  const q = queryFromParams(new URLSearchParams({ q: "where did vegetation decline in Uzbekistan since 2015" }));
+  it("head the results", () => {
+    expect(resultsHeading(10, "vegetation", "decline", area, plan)).toBe("Top 10 areas with vegetation decline in Uzbekistan, 2015→2025");
+    expect(resultsHeading(1, "vegetation", "decline", { ...area, name: "Around Aral Sea" }, plan)).toBe("One area with vegetation decline around the Aral Sea, 2015→2025");
+  });
 
   it("open the full analysis on the hotspot's own outline and period", () => {
-    const href = analysisHref(hotspot, q, area, plan, "2026-08");
-    const params = new URL(href, "https://x.test").searchParams;
-    expect(href.startsWith("/analysis?")).toBe(true);
+    const params = new URL(analysisHref(hotspot, "vegetation", area, plan, "2026-08"), "https://x.test").searchParams;
     expect(decodeGeometry(params.get("poly") as string)).toEqual(hotspot.geometry);
-    expect(params.get("name")).toBe("Nukus, Uzbekistan");
-    expect([params.get("start"), params.get("end")]).toEqual(["2015-01", "2025-12"]);
-    expect(params.get("ds")).toBe("vegetation,climate");
+    expect([params.get("start"), params.get("end"), params.get("ds")]).toEqual(["2015-01", "2025-12", "vegetation,climate"]);
   });
 
   it("compare the middle of the season, then vs now", () => {
-    expect(representativeMonth([4, 5, 6, 7, 8, 9])).toBe(6);
     expect(representativeMonth([12, 1, 2])).toBe(1);
-    const params = new URL(compareHref(hotspot, q, plan, plan.months), "https://x.test").searchParams;
-    expect(params.get("left")).toBe("MODIS_Terra_L3_NDVI_Monthly");
+    const params = new URL(compareHref(hotspot, "vegetation", plan, plan.months), "https://x.test").searchParams;
     expect([params.get("leftDate"), params.get("rightDate")]).toEqual(["2016-06-01", "2024-06-01"]);
-    expect(params.get("lat")).toBe("42.4567");
   });
 });

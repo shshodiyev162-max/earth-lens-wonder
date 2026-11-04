@@ -1,16 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Loader2, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import { EXAMPLE_QUERIES } from "@/lib/query/examples";
 
 interface TrendQueryBoxProps {
+  /** The current search in words (rewritten whenever a choice changes). */
   value: string;
   onSubmit: (text: string) => void;
-  busy: boolean;
   showExamples: boolean;
 }
 
-/** Ask a question in plain words, or pick one of the examples. */
-export default function TrendQueryBox({ value, onSubmit, busy, showExamples }: TrendQueryBoxProps) {
+/** Ask a question in plain words (it fills in the form below), or pick one of the examples. */
+export default function TrendQueryBox({ value, onSubmit, showExamples }: TrendQueryBoxProps) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
 
@@ -25,7 +25,7 @@ export default function TrendQueryBox({ value, onSubmit, busy, showExamples }: T
         <label htmlFor="trend-question" className="text-xs font-semibold uppercase tracking-wider text-panel-muted">
           Ask about a change
         </label>
-        <div className="flex items-center gap-2 rounded-xl border border-panel-line bg-panel-tint px-3 focus-within:border-cyan-400/60">
+        <div className="flex items-center gap-2 rounded-xl border border-panel-line bg-panel-tint pl-3 pr-1 focus-within:border-cyan-400/60">
           <Search className="h-4 w-4 shrink-0 text-panel-muted" aria-hidden />
           <input
             id="trend-question"
@@ -36,15 +36,17 @@ export default function TrendQueryBox({ value, onSubmit, busy, showExamples }: T
             spellCheck={false}
             className="min-w-0 flex-1 bg-transparent py-3 text-sm text-panel-foreground outline-none placeholder:text-panel-muted"
           />
+          <button
+            type="submit"
+            disabled={!text.trim()}
+            aria-label="Read my question and find changes"
+            title="Read my question and find changes"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-accent-cyan transition hover:bg-panel-tint-strong disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
+          >
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={!text.trim() || busy}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"
-        >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
-          Find changes
-        </button>
+        <p className="text-[11px] text-panel-muted">Press Enter: your words fill in the choices below, and you can change any of them.</p>
       </form>
       {showExamples && (
         <div>

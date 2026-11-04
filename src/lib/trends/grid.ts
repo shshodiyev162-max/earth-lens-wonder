@@ -14,7 +14,8 @@ import type { GridSpec } from "./hotspots";
 
 /** At most this many map requests in flight, across all scans. */
 const limit = createLimiter(6);
-const shared = createSharedCache<Float32Array>();
+// Monthly grids are large: the device cache keeps them, so memory only holds requests in flight.
+const shared = createSharedCache<Float32Array>({ forgetSettled: true });
 const sharedMasks = createSharedCache<Uint8Array>();
 
 /**

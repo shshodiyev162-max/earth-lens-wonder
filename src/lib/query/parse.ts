@@ -142,7 +142,7 @@ const FILLER = new Set(
   ).split(" "),
 );
 
-const NOT_A_PLACE = /^(?:the\s+)?(?:world|globe|earth|planet|everywhere|anywhere|map|view|this area|here|my area)$/i;
+const NOT_A_PLACE = /^(?:the\s+)?(?:world|globe|earth|planet|everywhere|anywhere|map|view|map view|this area|this view|here|my area)$/i;
 
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
@@ -220,7 +220,7 @@ function parseTime(lower: string): TimeResult {
     season = seasonFromWord(word);
     const month = season ? null : monthFromWord(word);
     if (month) months = [month];
-    return { time: { kind: "versus", baseline: Math.min(a, b), recent: Math.max(a, b) }, season, months, rest };
+    return { time: { kind: "versus", baseline: Math.min(a, b), recent: Math.max(a, b) }, ...readMonths(rest, season, months) };
   }
 
   const range = new RegExp(String.raw`(?:\b(?:from|between|in|during|over)\s+)?\b${YEAR}\s*(?:-|to|until|till|through|thru|and)\s*${YEAR}\b`).exec(rest);
@@ -256,15 +256,60 @@ function parseTime(lower: string): TimeResult {
     }
   }
 
-  // A season word on its own ("in summer", "during the growing season").
-  if (!season && !months) {
-    const word = new RegExp(String.raw`\b(?:(?:in|during|over|for)\s+)?(?:the\s+)?(summer|winter|spring|autumn|growing season|monsoon)s?(?:\s+(?:season|months?))?\b`).exec(rest);
-    if (word) {
-      take(word);
-      season = seasonFromWord(word[1]);
-    }
+  return { time, ...readMonths(rest, season, months) };
+}
+
+const FULL_MONTH = String.raw`(?:january|february|march|april|may|june|july|august|september|october|november|december)`;
+
+/** Months asked without a year: "April to September", "June, July and August", "all year round", "in summer". */
+function readMonths(
+  rest: string,
+  season: Exclude<SeasonId, "custom"> | null,
+  months: number[] | null,
+): { season: Exclude<SeasonId, "custom"> | null; months: number[] | null; rest: string } {
+  if (season || months) return { season, months, rest };
+  const take = (match: RegExpExecArray) => {
+    rest = blank(rest, match.index, match.index + match[0].length);
+  };
+  const allYear = /\b(?:all\s+year(?:\s+round)?|year[\s-]round|every\s+month|all\s+months|(?:the\s+)?whole\s+year)\b/.exec(rest);
+  if (allYear) {
+    take(allYear);
+    return { season: "all", months: null, rest };
   }
-  return { time, season, months, rest };
+  const cold = /\b(?:(?:in|during|over)\s+)?(?:the\s+)?(?:snow|cold)\s+(?:season|months)\b/.exec(rest);
+  if (cold) {
+    take(cold);
+    return { season: "cold", months: null, rest };
+  }
+  // Two or more months: a range ("April to September") or a list ("June, July and August").
+  const word = String.raw`${MONTH_WORD}\b`;
+  const list = new RegExp(String.raw`\b(?:(?:in|during|for|from|between|each|every)\s+)?${word}(?:\s*(?:,|and|&|to|through|thru|until|till|-)\s*${word})+`).exec(rest);
+  if (list) {
+    take(list);
+    const named = matchesOf(new RegExp(String.raw`\b${word}`), list[0]).map((m) => monthFromWord(m[0]) as number);
+    const isRange = named.length === 2 && /\b(?:to|through|thru|until|till)\b|-/.test(list[0]);
+    if (isRange) {
+      const run: number[] = [];
+      for (let m = named[0], i = 0; i < 12; m = (m % 12) + 1, i++) {
+        run.push(m);
+        if (m === named[1]) break;
+      }
+      return { season: null, months: run, rest };
+    }
+    return { season: null, months: [...new Set(named)].sort((a, b) => a - b), rest };
+  }
+  const single = new RegExp(String.raw`\b(?:in|during|each|every)\s+(${FULL_MONTH})\b`).exec(rest);
+  if (single) {
+    take(single);
+    return { season: null, months: [monthFromWord(single[1]) as number], rest };
+  }
+  // A season word on its own ("in summer", "during the growing season").
+  const seasonWord = new RegExp(String.raw`\b(?:(?:in|during|over|for)\s+)?(?:the\s+)?(summer|winter|spring|autumn|growing season|monsoon)s?(?:\s+(?:season|months?))?\b`).exec(rest);
+  if (seasonWord) {
+    take(seasonWord);
+    return { season: seasonFromWord(seasonWord[1]), months: null, rest };
+  }
+  return { season, months, rest };
 }
 
 // ---------------------------------------------------------------------------

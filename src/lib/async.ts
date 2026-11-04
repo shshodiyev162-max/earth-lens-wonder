@@ -47,8 +47,10 @@ export function abortError(): DOMException {
  * De-duplicates identical requests across callers and caches successful
  * results. A request is only cancelled when every caller waiting on it has
  * aborted, so one cancelled analysis never breaks another that shares data.
+ * With `forgetSettled`, finished results are not kept in memory (for large
+ * values that the device cache already keeps).
  */
-export function createSharedCache<T>() {
+export function createSharedCache<T>(options: { forgetSettled?: boolean } = {}) {
   const cache = new Map<string, SharedEntry<T>>();
 
   return function shared(key: string, factory: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -60,6 +62,7 @@ export function createSharedCache<T>() {
       created.promise = factory(controller.signal).then(
         (value) => {
           created.settled = true;
+          if (options.forgetSettled && cache.get(key) === created) cache.delete(key);
           return value;
         },
         (error) => {
