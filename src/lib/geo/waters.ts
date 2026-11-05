@@ -1,10 +1,10 @@
-// Seas and oceans that can be named in a question or clicked on the map. Place search returns a
-// sea as a single point, so their extent is kept here.
+// Seas and oceans that can be searched for, chosen from a list or clicked on the map. Place search
+// returns a sea as a single point, so their extent is kept here.
 //
-// The outlines are rough on purpose. They only have to keep one body of water apart from the next:
-// where two meet across land (the Americas between the Atlantic and the Pacific), the edge runs
-// through that land. Land inside an outline is never picked (a click on land picks the country), and
-// sea measures leave land out through NASA's land/water map.
+// The outlines below are rough on purpose. They only have to keep one body of water apart from the
+// next: where two meet across land (the Americas between the Atlantic and the Pacific), the edge runs
+// through that land. The water itself — the outline with the land cut out — is built from them by
+// scripts/build-waters.ts into public/data/waters.json and loaded when needed (`waterShape`).
 
 import { pointInGeometry, type LatLng, type PolygonGeometry } from "./geometry";
 
@@ -17,6 +17,8 @@ export interface Water {
   kind: WaterKind;
   /** Rough outline as [longitude, latitude] points, closed. */
   outline: [number, number][];
+  /** An enclosed sea: the ocean around it doesn't include it. */
+  inland?: boolean;
 }
 
 type Ring = [number, number][];
@@ -85,6 +87,7 @@ export const WATERS: Water[] = [
     names: ["mediterranean", "mediterranean sea"],
     label: "Mediterranean Sea",
     kind: "sea",
+    inland: true,
     // From the Strait of Gibraltar to the Bosphorus: leaves out the Bay of Biscay and the Black Sea.
     outline: close([
       [-5.8, 35.0],
@@ -110,10 +113,10 @@ export const WATERS: Water[] = [
       [-1.0, 35.0],
     ]),
   },
-  { names: ["black sea"], label: "Black Sea", kind: "sea", outline: box(27.2, 41.0, 41.9, 47.0) },
-  { names: ["caspian sea", "caspian"], label: "Caspian Sea", kind: "sea", outline: box(46.5, 36.5, 55.0, 47.3) },
-  { names: ["red sea"], label: "Red Sea", kind: "sea", outline: box(32.3, 12.4, 43.6, 30.0) },
-  { names: ["persian gulf", "arabian gulf", "the gulf"], label: "Persian Gulf", kind: "sea", outline: box(47.7, 23.8, 56.6, 30.5) },
+  { names: ["black sea"], label: "Black Sea", kind: "sea", inland: true, outline: box(27.2, 41.0, 41.9, 47.0) },
+  { names: ["caspian sea", "caspian"], label: "Caspian Sea", kind: "sea", inland: true, outline: box(46.5, 36.5, 55.0, 47.3) },
+  { names: ["red sea"], label: "Red Sea", kind: "sea", inland: true, outline: box(32.3, 12.4, 43.6, 30.0) },
+  { names: ["persian gulf", "arabian gulf", "the gulf"], label: "Persian Gulf", kind: "sea", inland: true, outline: box(47.7, 23.8, 56.6, 30.5) },
   { names: ["arabian sea"], label: "Arabian Sea", kind: "sea", outline: box(51.0, 5.0, 77.0, 25.5) },
   { names: ["bay of bengal"], label: "Bay of Bengal", kind: "sea", outline: box(79.5, 5.0, 99.0, 23.0) },
   { names: ["south china sea"], label: "South China Sea", kind: "sea", outline: box(99.0, 0.0, 121.5, 24.0) },
@@ -153,6 +156,7 @@ export const WATERS: Water[] = [
     names: ["baltic sea", "baltic"],
     label: "Baltic Sea",
     kind: "sea",
+    inland: true,
     // With the Kattegat; the Norwegian coast is left out.
     outline: close([
       [9.3, 54.5],
@@ -281,7 +285,7 @@ export const WATERS: Water[] = [
       [-87.3, 21.0],
     ]),
   },
-  { names: ["hudson bay"], label: "Hudson Bay", kind: "sea", outline: box(-95.5, 51.0, -76.5, 64.5) },
+  { names: ["hudson bay"], label: "Hudson Bay", kind: "sea", inland: true, outline: box(-95.5, 51.0, -76.5, 64.5) },
   { names: ["coral sea", "great barrier reef"], label: "Coral Sea", kind: "sea", outline: box(142.0, -25.0, 158.0, -9.0) },
   { names: ["gulf of guinea"], label: "Gulf of Guinea", kind: "sea", outline: box(-8.0, -5.0, 10.5, 6.5) },
 
@@ -342,8 +346,34 @@ export const WATERS: Water[] = [
 /** Names that mean the whole Pacific, which can't be scanned as one area. */
 export const WHOLE_PACIFIC = /^(?:the\s+)?(?:(?:north|south)(?:ern)?\s+)?pacific(?:\s+ocean)?$/i;
 
-export function waterGeometry(water: Water): PolygonGeometry {
+/** The rough outline (land included): for finding which water is where. */
+export function roughOutline(water: Water): PolygonGeometry {
   return { type: "Polygon", coordinates: [water.outline] };
+}
+
+let shapes: Promise<Map<string, PolygonGeometry> | null> | null = null;
+
+/** The water areas (land cut out), bundled in public/data/waters.json. Loaded once. */
+export function loadWaterShapes(): Promise<Map<string, PolygonGeometry> | null> {
+  if (!shapes) {
+    shapes = fetch(`${import.meta.env.BASE_URL}data/waters.json`)
+      .then((response) => (response.ok ? (response.json() as Promise<{ features: { properties: { label: string }; geometry: PolygonGeometry }[] }>) : null))
+      .then((collection) => (collection ? new Map(collection.features.map((feature) => [feature.properties.label, feature.geometry])) : null))
+      .catch(() => {
+        shapes = null;
+        return null;
+      });
+  }
+  return shapes;
+}
+
+/** The water area of a sea or ocean; its rough outline if the shapes can't be loaded. */
+export async function waterShape(water: Water): Promise<PolygonGeometry> {
+  return (await loadWaterShapes())?.get(water.label) ?? roughOutline(water);
+}
+
+export function findWater(label: string): Water | null {
+  return WATERS.find((water) => water.label === label) ?? null;
 }
 
 /** Shoelace area in square degrees: only used to rank outlines by size. */
@@ -357,6 +387,6 @@ const BY_SIZE = [...WATERS].map((water) => ({ water, size: ringArea(water.outlin
 
 /** The sea or ocean at a point: the smallest outline that contains it (a sea before its ocean). */
 export function waterAt([lat, lon]: LatLng): Water | null {
-  for (const { water } of BY_SIZE) if (pointInGeometry([lon, lat], waterGeometry(water))) return water;
+  for (const { water } of BY_SIZE) if (pointInGeometry([lon, lat], roughOutline(water))) return water;
   return null;
 }

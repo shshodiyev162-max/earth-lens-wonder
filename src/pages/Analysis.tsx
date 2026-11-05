@@ -34,7 +34,7 @@ import type { LatLng, PolygonGeometry } from "@/lib/geo/geometry";
 import { formatMonth } from "@/lib/gibs/time";
 import { cn } from "@/lib/utils";
 
-const TARGET_KEYS = ["area", "osm", "country", "poly", "lat", "lon", "r", "bbox", "name", "ctx"];
+const TARGET_KEYS = ["area", "osm", "country", "region", "poly", "lat", "lon", "r", "bbox", "name", "ctx"];
 const ALL_DATASETS = DATASETS.map((d) => d.id);
 
 function parseDatasets(value: string | null): DatasetId[] {
@@ -244,7 +244,9 @@ export default function Analysis() {
   );
 
   const onPlace = (place: PlaceResult) => {
-    if (place.osm && hasBoundary(place)) {
+    if (place.region) {
+      setTargetParams({ region: place.region });
+    } else if (place.osm && hasBoundary(place)) {
       setTargetParams({ osm: `${place.osm.type}${place.osm.id}`, name: place.name, ctx: place.context || undefined });
     } else {
       setTargetParams({ lat: place.center[0].toFixed(5), lon: place.center[1].toFixed(5), r: String(defaultRadiusKm(place.kind)), name: place.name, ctx: place.context || undefined });
@@ -264,8 +266,10 @@ export default function Analysis() {
   };
 
   const onDrawn = (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => {
-    if (country) {
+    if (country?.countryId) {
       setTargetParams({ country: country.countryId });
+    } else if (country?.region) {
+      setTargetParams({ region: country.region });
     } else {
       const area = workspace.addArea({ geometry, kind });
       setTargetParams({ area: area.id });

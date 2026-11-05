@@ -17,6 +17,7 @@ export interface DatasetInfo {
 export type TargetRef =
   | { type: "osm"; osm: string }
   | { type: "country"; id: string }
+  | { type: "region"; label: string }
   | { type: "poly"; poly: string }
   | { type: "point"; lat: number; lon: number; radiusKm: number }
   | { type: "area"; id: string }

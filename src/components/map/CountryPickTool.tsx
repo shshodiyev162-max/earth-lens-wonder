@@ -3,7 +3,8 @@ import { useMap } from "react-leaflet";
 import L from "leaflet";
 import type { Feature } from "geojson";
 import { countryAt, loadCountries, type Country, type CountryIndex } from "@/lib/geo/countries";
-import { waterAt, waterGeometry, type Water } from "@/lib/geo/waters";
+import { loadWaterShapes, roughOutline, waterAt, type Water } from "@/lib/geo/waters";
+import type { PolygonGeometry } from "@/lib/geo/geometry";
 
 const HIGHLIGHT_STYLE: L.PathOptions = {
   color: "#22d3ee",
@@ -13,12 +14,12 @@ const HIGHLIGHT_STYLE: L.PathOptions = {
   interactive: false,
 };
 
-/** Seas are outlined roughly (the outline also takes in some land), so they are drawn dashed. */
+/** A sea or ocean is drawn dashed, so it stands out from the coastlines around it. */
 const WATER_STYLE: L.PathOptions = { ...HIGHLIGHT_STYLE, color: "#f8fafc", weight: 2.5, dashArray: "7 5", fillOpacity: 0.14 };
 
 interface CountryPickToolProps {
   onPick: (country: Country) => void;
-  /** Also lets the pointer pick the sea or ocean under it, when given. */
+  /** The sea or ocean under the pointer was clicked. */
   onPickWater?: (water: Water) => void;
   onCancel: () => void;
 }
@@ -28,7 +29,7 @@ type Target = { kind: "country"; country: Country } | { kind: "water"; water: Wa
 const nameOf = (target: Target) => (target.kind === "country" ? target.country.name : target.water.label);
 
 /**
- * "Pick a country" (or "a country or sea"): what is under the pointer lights up with its name, and
+ * "Pick a country or sea": what is under the pointer lights up with its name, and
  * a click (or tap) selects it. The map can still be dragged and zoomed. Esc cancels.
  */
 export default function CountryPickTool({ onPick, onPickWater, onCancel }: CountryPickToolProps) {
@@ -38,9 +39,13 @@ export default function CountryPickTool({ onPick, onPickWater, onCancel }: Count
 
   useEffect(() => {
     let index: CountryIndex | null = null;
+    let waters: Map<string, PolygonGeometry> | null = null;
     let active = true;
     loadCountries().then((loaded) => {
       if (active) index = loaded;
+    });
+    loadWaterShapes().then((loaded) => {
+      if (active) waters = loaded;
     });
 
     const container = map.getContainer();
@@ -58,7 +63,7 @@ export default function CountryPickTool({ onPick, onPickWater, onCancel }: Count
         highlight.clearLayers();
         if (target?.kind === "country") highlight.addData({ type: "Feature", properties: {}, geometry: target.country.geometry } as Feature);
         if (target?.kind === "water") {
-          highlight.addData({ type: "Feature", properties: {}, geometry: waterGeometry(target.water) } as Feature);
+          highlight.addData({ type: "Feature", properties: {}, geometry: waters?.get(target.water.label) ?? roughOutline(target.water) } as Feature);
           highlight.setStyle(WATER_STYLE);
         } else highlight.setStyle(HIGHLIGHT_STYLE);
         hovered = shape;

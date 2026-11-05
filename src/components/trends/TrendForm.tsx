@@ -4,7 +4,7 @@ import { Check, Loader2, Sparkles } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
 import { MEASURE_DEFINITIONS } from "@/lib/glossary";
 import { CORE_INDICATORS, INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
-import type { TimeSpec } from "@/lib/query/parse";
+import type { TimeSpec } from "@/lib/query/period";
 import { DEFAULT_FILTER, filterFor, type QueryEdit, type SeasonChoice, type TrendQuery } from "@/lib/trends/query";
 import { cn } from "@/lib/utils";
 

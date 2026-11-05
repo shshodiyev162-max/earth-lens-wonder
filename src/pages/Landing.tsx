@@ -5,7 +5,6 @@ import { Globe, Map, Columns, BarChart3, PenTool, Search, ArrowRight, Satellite,
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { openGlobalSearch } from "@/components/search/openSearch";
 import DayNightControl from "@/components/landing/DayNightControl";
-import HeroSearch from "@/components/landing/HeroSearch";
 import { createHourStore, utcHours, type DayNightMode } from "@/components/landing/sun";
 
 // The WebGL globe is the heaviest part of the app, so it loads after the page.
@@ -25,7 +24,7 @@ const features: Feature[] = [
     icon: LineChart,
     title: "Trend Detective",
     description:
-      "Ask where Earth is changing. Thirteen NASA measures — land, air, sea and the ozone layer — with every pixel tested for a real trend and the hotspots ranked.",
+      "Find where Earth is changing. Pick one of thirteen NASA measures — land, air, sea and the ozone layer — and a place; every pixel is tested for a real trend and the hotspots ranked.",
     to: "/trends",
     color: "text-glow-blue",
   },
@@ -60,7 +59,7 @@ const features: Feature[] = [
   {
     icon: Search,
     title: "Global Search",
-    description: "Find any city, region, country or coordinates from the search bar at the top — or press Ctrl K (⌘K on Mac).",
+    description: "Find any city, region, country, sea or coordinates from the search bar at the top — or press Ctrl K (⌘K on Mac).",
     onClick: openGlobalSearch,
     color: "text-glow-blue",
   },
@@ -69,8 +68,8 @@ const features: Feature[] = [
 const steps = [
   {
     icon: ScanSearch,
-    title: "1. Ask, or choose",
-    description: "Ask in plain words, or pick the measure, the place, the years and the months yourself — draw an area, click a country or a sea, or choose a known region.",
+    title: "1. Choose",
+    description: "Pick the measure, the place, the years and the months — draw an area, click a country or a sea, search for a place, or choose a known region.",
   },
   {
     icon: Satellite,
@@ -195,9 +194,7 @@ export default function Landing() {
 
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 leading-relaxed">Find where Earth is changing — and why — with NASA data.</p>
 
-            <HeroSearch className="mb-5" />
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-4">
               <Link
                 to="/map"
                 className="pointer-events-auto inline-flex items-center gap-2 px-8 py-4 rounded-xl font-display font-semibold gradient-primary text-primary-foreground hover:opacity-90 transition-opacity glow-primary"
@@ -207,8 +204,15 @@ export default function Landing() {
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
+                to="/trends"
+                className="pointer-events-auto inline-flex items-center gap-2 px-6 py-4 rounded-xl font-display font-semibold glass text-foreground hover:bg-card/80 transition-colors"
+              >
+                <LineChart className="w-5 h-5 text-glow-blue" />
+                Find changes
+              </Link>
+              <Link
                 to="/analysis"
-                className="pointer-events-auto inline-flex items-center gap-2 px-8 py-4 rounded-xl font-display font-semibold glass text-foreground hover:bg-card/80 transition-colors"
+                className="pointer-events-auto inline-flex items-center gap-2 px-6 py-4 rounded-xl font-display font-semibold glass text-foreground hover:bg-card/80 transition-colors"
               >
                 <BarChart3 className="w-5 h-5 text-earth-orange" />
                 Analyze a place

@@ -1,16 +1,15 @@
 // Watchable worked examples for the Trends page. Each step points at a part of the page, may do
-// something (ask a question, open a hotspot…) and may wait for NASA data before going on. Every
-// number shown comes from a real scan; the captions describe what to look at, not the values.
+// something (fill in a choice, start the scan, open a hotspot…) and may wait for NASA data before
+// going on — exactly what a person would do by hand. Every number shown comes from a real scan;
+// the captions describe what to look at, not the values.
 
 import type { Direction } from "../query/indicators";
 import type { QueryEdit } from "../trends/query";
 
 /** Parts of the Trends page a step can point at (each carries a matching data-demo attribute). */
-export type DemoTarget = "question" | "mode" | "form" | "where" | "cover" | "find" | "tabs" | "results" | "whole-area" | "hint" | "filters" | "hotspots" | "hotspot-card" | "glossary";
+export type DemoTarget = "form" | "where" | "cover" | "find" | "tabs" | "results" | "whole-area" | "hint" | "filters" | "hotspots" | "hotspot-card" | "glossary";
 
 export type DemoAction =
-  | { kind: "ask"; text: string }
-  | { kind: "mode"; mode: "ask" | "pick" }
   | { kind: "edit"; edit: QueryEdit }
   | { kind: "run" }
   | { kind: "filter"; direction: Direction }
@@ -44,26 +43,34 @@ export function demoAttr(target: DemoTarget): { "data-demo": DemoTarget } {
   return { "data-demo": target };
 }
 
+const ANY = { minFactor: 1, minAreaKm2: 0, strict: false };
+
 export const DEMOS: DemoScript[] = [
   {
     id: "vegetation",
     title: "Is Uzbekistan's vegetation declining?",
-    summary: "A question in plain words, a trend test for the whole country, and the hotspots that changed most.",
+    summary: "Choose a country, a measure and the years, then a trend test for the whole country and the hotspots that changed most.",
     steps: [
       {
-        target: "question",
-        action: { kind: "ask", text: "where did vegetation decline in Uzbekistan since 2015" },
-        caption: "Ask in plain words. TerraScope turns the question into choices: the measure (vegetation, from NASA's MODIS satellites), the place, the years and the months.",
+        target: "where",
+        action: { kind: "edit", edit: { area: { country: "UZB", name: "Uzbekistan" } } },
+        caption: "First the place. Here Uzbekistan is picked by clicking it on the map with “Country or sea”; you can also draw a shape, search for a place, or choose a known region.",
       },
       {
         target: "form",
-        caption: "Every choice is in the form and can be changed. The sentence is rewritten to match, so the words and the choices never disagree.",
+        action: { kind: "edit", edit: { indicators: ["vegetation"], filters: { vegetation: { direction: "decline", ...ANY } }, time: { kind: "since", start: 2015 }, season: null, months: null } },
+        caption: "Then what to look for: vegetation, from NASA's MODIS satellites, since 2015, in its usual growing season (April to September). The results will show where it declined. The line at the top says the choices in words.",
+      },
+      {
+        target: "find",
+        action: { kind: "run" },
+        caption: "Find changes starts the scan. Nothing is read from NASA until you press it.",
       },
       {
         target: "results",
         waitFor: "scan-done",
         caption:
-          "TerraScope reads one NASA map per month — the growing season, April to September, of every year since 2015 — and tests each pixel for a trend. The first time takes a minute or two; after that the maps are kept on this device.",
+          "TerraScope reads one NASA map per month — the growing season of every year since 2015 — and tests each pixel for a trend. The first time takes a minute or two; after that the maps are kept on this device.",
       },
       {
         target: "whole-area",
@@ -96,17 +103,27 @@ export const DEMOS: DemoScript[] = [
   {
     id: "sea",
     title: "Is the Mediterranean getting warmer?",
-    summary: "Sea surface temperature over a whole sea: only water is scanned, and the warming is tested for significance.",
+    summary: "Sea surface temperature over a whole sea: only its water is scanned, and the warming is tested for significance.",
     steps: [
       {
-        target: "question",
-        action: { kind: "ask", text: "is the Mediterranean sea temperature rising since 2003" },
-        caption: "Sea temperature is one of thirteen NASA measures. TerraScope knows the Mediterranean's outline, so the whole sea is scanned — and land is left out.",
+        target: "where",
+        action: { kind: "edit", edit: { place: "Mediterranean Sea" } },
+        caption: "Pick the sea: press “Country or sea” and click the water, search for it, or choose it from the list of known seas. TerraScope uses the sea's own shape, so only water is scanned.",
+      },
+      {
+        target: "form",
+        action: { kind: "edit", edit: { indicators: ["sst"], filters: { sst: { direction: "increase", ...ANY } }, time: { kind: "since", start: 2003 }, season: null, months: null } },
+        caption: "Choose sea temperature — one of thirteen NASA measures — since 2003, every month of the year. The results will show where the water warmed.",
+      },
+      {
+        target: "find",
+        action: { kind: "run" },
+        caption: "Find changes starts the scan: night-time sea surface temperature from MODIS, one map per month.",
       },
       {
         target: "results",
         waitFor: "scan-done",
-        caption: "Night-time sea surface temperature from MODIS, every month of the year. Large areas are read coarsely first, then the top hotspots are re-read in finer detail.",
+        caption: "Large areas are read coarsely first, then the top hotspots are re-read in finer detail.",
       },
       {
         target: "whole-area",
@@ -116,25 +133,16 @@ export const DEMOS: DemoScript[] = [
         target: "hotspots",
         caption: "The places that warmed most. Open water has no address, so hotspots at sea are named by their position.",
       },
-      {
-        target: "where",
-        caption: "To pick a sea yourself, press “Country or sea” and click the water on the map, or choose it from the list of known seas and oceans.",
-      },
     ],
   },
   {
     id: "pick",
-    title: "Choose step by step: the Aral Sea",
-    summary: "No question needed: pick an area, see what kind of place it is, choose the measures that suit it, then find changes.",
+    title: "What suits a place: the Aral Sea",
+    summary: "Choose a place, see what kind of place it is from NASA's land cover map, take the measures that suit it, then find changes.",
     steps: [
       {
-        target: "mode",
-        action: { kind: "mode", mode: "pick" },
-        caption: "No question needed: choose everything yourself. Draw a rectangle, polygon or circle, click a country or a sea, choose a known region from the list, or type a place.",
-      },
-      {
         target: "where",
-        action: { kind: "edit", edit: { place: "Aral Sea", indicators: ["dust"], time: { kind: "default" } } },
+        action: { kind: "edit", edit: { place: "Aral Sea", indicators: ["dust"], time: { kind: "default" }, season: null, months: null } },
         caption: "Here the Aral Sea is chosen from the list of known regions — the lake that shrank to a fraction of its size, leaving a dusty seabed.",
       },
       {

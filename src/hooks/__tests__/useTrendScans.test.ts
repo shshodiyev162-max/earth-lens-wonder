@@ -52,7 +52,7 @@ vi.mock("@/lib/trends/landcover", async (original) => {
   };
 });
 
-const query = queryFromParams(new URLSearchParams({ q: "vegetation and rainfall decline in Uzbekistan since 2015" }));
+const query = queryFromParams(new URLSearchParams({ ind: "vegetation,rainfall", dir: "decline", place: "Uzbekistan", t: "since-2015" }));
 
 describe("useTrendScans", () => {
   beforeEach(() => {
@@ -63,7 +63,7 @@ describe("useTrendScans", () => {
 
   it("scans the measures that suit the place for 'what changed'", async () => {
     coverShares = { barren: 0.7, grass: 0.3 };
-    const everything = queryFromParams(new URLSearchParams({ q: "what changed in Uzbekistan" }));
+    const everything = queryFromParams(new URLSearchParams({ ind: "all", place: "Uzbekistan" }));
     expect(everything.everything).toBe(true);
     const { result } = renderHook(() => useTrendScans(everything, null));
     await waitFor(() => expect(result.current.status).toBe("done"));
@@ -78,12 +78,12 @@ describe("useTrendScans", () => {
     await waitFor(() => expect(result.current.status).toBe("done"));
     expect(calls).toEqual(["sst"]);
     expect(result.current.measures.vegetation).toMatchObject({ status: "error", wrongPlace: true });
-    expect(result.current.measures.vegetation?.error).toMatch(/open ocean/);
+    expect(result.current.measures.vegetation?.error).toMatch(/is water/);
     expect(result.current.measures.sst?.status).toBe("done");
   });
 
   it("falls back to the six main measures when land cover can't be read", async () => {
-    const everything = queryFromParams(new URLSearchParams({ q: "what changed in Uzbekistan" }));
+    const everything = queryFromParams(new URLSearchParams({ ind: "all", place: "Uzbekistan" }));
     const { result } = renderHook(() => useTrendScans(everything, null));
     await waitFor(() => expect(result.current.status).toBe("done"));
     expect(result.current.indicators).toEqual(["vegetation", "heat", "rainfall", "soil", "dust", "snow"]);

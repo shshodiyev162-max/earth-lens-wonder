@@ -4,10 +4,10 @@ A script for showing TerraScope to judges or a class. Everything uses live NASA 
 
 ## Before you start (5 minutes, once)
 
-NASA's map service can take a minute or two to answer the first time; after that the maps are kept in the browser. Run each of these once on the presenting computer, in the same browser, and wait for the results:
+NASA's map service can take a minute or two to answer the first time; after that the maps are kept in the browser. Open each of these once on the presenting computer, in the same browser, and wait for the results:
 
-1. `/trends?q=where did vegetation decline in Uzbekistan since 2015`
-2. `/trends?q=is the Mediterranean sea temperature rising since 2003`
+1. `/trends?ind=vegetation&dir=decline&country=UZB&name=Uzbekistan&t=since-2015`
+2. `/trends?ind=sst&dir=increase&place=Mediterranean+Sea&t=since-2003`
 3. `/analysis?country=UZB&name=Uzbekistan&period=compare&base=2001-2010&recent=2016-2025&season=m-4.5.6.7.8.9&ds=vegetation,climate`
 
 The built-in demos then play smoothly too: home page → **Watch a demo**, or `/trends?demo=choose`.
@@ -17,12 +17,12 @@ The built-in demos then play smoothly too: home page → **Watch a demo**, or `/
 **0:00 – The question (home page)**
 > "The challenge asks: what is changing on Earth, where, by how much — and is it significant? TerraScope answers with NASA data only."
 
-Type *where did vegetation decline in Uzbekistan since 2015* into the search box under the globe and press Enter.
+Press **Find changes**.
 
-**0:20 – From words to choices (Trends)**
-> "The question becomes choices you can see: vegetation from NASA's MODIS satellites, Uzbekistan, 2015 to now, the growing season. Change any of them and the sentence is rewritten."
+**0:15 – Choose (Trends)**
+> "Four choices, one after another: what to measure, where, when, and which months."
 
-Point at the form. Mention the 13 measures (land, air, sea, ozone layer) and **Suggested for this place**, which picks measures from NASA's land cover map.
+Press **Country or sea** and click Uzbekistan on the map. Pick **Vegetation** and choose *Since a year… 2015*. Point at the line at the top that says the choices in words. Mention the 13 measures (land, air, sea, ozone layer) and **Suggested for this place**, which picks measures from NASA's land cover map. Press **Find changes**.
 
 **0:45 – Is it significant? (the whole area)**
 > "One NASA map per month, every pixel tested. For Uzbekistan as a whole: no clear trend — the 95% range includes zero. TerraScope says so instead of overstating it, and offers to test the whole record since 2000."
@@ -30,27 +30,25 @@ Point at the form. Mention the 13 measures (land, air, sea, ozone layer) and **S
 **1:10 – Where? (hotspots)**
 > "But some places changed a lot. The top hotspot is on the dried-up Aral Sea shore: a significant decline, with its rate and 95% range."
 
-Click hotspot 1. Then switch **Show** to *Both*:
-> "Filters regroup the pixels instantly — no new downloads."
+Set **Show** to *Declines* and click hotspot 1. Then switch **Show** to *Both*:
+> "Filters regroup the pixels already read — no new downloads."
 
 **1:40 – Then vs now (Analysis)**
 Open preset 3 (or press **Open full analysis** on the whole-area card and choose *Compare two periods*):
 > "For any place: every measure gets a trend test, or here a then-versus-now comparison with Welch's t-test on the yearly averages."
 
 **2:10 – Beyond land (sea and ozone)**
-Run *is the Mediterranean sea temperature rising since 2003*:
-> "Only the sea is scanned. About +0.6 °C per decade, with a range well above zero: significant warming."
+Back on Trends, press **Country or sea** and click the Mediterranean — the whole sea lights up, not a dot. (Searching for "Mediterranean" at the top, or choosing it from **Or choose a known region, sea or ocean**, does the same.) Pick **Sea temperature**, *since 2003*, and find changes:
+> "Only the water is scanned. About +0.6 °C per decade, with a range well above zero: significant warming."
 
-Optionally: *ozone layer recovery over Antarctica since 2005*.
-
-To show that anyone can repeat this: switch to **Choose step by step**, press **Country or sea** and click the Mediterranean, or pick it from **Or choose a known region, sea or ocean**.
+Optionally: the ozone layer over Antarctica since 2005.
 
 **2:40 – Honesty and learning**
 Open **Words used here**:
-> "Every statistics word is explained in plain language. If something isn't measured — sea level, NO₂, river flow — TerraScope says so and offers the closest real measures."
+> "Every statistics word is explained in plain language. And if a measure doesn't fit the place — vegetation over a sea — TerraScope says so before reading a single map."
 
 **3:00 – Close**
-> "Thirteen NASA measures, any place on Earth, real significance tests, and honest answers — in the browser, with no keys and no simulated numbers."
+> "Thirteen NASA measures, any place on Earth — countries, seas, or a shape you draw — real significance tests, and honest answers, in the browser, with no keys and no simulated numbers."
 
 ## If something goes wrong
 

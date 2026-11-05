@@ -87,7 +87,7 @@ export default function LocationPicker({ target, loading, onPlace, onPoint, onDr
             Use my location
           </button>
           <span className="inline-flex items-center gap-1.5">
-            <MousePointerClick className="h-3.5 w-3.5" /> or click, draw or pick a country on the map
+            <MousePointerClick className="h-3.5 w-3.5" /> or click, draw, or pick a country or sea on the map
           </span>
         </div>
         {locateError && <p className="mt-2 text-xs text-earth-yellow">{locateError}</p>}

@@ -82,19 +82,19 @@ export class WrongPlaceError extends ScanError {}
 
 /**
  * What a measure is read on in an area: its own surface, except that measures of the air (read
- * everywhere) are read over the water only when the area is a named sea or ocean, since a sea's
- * rough outline also takes in the land around it.
+ * everywhere) are read over the water only when the area is a named sea or ocean (the land/water map
+ * then also trims the coast, so the sea is read exactly as sea measures read it).
  */
 export function surfaceFor(indicator: IndicatorId, area: Pick<ScanArea, "water">): Surface {
   const own = INDICATORS[indicator].surface;
   return own === "any" && area.water ? "water" : own;
 }
 
-/** A measure that can't be read in the area at all (land measures over the open ocean). */
+/** A measure that can't be read in the area at all (land measures over a sea or ocean, which is only water). */
 export function mismatch(indicator: IndicatorId, area: Pick<ScanArea, "water" | "name">): string | null {
   const info = INDICATORS[indicator];
-  if (info.surface === "land" && area.water === "ocean") {
-    return `${info.label} is measured on land, but the ${area.name} is open ocean. Choose sea surface temperature or a measure of the air, or an area on land.`;
+  if (info.surface === "land" && area.water) {
+    return `${info.label} is measured on land, but the ${area.name} is water. Choose sea surface temperature or a measure of the air, or an area on land.`;
   }
   return null;
 }
@@ -255,8 +255,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   const wrongPlace = mismatch(indicator, area);
   if (wrongPlace) throw new WrongPlaceError(wrongPlace);
   const surface = surfaceFor(indicator, area);
-  if (surface === "water" && info.surface === "any") notes.push(`${info.label} is read over the water only, since this area is a sea or ocean (its rough outline also takes in some land).`);
-  if (surface === "land" && area.water) notes.push(`This area is a sea. ${info.label} is measured on land, so only the land inside the sea's rough outline (its coasts and islands) is scanned.`);
+  if (surface === "water" && info.surface === "any") notes.push(`${info.label} is read over the water only, since this area is a sea or ocean.`);
   const [w, s, e, n] = area.bbox;
   const coarse = Math.max(e - w, n - s) > COARSE_SPAN && info.nativeDeg < 0.2;
   const grid = scanGrid(area.bbox, request.maxSize ?? (coarse ? 160 : 200), info.nativeDeg);
@@ -268,7 +267,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   const inWindow = (window: [number, number]) => months.some((m) => plan.years.some((y) => y >= window[0] && y <= window[1] && seasonYearMonths(y, plan.months).includes(m)));
   if (months.length < wanted.length * 0.5 || !inWindow(plan.baseline) || !inWindow(plan.recent)) {
     throw new ScanError(
-      `NASA has published only ${months.length} of the ${wanted.length} monthly ${info.label.toLowerCase()} maps this question needs. Try a different period.`,
+      `NASA has published only ${months.length} of the ${wanted.length} monthly ${info.label.toLowerCase()} maps this search needs. Try a different period.`,
     );
   }
   if (missingMonths.length) notes.push(`NASA has no ${info.label.toLowerCase()} map for ${missingMonths.length} of the requested months (gaps in the record).`);

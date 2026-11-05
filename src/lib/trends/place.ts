@@ -1,12 +1,15 @@
-// Where to scan: a named region, a country (from the bundled outlines, no network), any other
-// place found through OpenStreetMap search (with its real boundary when it has one), or the
-// current map view when the question names no place.
+// Where to scan: a named region, sea or ocean, a country (from the bundled outlines, no network),
+// any other place found through OpenStreetMap search (with its real boundary when it has one), or
+// the current map view when no place is chosen.
 
 import { createSharedCache } from "../async";
 import { findCountry, loadCountries, type Country, type CountryIndex } from "../geo/countries";
 import { defaultRadiusKm, fetchBoundary, hasBoundary, nominatimSearch, searchPlaces, type PlaceResult } from "../geo/geocode";
 import { bboxOf, bboxPolygon, centroidOf, circlePolygon, clampBBox, padBBox, type BBox, type LatLng, type PolygonGeometry } from "../geo/geometry";
-import { WATERS, WHOLE_PACIFIC, type WaterKind } from "../geo/waters";
+import { findNamedRegion, normalizeName, regionBBox, regionGeometry } from "../geo/regions";
+import { WHOLE_PACIFIC, type WaterKind } from "../geo/waters";
+
+export { findNamedRegion, NAMED_REGIONS, type NamedRegion } from "../geo/regions";
 
 export interface ScanArea {
   name: string;
@@ -17,42 +20,13 @@ export interface ScanArea {
   kind: "region" | "country" | "place" | "view";
   /** The country's code, when the area is a whole country (for exact links to other pages). */
   countryId?: string;
-  /** A named sea or ocean: measures of the air are then read over its water only. */
+  /** A named sea or ocean (its water only): land measures can't be read there. */
   water?: WaterKind;
+  /** The named region, sea or ocean this is (for exact links to other pages). */
+  region?: string;
 }
 
 export class AreaError extends Error {}
-
-export interface NamedRegion {
-  names: string[];
-  label: string;
-  context: string;
-  countries?: string[];
-  bbox?: BBox;
-  /** A rough outline (longitude, latitude) when a box would take in other seas. */
-  outline?: [number, number][];
-  water?: WaterKind;
-}
-
-/** Regions people search for that aren't single places in OpenStreetMap. */
-export const NAMED_REGIONS: NamedRegion[] = [
-  { names: ["central asia"], label: "Central Asia", context: "Kazakhstan, Kyrgyzstan, Tajikistan, Turkmenistan, Uzbekistan", countries: ["KAZ", "KGZ", "TJK", "TKM", "UZB"] },
-  { names: ["pamirs", "pamir", "pamir mountains", "the pamirs"], label: "Pamirs", context: "Tajikistan, Afghanistan, China, Kyrgyzstan", bbox: [70.5, 36.6, 75.4, 39.7] },
-  { names: ["aral sea", "the aral sea", "aral"], label: "Aral Sea", context: "Kazakhstan / Uzbekistan", bbox: [57.8, 43.3, 62.0, 47.2] },
-  { names: ["fergana valley", "ferghana valley", "fergana"], label: "Fergana Valley", context: "Uzbekistan, Kyrgyzstan, Tajikistan", bbox: [70.3, 40.0, 73.6, 41.6] },
-  { names: ["kyzylkum", "kyzylkum desert", "kyzyl kum", "kyzyl-kum"], label: "Kyzylkum Desert", context: "Uzbekistan / Kazakhstan", bbox: [60.5, 40.0, 66.8, 44.2] },
-  { names: ["karakum", "karakum desert", "kara kum", "garagum"], label: "Karakum Desert", context: "Turkmenistan", bbox: [54.5, 36.5, 65.0, 41.8] },
-  { names: ["sahel", "the sahel"], label: "Sahel", context: "Africa", bbox: [-17.5, 10.5, 38.5, 20.5] },
-  { names: ["amazon", "amazon basin", "amazon rainforest", "amazonia"], label: "Amazon", context: "South America", bbox: [-79.5, -17.5, -45.5, 5.5] },
-  { names: ["himalayas", "himalaya", "the himalayas"], label: "Himalayas", context: "Asia", bbox: [72.5, 26.5, 95.5, 36.5] },
-  { names: ["tibetan plateau", "tibet plateau", "qinghai-tibet plateau"], label: "Tibetan Plateau", context: "China", bbox: [78.0, 27.5, 103.0, 39.5] },
-  { names: ["middle east", "the middle east"], label: "Middle East", context: "Western Asia", countries: ["IRQ", "IRN", "SYR", "JOR", "ISR", "LBN", "SAU", "YEM", "OMN", "ARE", "QAT", "BHR", "KWT"] },
-  { names: ["horn of africa"], label: "Horn of Africa", context: "East Africa", countries: ["ETH", "SOM", "SOL", "DJI", "ERI"] },
-  { names: ["east africa", "eastern africa"], label: "East Africa", context: "Africa", countries: ["KEN", "TZA", "UGA", "ETH", "SOM", "SOL", "RWA", "BDI", "SDS", "ERI", "DJI"] },
-  { names: ["alps", "the alps"], label: "Alps", context: "Europe", bbox: [5.0, 43.6, 16.5, 48.4] },
-  // Seas and oceans (kept in lib/geo/waters, where clicks on the map find them too).
-  ...WATERS.map((water) => ({ names: water.names, label: water.label, context: water.kind === "sea" ? "Sea" : "Ocean", outline: water.outline, water: water.kind })),
-];
 
 const COUNTRY_ALIASES: Record<string, string> = {
   usa: "USA",
@@ -85,12 +59,7 @@ const COUNTRY_ALIASES: Record<string, string> = {
   "east timor": "TLS",
 };
 
-const normalize = (text: string) => text.toLowerCase().replace(/^the\s+/, "").replace(/\s+/g, " ").trim();
-
-export function findNamedRegion(text: string): NamedRegion | null {
-  const key = normalize(text);
-  return NAMED_REGIONS.find((region) => region.names.some((name) => normalize(name) === key)) ?? null;
-}
+const normalize = normalizeName;
 
 /** A country from the bundled outlines by name, alias or 3-letter code. */
 export function matchCountry(index: CountryIndex, text: string): Country | null {
@@ -104,11 +73,6 @@ export function matchCountry(index: CountryIndex, text: string): Country | null 
   return index.countries.find((country) => normalize(country.name) === key) ?? null;
 }
 
-function merge(geometries: PolygonGeometry[]): PolygonGeometry {
-  const polygons = geometries.flatMap((g) => (g.type === "Polygon" ? [g.coordinates] : g.coordinates));
-  return polygons.length === 1 ? { type: "Polygon", coordinates: polygons[0] } : { type: "MultiPolygon", coordinates: polygons };
-}
-
 function area(name: string, context: string | undefined, geometry: PolygonGeometry, kind: ScanArea["kind"]): ScanArea {
   return { name, context, geometry, bbox: bboxOf(geometry), center: centroidOf(geometry), kind };
 }
@@ -117,7 +81,7 @@ function area(name: string, context: string | undefined, geometry: PolygonGeomet
 export function widen(target: ScanArea): ScanArea {
   const bbox = clampBBox(padBBox(target.bbox, 0.6, 0.5));
   // A box around the place, no longer the country itself.
-  return { ...target, name: `Around ${target.name}`, geometry: bboxPolygon(bbox), bbox, kind: target.kind === "country" ? "region" : target.kind, countryId: undefined, water: undefined };
+  return { ...target, name: `Around ${target.name}`, geometry: bboxPolygon(bbox), bbox, kind: target.kind === "country" ? "region" : target.kind, countryId: undefined, water: undefined, region: undefined };
 }
 
 export interface ResolveOptions {
@@ -161,7 +125,7 @@ async function defaultSearch(text: string, signal?: AbortSignal): Promise<PlaceR
   return searchPlaces(text, { signal, limit: 6 });
 }
 
-/** Resolves the place part of a question into an area to scan. Throws AreaError with a friendly message. */
+/** Resolves the chosen place into an area to scan. Throws AreaError with a friendly message. */
 export async function resolveArea(text: string | null, options: ResolveOptions = {}): Promise<ScanArea> {
   const { near = false, view, signal } = options;
   if (!text) {
@@ -175,10 +139,12 @@ export async function resolveArea(text: string | null, options: ResolveOptions =
 
   const region = findNamedRegion(text);
   if (region) {
-    if (region.outline) return finish({ ...area(region.label, region.context, { type: "Polygon", coordinates: [region.outline] }, "region"), water: region.water });
-    if (region.bbox) return finish(area(region.label, region.context, bboxPolygon(region.bbox), "region"));
-    const members = (region.countries ?? []).map((id) => (countries ? findCountry(countries, id) : null)).filter((c): c is Country => Boolean(c));
-    if (members.length) return finish(area(region.label, region.context, merge(members.map((c) => c.geometry)), "region"));
+    const geometry = await regionGeometry(region, countries);
+    if (geometry) {
+      // A sea keeps the extent of its outline, so its scans read the same map tiles whatever its exact shape.
+      const bbox = regionBBox(region, countries) ?? bboxOf(geometry);
+      return finish({ ...area(region.label, region.context, geometry, "region"), bbox, water: region.water, region: region.label });
+    }
   }
 
   const country = countries ? matchCountry(countries, text) : null;

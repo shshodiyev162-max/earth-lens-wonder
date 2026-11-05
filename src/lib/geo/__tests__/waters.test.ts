@@ -1,8 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildCountryIndex, countryAt, type CountryCollection } from "../countries";
+import { pointInGeometry, type PolygonGeometry } from "../geometry";
 import { WATERS, WHOLE_PACIFIC, waterAt } from "../waters";
 
+const shapes = new Map(
+  (JSON.parse(readFileSync("public/data/waters.json", "utf8")) as { features: { properties: { label: string }; geometry: PolygonGeometry }[] }).features.map((f) => [
+    f.properties.label,
+    f.geometry,
+  ]),
+);
 const countries = buildCountryIndex(JSON.parse(readFileSync("public/data/countries-50m.json", "utf8")) as CountryCollection);
 
 // [latitude, longitude] of open water, and the sea or ocean a click there should pick.
@@ -69,6 +76,10 @@ describe("seas and oceans on the map", () => {
     expect(countryAt(countries, [lat, lon])).toBeNull();
     // …and land in the right sea.
     expect(waterAt([lat, lon])?.label).toBe(expected);
+  });
+
+  it.each(CLICKS)("the %s is inside that water's bundled shape", (_name, lat, lon, expected) => {
+    expect(pointInGeometry([lon, lat], shapes.get(expected) as PolygonGeometry)).toBe(true);
   });
 
   it("covers all the open water of the globe", () => {

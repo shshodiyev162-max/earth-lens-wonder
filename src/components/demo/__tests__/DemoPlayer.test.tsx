@@ -8,7 +8,7 @@ const SCRIPT: DemoScript = {
   title: "A test demo",
   summary: "",
   steps: [
-    { caption: "First, ask a question.", target: "question", action: { kind: "ask", text: "vegetation in Kenya" } },
+    { caption: "First, choose a place on the map.", target: "where", action: { kind: "edit", edit: { place: "Kenya" } } },
     { caption: "Then wait for the maps.", target: "results", waitFor: "scan-done" },
     { caption: "Finally, look at the whole area.", target: "whole-area" },
   ],
@@ -24,9 +24,9 @@ function setup(ready = false) {
 describe("DemoPlayer", () => {
   it("shows the first step and does its action", () => {
     const { api } = setup();
-    expect(screen.getByText("First, ask a question.")).toBeInTheDocument();
+    expect(screen.getByText("First, choose a place on the map.")).toBeInTheDocument();
     expect(screen.getByText(/step 1 of 3/i)).toBeInTheDocument();
-    expect(api.act).toHaveBeenCalledWith({ kind: "ask", text: "vegetation in Kenya" });
+    expect(api.act).toHaveBeenCalledWith({ kind: "edit", edit: { place: "Kenya" } });
     expect(api.setPanel).toHaveBeenCalledWith(true);
   });
 
@@ -45,8 +45,8 @@ describe("DemoPlayer", () => {
       await act(async () => vi.advanceTimersByTime(600));
       expect(screen.queryByText(/Waiting for NASA's maps/)).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: /Back/ }));
-      expect(screen.getByText("First, ask a question.")).toBeInTheDocument();
-      // Going back doesn't ask the question a second time.
+      expect(screen.getByText("First, choose a place on the map.")).toBeInTheDocument();
+      // Going back doesn't make the choice a second time.
       expect(api.act).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();

@@ -26,7 +26,7 @@ describe("AreaPicker", () => {
 
   it("shows a chosen sea as a sea, selected in the list", () => {
     setup("ind=sst&place=Mediterranean+Sea");
-    expect(screen.getByText("Sea, rough outline")).toBeInTheDocument();
+    expect(screen.getByText("Sea: its water only")).toBeInTheDocument();
     expect((screen.getByLabelText("Or choose a known region, sea or ocean") as HTMLSelectElement).value).toBe("Mediterranean Sea");
   });
 

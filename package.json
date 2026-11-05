@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "data:borders": "node scripts/build-borders.mjs",
     "data:earth": "node scripts/build-earth-textures.mjs",
-    "data:timezones": "node scripts/build-timezones.mjs"
+    "data:timezones": "node scripts/build-timezones.mjs",
+    "data:waters": "vite-node scripts/build-waters.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

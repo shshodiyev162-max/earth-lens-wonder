@@ -1,7 +1,14 @@
-// Turns a parsed time phrase into concrete years: the years to fetch, a baseline period and a
+// Turns the chosen period into concrete years: the years to fetch, a baseline period and a
 // recent period. Seasons that cross New Year (Dec–Feb, Nov–Apr) belong to the year they end in.
 
-import type { TimeSpec } from "./parse";
+/** The period chosen on the Trends page. */
+export type TimeSpec =
+  | { kind: "default" }
+  | { kind: "since"; start: number }
+  | { kind: "range"; start: number; end: number }
+  | { kind: "last"; years: number }
+  | { kind: "year"; year: number }
+  | { kind: "versus"; baseline: number; recent: number };
 
 export interface DataWindow {
   /** First and last month the NASA product has published (YYYY-MM). */

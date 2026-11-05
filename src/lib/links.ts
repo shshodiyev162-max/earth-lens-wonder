@@ -4,7 +4,9 @@ import type { LatLng } from "./geo/geometry";
 /** Link to the Analysis page for a search result. */
 export function analysisHrefForPlace(place: PlaceResult, radiusKm = defaultRadiusKm(place.kind)): string {
   const params = new URLSearchParams();
-  if (place.osm && hasBoundary(place)) {
+  if (place.region) {
+    params.set("region", place.region);
+  } else if (place.osm && hasBoundary(place)) {
     params.set("osm", `${place.osm.type}${place.osm.id}`);
   } else {
     params.set("lat", place.center[0].toFixed(5));

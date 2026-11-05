@@ -237,13 +237,13 @@ export const MAX_SUGGESTIONS = 6;
 
 /**
  * Up to six measures for a place, from its land cover: the biggest kind of land first. Places near
- * the South Pole also get the ozone layer (the ozone hole forms there each spring). An ocean gets no
- * land measures: the land inside its rough outline isn't part of it.
+ * the South Pole also get the ozone layer (the ozone hole forms there each spring). A sea or ocean
+ * gets no land measures (it is only water), but measures of the air over it.
  */
 export function suggestMeasures(cover: LandCover, latitude: number, water?: WaterKind): Suggestion[] {
   const out: Suggestion[] = [];
   const add = (indicator: IndicatorId, reason: string) => {
-    if (water === "ocean" && INDICATORS[indicator].surface === "land") return;
+    if (water && INDICATORS[indicator].surface === "land") return;
     if (out.length < MAX_SUGGESTIONS && !out.some((s) => s.indicator === indicator)) out.push({ indicator, reason });
   };
   const rules = [...RULES].filter((r) => cover.shares[r.group] >= r.min).sort((a, b) => cover.shares[b.group] - cover.shares[a.group]);
@@ -251,7 +251,10 @@ export function suggestMeasures(cover: LandCover, latitude: number, water?: Wate
   const longest = Math.max(0, ...rules.map((r) => r.measures.length));
   for (let k = 0; k < longest; k++) for (const rule of rules) if (rule.measures[k]) add(...rule.measures[k]);
   if (latitude < -60) add("ozone", "The ozone hole forms over Antarctica every spring.");
-  if (out.length < 3) for (const id of ["airTemp", "rainfall", "vegetation"] as IndicatorId[]) add(id, "A good general measure for any place.");
+  if (out.length < 3) {
+    if (water) for (const id of ["airTemp", "co", "so2"] as IndicatorId[]) add(id, "Measured in the air over the sea as well as over land.");
+    else for (const id of ["airTemp", "rainfall", "vegetation"] as IndicatorId[]) add(id, "A good general measure for any place.");
+  }
   return out;
 }
 

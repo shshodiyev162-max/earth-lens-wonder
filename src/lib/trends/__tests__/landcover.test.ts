@@ -99,12 +99,14 @@ describe("measures for a place", () => {
     expect(measuresForEverything(null, 40, "sea")).toEqual(["sst", "airTemp"]);
   });
 
-  it("suggests no land measures for an ocean, whose outline takes in some coast", () => {
+  it("suggests sea and air measures for a sea or ocean, never land ones", () => {
     const ocean = suggestMeasures(cover({ water: 0.7, forest: 0.2, barren: 0.1 }), 30, "ocean").map((s) => s.indicator);
     expect(ocean[0]).toBe("sst");
     expect(ocean).not.toContain("vegetation");
     expect(ocean).not.toContain("dust");
-    // A sea keeps its coasts.
-    expect(suggestMeasures(cover({ water: 0.7, forest: 0.3 }), 30, "sea").map((s) => s.indicator)).toContain("vegetation");
+    expect(ocean).not.toContain("rainfall");
+    const sea = suggestMeasures(cover({ water: 1 }), 35, "sea");
+    expect(sea.map((s) => s.indicator)).toEqual(["sst", "airTemp", "co", "so2"]);
+    expect(sea[3].reason).toMatch(/over the sea/);
   });
 });

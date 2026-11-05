@@ -10,7 +10,7 @@ TerraScope is a single-page React app (Vite, TypeScript, Tailwind, shadcn/ui, re
 | `/map`      | `Explore`                | One map: layer, date, search, click-to-read values, drawing           |
 | `/split`    | `SplitView` ("Compare")  | One map, two layers or dates, draggable divider                       |
 | `/sync`     | `SyncView` ("Side by side") | Two maps locked together                                          |
-| `/trends`   | `Trends` ("Trend detective") | Ask or choose what changed where; hotspot scan, trend tests, demos |
+| `/trends`   | `Trends` ("Trend detective") | Choose a measure, place and period; hotspot scan, trend tests, demos |
 | `/analysis` | `Analysis`               | Measured report for a place, area or point, with trend tests          |
 | `/login`    | `Login`                  | Accounts when `VITE_API_BASE_URL` is set; explains demo mode otherwise |
 | `*`         | `NotFound`               | 404                                                                   |
@@ -30,19 +30,20 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 
 ### `lib/geo` — places and shapes
 
-- `geocode.ts` turns typed text into results in this order: coordinates (several notations), then Photon (built for search-as-you-type), then Nominatim as a fallback. Boundaries, OSM lookups and reverse geocoding go through Nominatim, queued to one request per second. Results are classified (country, state, region, city, water, nature…), which decides the icon, the zoom for point-only results and the analysis radius.
+- `geocode.ts` turns typed text into results in this order: coordinates (several notations), then the seas, oceans and named regions TerraScope knows the shape of (`regions.ts`; OpenStreetMap only has a point for them, which is left out), then Photon (built for search-as-you-type), then Nominatim as a fallback. Boundaries, OSM lookups and reverse geocoding go through Nominatim, queued to one request per second. Results are classified (country, state, region, city, water, nature…), which decides the icon, the zoom for point-only results and the analysis radius.
 - `geometry.ts` covers geodesic area (spherical excess), point-in-polygon with holes, centroids and a guaranteed interior point, geodesic circles, and well-spread sample points for climate averaging.
 
-### `lib/query` — reading a question
+- `regions.ts` lists named regions (Aral Sea, Pamirs, Central Asia…) and, from `waters.ts`, the seas and oceans. `regionGeometry` gives a region's shape: a sea's water, a box, or its countries together. Search, the Trends form, the Analysis page (`?region=`) and saved areas all refer to them by name.
+- `waters.ts` keeps rough outlines of seas and oceans. Neighbouring waters share edges drawn through the land between them (the Americas between the Atlantic and the Pacific), so `waterAt` finds the right one under a click. Their water areas — outline minus Natural Earth land, and for oceans minus the enclosed seas — are built by `scripts/build-waters.ts` (`npm run data:waters`, no download) into `public/data/waters.json` (0.2 MB) and loaded when needed. The Pacific comes in two halves because a scan can't wrap around the 180° line.
+
+### `lib/query` — measures and periods
 
 - `indicators.ts` lists the 13 measures: GIBS layer, unit, smallest change worth flagging, native resolution, usual season, the worrying direction, the surface it is read on (land, water or any) and its picker group.
-- `parse.ts` is a rule-based reader. It claims parts of the sentence in order: time, things it can't measure (`concepts.ts`), measures (strong words like "NDVI", weak ones like "hotter"), directions (per clause, with "increase or decrease" meaning both), then the place. The result is several measures, each with its own direction. "What changed" asks for measures picked for the place.
 - `period.ts` turns a time choice into baseline and recent windows and the years to read, within a budget of monthly maps.
-- `ai.ts` is the optional AI fallback; it is only used when the rules understand nothing.
 
 ### `lib/trends` — the trend detective
 
-- `query.ts` is the search as URL state: the form ⇄ the address, and the sentence written from the choices (round-trips through the reader; tested).
+- `query.ts` is the search as URL state: the form ⇄ the address (every combination round-trips; tested), and the sentence written from the choices.
 - `grid.ts` fetches one month of a layer as a decoded grid (cached on the device) and the land/water mask (OSM land/water map).
 - `pixels.ts` gives each pixel a seasonal mean per year, its change, and a Mann–Kendall p-value and Sen's slope.
 - `hotspots.ts` flags pixels, groups them into 8-connected patches, ranks them and traces outlines.
@@ -53,8 +54,7 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
   - finer re-reads of the top hotspots for large areas
   - `rebuildHotspots` regroups the pixels for new filters without network.
 - `landcover.ts` reads NASA's yearly MODIS land cover, groups the 17 classes by NASA's own class names, and suggests measures by fixed rules.
-- `place.ts` resolves a place: named regions, seas and oceans, countries from the bundled outlines, otherwise OpenStreetMap (found places are kept for the session, so the preview and the scan ask once). A sea or ocean marks the area as water: air measures are then read over the water only, and land measures over an ocean are refused with a plain explanation (`surfaceFor`, `mismatch` in `scan.ts`).
-- `lib/geo/waters.ts` keeps the rough outlines of seas and oceans. Neighbouring waters share edges drawn through the land between them (the Americas between the Atlantic and the Pacific), so a click lands in the right one; `waterAt` returns the smallest outline at a point. The Pacific comes in two halves because a scan can't wrap around the 180° line. A test checks that all open water on a 3° grid belongs to some sea or ocean.
+- `place.ts` resolves a place: named regions, seas and oceans, countries from the bundled outlines, otherwise OpenStreetMap (found places are kept for the session, so the preview and the scan ask once). A sea or ocean is its water only: air measures are read over that water, and land measures there are refused with a plain explanation before any map is read (`surfaceFor`, `mismatch` in `scan.ts`).
 
 ### `lib/analysis` — the report
 
@@ -71,7 +71,7 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 
 ### `lib/demo` and `components/demo`
 
-`scripts.ts` holds three worked examples as steps. Each step has a caption, a page part to point at (a typed `data-demo` target), an optional action (ask, edit, run, filter, open a hotspot) and an optional wait for NASA data. `DemoPlayer` plays them with a spotlight, Back/Next/Play and Esc to leave. The Trends page gives it a small set of controls.
+`scripts.ts` holds three worked examples as steps. Each step has a caption, a page part to point at (a typed `data-demo` target), an optional action (fill in a choice, run, filter, open a hotspot) and an optional wait for NASA data. `DemoPlayer` plays them with a spotlight, Back/Next/Play and Esc to leave. The Trends page gives it a small set of controls.
 
 ### `lib/glossary.ts`
 

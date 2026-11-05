@@ -77,8 +77,8 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="Search places, layers or ask a question…"
-          aria-label="Search places and NASA layers, or ask where something changed"
+          placeholder="Search places, seas or layers…"
+          aria-label="Search places, seas and NASA layers"
           role="combobox"
           aria-expanded={showDropdown}
           aria-controls={showDropdown ? listId : undefined}
@@ -129,7 +129,7 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
                   >
                     <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                     <span className="min-w-0 flex-1">
-                      <span translate="no" className={cn("block font-medium", item.type === "trend" ? "whitespace-normal" : "truncate")}>
+                      <span translate="no" className="block truncate font-medium">
                         {view.title}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">{view.subtitle}</span>

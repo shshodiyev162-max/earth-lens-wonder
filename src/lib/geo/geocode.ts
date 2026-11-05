@@ -3,6 +3,7 @@
 // Nominatim, throttled to its 1 request/second usage policy.
 
 import { isPolygonGeometry, type BBox, type LatLng, type PolygonGeometry } from "./geometry";
+import { normalizeName, regionPlace, searchNamedRegions } from "./regions";
 import { readCache, TTL, writeCache } from "../cache/store";
 
 export type PlaceKind =
@@ -28,7 +29,9 @@ export interface PlaceResult {
   center: LatLng;
   bbox?: BBox;
   osm?: { type: "N" | "W" | "R"; id: number };
-  source: "photon" | "nominatim" | "coordinates";
+  /** A named region, sea or ocean TerraScope knows the shape of (see lib/geo/regions). */
+  region?: string;
+  source: "photon" | "nominatim" | "coordinates" | "terrascope";
 }
 
 const PHOTON_URL = "https://photon.komoot.io/api/";
@@ -395,7 +398,11 @@ function reverseGeocodeLive(center: LatLng, options: { signal?: AbortSignal; zoo
 // ---------------------------------------------------------------------------
 // Public helpers
 
-/** Search-as-you-type: coordinates first, then Photon, with Nominatim as fallback. */
+/**
+ * Search-as-you-type: coordinates first; then the seas, oceans and regions TerraScope knows the
+ * shape of (OpenStreetMap only has a point for "Mediterranean Sea"); then Photon, with Nominatim
+ * as fallback.
+ */
 export async function searchPlaces(
   query: string,
   options: { signal?: AbortSignal; near?: LatLng; limit?: number } = {},
@@ -404,12 +411,17 @@ export async function searchPlaces(
   if (!trimmed) return [];
   const coords = parseCoordinates(trimmed);
   if (coords) return [coords];
+  const known = (await Promise.all(searchNamedRegions(trimmed).map(regionPlace))).filter((p): p is PlaceResult => p !== null);
+  let found: PlaceResult[];
   try {
-    return rankResults(await photonSearch(trimmed, options));
+    found = rankResults(await photonSearch(trimmed, options));
   } catch (error) {
     if ((error as DOMException)?.name === "AbortError") throw error;
-    return nominatimSearch(trimmed, options);
+    found = known.length ? [] : await nominatimSearch(trimmed, options);
   }
+  // OpenStreetMap's single point for the same sea or region is left out.
+  const names = new Set(known.map((p) => normalizeName(p.name)));
+  return [...known, ...found.filter((p) => !(names.has(normalizeName(p.name)) && (p.kind === "water" || p.kind === "region" || !hasBoundary(p))))];
 }
 
 /** Sensible zoom when a result has no bounding box. */
@@ -463,8 +475,9 @@ export function kindLabel(kind: PlaceKind): string {
   }
 }
 
-/** Whether a place represents an area whose boundary is worth fetching. */
+/** Whether a place represents an area whose boundary is worth loading (named regions and seas always). */
 export function hasBoundary(place: PlaceResult): boolean {
+  if (place.region) return true;
   return Boolean(place.osm && place.osm.type !== "N" && ["country", "state", "region", "county", "city", "district", "nature", "water", "locality"].includes(place.kind));
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { fetchBoundary, hasBoundary, zoomForKind, type PlaceResult } from "@/lib/geo/geocode";
 import type { PolygonGeometry } from "@/lib/geo/geometry";
+import { findNamedRegion, regionGeometry } from "@/lib/geo/regions";
 import type { FlyTarget } from "@/components/map/FlyTo";
 
 export interface PlaceSelection {
@@ -24,11 +25,12 @@ export function usePlaceSelection() {
         ? { bbox: place.bbox, key: `${place.id}-${counter.current}` }
         : { center: place.center, zoom: zoomForKind(place.kind), key: `${place.id}-${counter.current}` },
     );
-    if (wantsBoundary && place.osm) {
-      fetchBoundary(place.osm, { kind: place.kind })
-        .then((geometry) => setSelection((current) => (current?.place.id === place.id ? { ...current, geometry, loadingBoundary: false } : current)))
-        .catch(() => setSelection((current) => (current?.place.id === place.id ? { ...current, loadingBoundary: false } : current)));
-    }
+    // A sea or named region has its shape bundled; other places ask OpenStreetMap for their boundary.
+    const region = place.region ? findNamedRegion(place.region) : null;
+    const boundary = region ? regionGeometry(region) : wantsBoundary && place.osm ? fetchBoundary(place.osm, { kind: place.kind }) : null;
+    boundary
+      ?.then((geometry) => setSelection((current) => (current?.place.id === place.id ? { ...current, geometry, loadingBoundary: false } : current)))
+      .catch(() => setSelection((current) => (current?.place.id === place.id ? { ...current, loadingBoundary: false } : current)));
   }, []);
 
   const clear = useCallback(() => setSelection(null), []);

@@ -5,7 +5,6 @@ import { getLayer, isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { cn } from "@/lib/utils";
 import { useOpenSearchItem, useUniversalSearch, type SearchItem } from "./useUniversalSearch";
 import { searchItemView, startsSection } from "./searchItemView";
-import { EXAMPLE_QUERIES } from "@/lib/query/examples";
 
 // Shown before the user types, so the window is useful straight away.
 const QUICK_LAYERS = [
@@ -77,7 +76,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Search a place or NASA layer — or ask where something changed…"
+              placeholder="Search a place, sea or NASA layer…"
               className="min-w-0 flex-1 bg-transparent py-4 text-base text-foreground outline-none placeholder:text-muted-foreground"
               aria-label="Search places and layers"
               role="combobox"
@@ -97,11 +96,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
             {trimmed.length < 2 && (
               <div className="px-1 py-1">
                 <p className="px-3 pb-3 pt-1 text-sm text-muted-foreground">
-                  Type a city, region, country, mountain or lake — or coordinates like <span className="font-mono text-foreground">39.77, 64.42</span>. You can also ask a question, like{" "}
-                  <button type="button" onClick={() => setQuery(EXAMPLE_QUERIES[0])} className="text-primary underline-offset-2 hover:underline">
-                    “{EXAMPLE_QUERIES[0]}”
-                  </button>
-                  .
+                  Type a city, region, country, sea, mountain or lake — or coordinates like <span className="font-mono text-foreground">39.77, 64.42</span>.
                 </p>
                 <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Open a NASA layer</div>
                 <div className="grid gap-0.5 sm:grid-cols-2">
@@ -146,7 +141,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
                     >
                       <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                       <span className="min-w-0 flex-1">
-                        <span translate="no" className={cn("block font-medium", item.type === "trend" ? "whitespace-normal" : "truncate")}>
+                        <span translate="no" className="block truncate font-medium">
                           {view.title}
                         </span>
                         <span className="block truncate text-xs text-muted-foreground">{view.subtitle}</span>

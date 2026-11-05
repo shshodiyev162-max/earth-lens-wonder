@@ -48,7 +48,7 @@ function describe(query: TrendQuery, foundName: string | null): { title: string;
   const region = query.place ? findNamedRegion(query.place) : null;
   if (region) {
     const around = query.near ? ", with its surroundings" : "";
-    return { title: region.label, detail: region.water ? `${WATER_WORD[region.water]}, rough outline${around}` : `Region: ${region.context}${around}` };
+    return { title: region.label, detail: region.water ? `${WATER_WORD[region.water]}: its water only${around}` : `Region: ${region.context}${around}` };
   }
   if (query.place) return { title: query.place, detail: foundName && foundName !== query.place ? `Found: ${foundName}` : `Place found by name${query.near ? ", with its surroundings" : ""}` };
   return { title: "The map view", detail: "Whatever the map shows when you find changes" };

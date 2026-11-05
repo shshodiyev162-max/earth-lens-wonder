@@ -13,6 +13,8 @@ export interface SavedArea {
   center: LatLng;
   areaKm2: number;
   createdAt: string;
+  /** A named sea, ocean or region (lib/geo/regions): links use its name instead of the outline. */
+  region?: string;
 }
 
 export interface MapView {
@@ -24,7 +26,7 @@ interface WorkspaceValue {
   areas: SavedArea[];
   activeAreaId: string | null;
   setActiveAreaId: (id: string | null) => void;
-  addArea: (input: { geometry: PolygonGeometry; kind: AreaKind; name?: string }) => SavedArea;
+  addArea: (input: { geometry: PolygonGeometry; kind: AreaKind; name?: string; region?: string }) => SavedArea;
   renameArea: (id: string, name: string) => void;
   removeArea: (id: string) => void;
   clearAreas: () => void;
@@ -98,6 +100,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       center: centroidOf(input.geometry),
       areaKm2: areaKm2(input.geometry),
       createdAt: new Date().toISOString(),
+      ...(input.region ? { region: input.region } : {}),
     };
     areasRef.current = [...areasRef.current, area];
     setAreas((previous) => [...previous, area]);

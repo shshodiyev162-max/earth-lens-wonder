@@ -100,7 +100,7 @@ describe("runScan", () => {
     const monthGrid = vi.fn(loaders().monthGrid);
     // Vegetation over the open ocean.
     await expect(runScan({ ...base, loaders: { ...loaders(), monthGrid }, indicator: "vegetation", area: { ...AREA, name: "North Atlantic", water: "ocean" } })).rejects.toThrow(
-      /measured on land, but the North Atlantic is open ocean/,
+      /measured on land, but the North Atlantic is water/,
     );
     // Sea temperature where there is no water at all.
     const dry: ScanLoaders = { ...loaders(), monthGrid, surfaceMask: async (grid, surface) => new Uint8Array(grid.width * grid.height).fill(surface === "water" ? 0 : 1) };

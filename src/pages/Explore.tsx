@@ -84,7 +84,7 @@ export default function Explore() {
 
   const onAreaComplete = (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => {
     setDrawMode(null);
-    const area = workspace.addArea({ geometry, kind, name: country?.name });
+    const area = workspace.addArea({ geometry, kind, name: country?.name, region: country?.region });
     toast.success(`${area.name} saved`, {
       description: `${formatArea(area.areaKm2)} · measuring ${isScienceLayer(layer) ? layer.name.toLowerCase() : "available data"}`,
       action: { label: "Analyze", onClick: () => navigate(analysisHrefForArea(area.id)) },

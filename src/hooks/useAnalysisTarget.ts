@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { isAbortError } from "@/lib/async";
 import { findCountry, loadCountries } from "@/lib/geo/countries";
+import { findNamedRegion, regionGeometry } from "@/lib/geo/regions";
 import { decodeGeometry } from "@/lib/geo/polyline";
 import { lookupOsm, reverseGeocode } from "@/lib/geo/geocode";
 import { areaKm2, bboxOf, bboxPolygon, centroidOf, circlePolygon, formatLatLng, interiorPoint, type BBox } from "@/lib/geo/geometry";
@@ -15,12 +16,13 @@ export interface TargetState {
 
 const num = (value: string | null) => (value === null || value.trim() === "" ? NaN : Number(value));
 
-/** Resolves the URL (?area=, ?osm=, ?country=, ?poly=, ?lat&lon&r=, ?bbox=) into an analysis target. */
+/** Resolves the URL (?area=, ?osm=, ?country=, ?region=, ?poly=, ?lat&lon&r=, ?bbox=) into an analysis target. */
 export function useAnalysisTarget(params: URLSearchParams): TargetState {
   const { getArea } = useWorkspace();
   const areaId = params.get("area");
   const osm = params.get("osm");
   const countryId = params.get("country");
+  const regionLabel = params.get("region");
   const poly = params.get("poly");
   const lat = num(params.get("lat"));
   const lon = num(params.get("lon"));
@@ -164,6 +166,39 @@ export function useAnalysisTarget(params: URLSearchParams): TargetState {
     };
   }, [direct, osm, countryId, name, context]);
 
+  // A named region, sea or ocean: its shape is bundled (a sea's water, a box, or its countries).
+  const [regionState, setRegionState] = useState<{ key: string; target: AnalysisTarget | null; error: string | null } | null>(null);
+
+  useEffect(() => {
+    if (direct || osm || countryId || !regionLabel) return;
+    let active = true;
+    const region = findNamedRegion(regionLabel);
+    (region ? regionGeometry(region) : Promise.resolve(null)).then((geometry) => {
+      if (!active) return;
+      if (!region || !geometry) {
+        setRegionState({ key: regionLabel, target: null, error: "That region isn't in TerraScope's list of known places." });
+        return;
+      }
+      setRegionState({
+        key: regionLabel,
+        error: null,
+        target: {
+          name: name ?? region.label,
+          context: context ?? region.context,
+          geometry,
+          bbox: bboxOf(geometry),
+          center: interiorPoint(geometry),
+          areaKm2: areaKm2(geometry),
+          kind: "place",
+          ref: { type: "region", label: region.label },
+        },
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [direct, osm, countryId, regionLabel, name, context]);
+
   // Give dropped points a human-readable name.
   const [pointName, setPointName] = useState<{ key: string; name: string } | null>(null);
   const pointKey = direct?.kind === "point" && !name ? `${lat},${lon}` : null;
@@ -190,6 +225,10 @@ export function useAnalysisTarget(params: URLSearchParams): TargetState {
   if (countryId) {
     if (!countryState || countryState.key !== countryId) return { target: null, loading: true, error: null };
     return { target: countryState.target, loading: false, error: countryState.error };
+  }
+  if (regionLabel) {
+    if (!regionState || regionState.key !== regionLabel) return { target: null, loading: true, error: null };
+    return { target: regionState.target, loading: false, error: regionState.error };
   }
   return { target: null, loading: false, error: null };
 }

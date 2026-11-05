@@ -1,13 +1,14 @@
 // The Trends page's search as URL state: the measures, place, period and months to scan, plus
-// how the results are filtered — and the sentence that says all of it in words. Every search,
-// and every adjustment of it, is a shareable link.
+// how the results are filtered — and the sentence that says all of it in words (written from the
+// choices; nothing is read from typed text). Every search, and every adjustment of it, is a
+// shareable link.
 
+import { hasBoundary, type PlaceResult } from "../geo/geocode";
 import { formatArea } from "../geo/geometry";
 import { encodeGeometryForLink } from "../geo/polyline";
 import { formatMonth } from "../gibs/time";
 import { CORE_INDICATORS, INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId, type SeasonId } from "../query/indicators";
-import { parseTrendQuery, type ParsedQuery, type ReaderNote, type TimeSpec } from "../query/parse";
-import { seasonYearMonths, type PeriodPlan } from "../query/period";
+import { seasonYearMonths, type PeriodPlan, type TimeSpec } from "../query/period";
 import type { Hotspot, HotspotFilter } from "./hotspots";
 import type { ScanArea } from "./place";
 
@@ -17,7 +18,7 @@ export type SeasonChoice = Exclude<SeasonId, "custom">;
 export type ResultFilter = HotspotFilter;
 
 export interface TrendQuery {
-  /** The sentence in the question box: typed, or written from the choices after an edit. */
+  /** The choices in words, e.g. "Vegetation decline in Uzbekistan since 2015" (written from them). */
   text: string;
   /** At least one measure to scan. */
   understood: boolean;
@@ -36,10 +37,8 @@ export interface TrendQuery {
   season: SeasonChoice | null;
   /** Explicit months (overrides the season). */
   months: number[] | null;
-  /** An exact area handed over from another page (Analysis "Show on map"). */
+  /** An exact area: a country or a drawn or saved outline picked on the map, or one from another page. */
   area: { country?: string; osm?: string; poly?: string; name?: string } | null;
-  /** Things the reader couldn't measure, with the closest measures (from the typed text). */
-  notes: ReaderNote[];
   /** The measure whose results are shown. */
   tab: IndicatorId | null;
 }
@@ -160,45 +159,42 @@ function encodeFilters(query: TrendQuery): string {
     .join(",");
 }
 
-/** Reads the search from the URL: the typed text first, then the choices written on top of it. */
+/** Reads the choices from the URL. */
 export function queryFromParams(params: URLSearchParams): TrendQuery {
-  const text = params.get("q")?.trim() ?? "";
-  const parsed = parseTrendQuery(text);
   const ind = params.get("ind");
-  const listed = ind?.split(",").filter(isIndicator);
-  const everything = ind === "all" || (!ind && parsed.everything);
-  const wanted = new Set(everything ? CORE_INDICATORS : listed?.length ? listed : parsed.indicators);
+  const everything = ind === "all";
+  const wanted = new Set(everything ? CORE_INDICATORS : (ind?.split(",").filter(isIndicator) ?? []));
   const indicators = INDICATOR_ORDER.filter((id) => wanted.has(id));
 
-  const directions = decodeDirections(params.get("dir"), indicators) ?? parsed.directions;
+  const directions = decodeDirections(params.get("dir"), indicators) ?? {};
   const extra = decodeFilters(params.get("f"));
   const filters: Partial<Record<IndicatorId, ResultFilter>> = {};
   for (const id of indicators) filters[id] = { direction: directions[id] ?? "any", ...DEFAULT_FILTER, ...extra[id] };
 
-  const seasonChoice = decodeSeason(params.get("season")) ?? { season: parsed.season, months: parsed.months };
+  const seasonChoice = decodeSeason(params.get("season")) ?? { season: null, months: null };
   const area =
     params.get("country") || params.get("osm") || params.get("poly")
       ? { country: params.get("country") ?? undefined, osm: params.get("osm") ?? undefined, poly: params.get("poly") ?? undefined, name: params.get("name") ?? undefined }
       : null;
   const tab = params.get("tab");
-  return {
-    text,
+  const query: TrendQuery = {
+    text: "",
     understood: indicators.length > 0,
     indicators,
     everything,
     filters,
-    // An exact area from the map wins over any place named in the words.
-    place: area ? null : params.has("place") ? params.get("place") || null : parsed.place,
-    near: area ? false : params.has("place") ? params.get("near") === "1" : parsed.near,
-    time: decodeTime(params.get("t")) ?? parsed.time,
+    // An exact area from the map wins over a place chosen by name.
+    place: area ? null : params.get("place") || null,
+    near: area ? false : params.get("near") === "1",
+    time: decodeTime(params.get("t")) ?? { kind: "default" },
     season: seasonChoice.season,
     months: seasonChoice.months,
     area,
-    // The reader's notes describe the typed words; once the choices are edited they no longer apply.
-    notes: ind ? [] : parsed.notes,
     // With measures picked for the place, any measure can be the open tab.
     tab: tab && (everything ? isIndicator(tab) : indicators.includes(tab as IndicatorId)) ? (tab as IndicatorId) : (indicators[0] ?? null),
   };
+  query.text = sentenceFor(query);
+  return query;
 }
 
 export type QueryEdit = Partial<Pick<TrendQuery, "indicators" | "everything" | "place" | "near" | "area" | "time" | "season" | "months" | "filters" | "tab">>;
@@ -206,7 +202,7 @@ export type QueryEdit = Partial<Pick<TrendQuery, "indicators" | "everything" | "
 /** An exact area chosen on the map: a country, a drawn or saved outline, or a hotspot. */
 export type ExactArea = NonNullable<TrendQuery["area"]>;
 
-/** Applies a change and writes every choice into the URL, with the sentence rewritten to match. */
+/** Applies a change; the sentence is rewritten to match. */
 export function applyEdit(query: TrendQuery, edit: QueryEdit): TrendQuery {
   const next: TrendQuery = { ...query, ...edit };
   if (edit.everything) {
@@ -235,16 +231,12 @@ export function applyEdit(query: TrendQuery, edit: QueryEdit): TrendQuery {
   if ("season" in edit) next.months = edit.months ?? null;
   if (!next.tab || (!next.everything && !next.indicators.includes(next.tab))) next.tab = next.indicators[0] ?? null;
   next.understood = next.indicators.length > 0;
-  next.notes = [];
-  // Rewrite the words only when they would say something different (not for a slider or a tab).
-  const words = sentenceFor(next);
-  if (next.indicators.length && words !== sentenceFor(query)) next.text = words;
+  next.text = sentenceFor(next);
   return next;
 }
 
 export function paramsFor(query: TrendQuery): URLSearchParams {
   const next = new URLSearchParams();
-  if (query.text) next.set("q", query.text);
   next.set("ind", query.everything ? "all" : query.indicators.join(","));
   if (query.indicators.length) next.set("dir", encodeDirections(query));
   const filters = encodeFilters(query);
@@ -261,9 +253,19 @@ export function paramsFor(query: TrendQuery): URLSearchParams {
   return next;
 }
 
-/** URL for a brand-new question typed into the box. */
-export function paramsForText(text: string): URLSearchParams {
-  return new URLSearchParams({ q: text.trim() });
+/**
+ * The same search with a place found by search: a sea or named region by its name, a place with an
+ * OpenStreetMap boundary by that boundary, anything else by its name.
+ */
+export function paramsWithPlace(params: URLSearchParams, place: PlaceResult): URLSearchParams {
+  const next = new URLSearchParams(params);
+  for (const key of ["place", "near", "country", "osm", "poly", "name"]) next.delete(key);
+  if (place.region) next.set("place", place.region);
+  else if (place.osm && hasBoundary(place)) {
+    next.set("osm", `${place.osm.type}${place.osm.id}`);
+    next.set("name", place.name);
+  } else next.set("place", place.name);
+  return next;
 }
 
 /** Everything that decides what is scanned (not how results are filtered). */
@@ -337,10 +339,7 @@ function monthsPhrase(season: SeasonChoice | null, months: number[] | null): str
   }
 }
 
-/**
- * The search in words, e.g. "Vegetation and rainfall decline in Uzbekistan since 2015, April to
- * September". Reading it back gives the same choices (see the round-trip test).
- */
+/** The search in words, e.g. "Vegetation and rainfall decline in Uzbekistan since 2015, April to September". */
 export function sentenceFor(query: Pick<TrendQuery, "indicators" | "filters" | "place" | "near" | "area" | "time" | "season" | "months"> & { everything?: boolean }): string {
   const ids = INDICATOR_ORDER.filter((id) => query.indicators.includes(id));
   if (!ids.length) return "";
@@ -381,35 +380,6 @@ export function directionLabel(direction: Direction): string {
 export function periodLabel(plan: PeriodPlan): string {
   if (plan.kind === "comparison") return `${plan.baseline[0]} vs ${plan.recent[0]}`;
   return `${plan.startYear}→${plan.endYear}`;
-}
-
-function describeTime(time: TimeSpec): string {
-  switch (time.kind) {
-    case "since":
-      return `since ${time.start}`;
-    case "range":
-      return `${time.start}–${time.end}`;
-    case "last":
-      return `last ${time.years} years`;
-    case "year":
-      return String(time.year);
-    case "versus":
-      return `${time.baseline} vs ${time.recent}`;
-    default:
-      return "last 10 years";
-  }
-}
-
-/** "Vegetation + Rainfall · Decline · Uzbekistan · since 2015" — shown in the search boxes. */
-export function describeQuestion(parsed: ParsedQuery): string {
-  const values = parsed.indicators.map((id) => parsed.directions[id] ?? "any");
-  const what = parsed.everything
-    ? "Measures that suit the place"
-    : parsed.indicators.length
-      ? parsed.indicators.map((id) => INDICATORS[id].label).join(" + ")
-      : `Closest measures for “${parsed.notes[0]?.phrase ?? parsed.text}”`;
-  const how = !values.length ? null : values.every((d) => d === values[0]) ? { decline: "Decline", increase: "Increase", any: "Any change" }[values[0]] : "Mixed";
-  return [what, how, parsed.place ? `${parsed.near ? "near " : ""}${parsed.place}` : "map view", describeTime(parsed.time)].filter(Boolean).join(" · ");
 }
 
 /** "Top 10 areas with vegetation decline in Uzbekistan, 2015→2025" */
@@ -475,6 +445,7 @@ export function areaAnalysisHref(area: ScanArea, exact: TrendQuery["area"], indi
   const params = new URLSearchParams();
   const countryId = exact?.country ?? area.countryId;
   if (countryId) params.set("country", countryId);
+  else if (area.region) params.set("region", area.region);
   else if (exact?.osm) params.set("osm", exact.osm);
   else params.set("poly", encodeGeometryForLink(area.geometry));
   params.set("name", area.kind === "view" ? "Map view" : area.name);
