@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { cappedShare, rebuildHotspots, runScan, ScanError, summarizeArea, type ScanLoaders } from "../scan";
+import { cappedShare, rebuildHotspots, runScan, ScanError, summarizeArea, WrongPlaceError, type ScanLoaders } from "../scan";
 import { scanGrid, decodeGrid } from "../grid";
 import { AreaError, matchCountry, resolveArea, widen, type ScanArea } from "../place";
 import { planPeriod, type PeriodPlan } from "../../query/period";
@@ -82,6 +82,31 @@ describe("runScan", () => {
     const air = await runScan({ ...base, indicator: "so2" });
     expect(air.mask[0]).toBe(1);
     expect(air.mask.every((v) => v === 1)).toBe(true);
+  });
+
+  it("reads air measures over the water only when the area is a named sea", async () => {
+    const base = { direction: "any" as const, plan: plan(), availability: { window: { earliest: "2000-03", latest: "2026-08" }, available: null }, loaders: loaders(), maxSize: 20 };
+    const sea = await runScan({ ...base, indicator: "airTemp", area: { ...AREA, water: "sea" } });
+    expect(sea.surface).toBe("water");
+    expect(sea.mask[0]).toBe(1);
+    expect(sea.mask[5]).toBe(0);
+    expect(sea.notes.join(" ")).toMatch(/read over the water only/);
+    const land = await runScan({ ...base, indicator: "airTemp", area: AREA });
+    expect(land.surface).toBe("any");
+  });
+
+  it("explains a measure that can't be read in the place, before reading any map", async () => {
+    const base = { direction: "any" as const, plan: plan(), availability: { window: { earliest: "2000-03", latest: "2026-08" }, available: null }, maxSize: 20 };
+    const monthGrid = vi.fn(loaders().monthGrid);
+    // Vegetation over the open ocean.
+    await expect(runScan({ ...base, loaders: { ...loaders(), monthGrid }, indicator: "vegetation", area: { ...AREA, name: "North Atlantic", water: "ocean" } })).rejects.toThrow(
+      /measured on land, but the North Atlantic is open ocean/,
+    );
+    // Sea temperature where there is no water at all.
+    const dry: ScanLoaders = { ...loaders(), monthGrid, surfaceMask: async (grid, surface) => new Uint8Array(grid.width * grid.height).fill(surface === "water" ? 0 : 1) };
+    await expect(runScan({ ...base, loaders: dry, indicator: "sst", area: AREA })).rejects.toThrow(/no sea or large lake in Test area/);
+    await expect(runScan({ ...base, loaders: dry, indicator: "sst", area: AREA })).rejects.toBeInstanceOf(WrongPlaceError);
+    expect(monthGrid).not.toHaveBeenCalled();
   });
 
   it("warns when many readings sit at the top of NASA's colour scale", async () => {
@@ -327,7 +352,21 @@ describe("seas and oceans", () => {
     expect(sea.bbox[0]).toBeLessThan(-5);
     expect(sea.bbox[2]).toBeGreaterThan(36);
     expect(sea.bbox[3]).toBeLessThan(46.5);
+    expect(sea.water).toBe("sea");
     const black = await resolveArea("Black Sea", { countries: null, search: async () => [] });
-    expect(black.bbox).toEqual([27.2, 40.6, 41.9, 47.0]);
+    expect(black.bbox).toEqual([27.2, 41.0, 41.9, 47.0]);
+  });
+
+  it("come as two halves of the Pacific, which can't be scanned as one area", async () => {
+    const west = await resolveArea("the western Pacific", { countries: null, search: async () => [] });
+    expect(west).toMatchObject({ name: "Western Pacific", water: "ocean" });
+    expect(west.bbox[2]).toBe(180);
+    await expect(resolveArea("Pacific Ocean", { countries: null, search: async () => [] })).rejects.toThrow(/180° line/);
+  });
+
+  it("are no longer water once widened with 'near'", async () => {
+    const around = await resolveArea("Mediterranean", { countries: null, near: true });
+    expect(around.name).toBe("Around Mediterranean Sea");
+    expect(around.water).toBeUndefined();
   });
 });

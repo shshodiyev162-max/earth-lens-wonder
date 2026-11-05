@@ -4,6 +4,7 @@ import L from "leaflet";
 import { bboxPolygon, circlePolygon, closeRing, type PolygonGeometry, type Position } from "@/lib/geo/geometry";
 import type { AreaKind } from "@/context/WorkspaceContext";
 import CountryPickTool from "./CountryPickTool";
+import type { Water } from "@/lib/geo/waters";
 
 /** Drawing tools, plus "country": click a country to use its whole outline. */
 export type DrawMode = "rectangle" | "polygon" | "circle" | "country";
@@ -17,6 +18,8 @@ export interface PickedCountry {
 interface DrawToolsProps {
   mode: DrawMode | null;
   onComplete: (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => void;
+  /** When given, "country" mode also picks the sea or ocean under the pointer. */
+  onPickWater?: (water: Water) => void;
   onCancel: () => void;
   /** Increment to finish the polygon being drawn. */
   finishSignal?: number;
@@ -59,10 +62,10 @@ const SHAPE_STYLE: L.PathOptions = {
  * polygons (click vertices; double-click, Enter or click the first point to
  * finish; Backspace removes a point; Esc cancels). Works with mouse and touch.
  */
-export default function DrawTools({ mode, onComplete, onCancel, finishSignal = 0, undoSignal = 0, onVertexCount }: DrawToolsProps) {
+export default function DrawTools({ mode, onComplete, onPickWater, onCancel, finishSignal = 0, undoSignal = 0, onVertexCount }: DrawToolsProps) {
   const map = useMap();
-  const callbacks = useRef({ onComplete, onCancel, onVertexCount });
-  callbacks.current = { onComplete, onCancel, onVertexCount };
+  const callbacks = useRef({ onComplete, onPickWater, onCancel, onVertexCount });
+  callbacks.current = { onComplete, onPickWater, onCancel, onVertexCount };
   const polygonApi = useRef<{ finish: () => void; undo: () => void } | null>(null);
 
   useEffect(() => {
@@ -253,6 +256,14 @@ export default function DrawTools({ mode, onComplete, onCancel, finishSignal = 0
           swallowTrailingClicks();
           callbacks.current.onComplete(country.geometry, "place", { name: country.name, countryId: country.id });
         }}
+        onPickWater={
+          onPickWater
+            ? (water) => {
+                swallowTrailingClicks();
+                callbacks.current.onPickWater?.(water);
+              }
+            : undefined
+        }
         onCancel={() => callbacks.current.onCancel()}
       />
     );

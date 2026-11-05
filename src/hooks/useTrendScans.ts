@@ -10,7 +10,7 @@ import { MAX_GRIDS, planPeriod, type PeriodPlan } from "@/lib/query/period";
 import type { Hotspot } from "@/lib/trends/hotspots";
 import { AreaError, resolveArea, type ScanArea } from "@/lib/trends/place";
 import { filterFor, scanKey, type TrendQuery } from "@/lib/trends/query";
-import { fetchAvailability, nameHotspots, runScan, ScanError, type DataAvailability, type ScanProgress, type ScanResult } from "@/lib/trends/scan";
+import { fetchAvailability, mismatch, nameHotspots, runScan, ScanError, WrongPlaceError, type DataAvailability, type ScanProgress, type ScanResult } from "@/lib/trends/scan";
 
 export interface MeasureScan {
   indicator: IndicatorId;
@@ -22,6 +22,8 @@ export interface MeasureScan {
   progress: ScanProgress | null;
   result: ScanResult | null;
   error: string | null;
+  /** The measure can't be read in this place (trying again won't help). */
+  wrongPlace?: boolean;
 }
 
 export interface TrendScansState {
@@ -131,7 +133,7 @@ export function useTrendScans(query: TrendQuery | null, view: BBox | null): Tren
         name(result.hotspots, signal);
       } catch (err) {
         if (isAbortError(err) || signal.aborted) return;
-        update(measure.indicator, { status: "error", error: friendlyError(err) });
+        update(measure.indicator, { status: "error", error: friendlyError(err), wrongPlace: err instanceof WrongPlaceError });
       }
     },
     [update, name],
@@ -168,7 +170,7 @@ export function useTrendScans(query: TrendQuery | null, view: BBox | null): Tren
         });
         if (ac.signal.aborted) return;
         setCover(landCover);
-        indicators = measuresForEverything(landCover, scanArea.center[0]);
+        indicators = measuresForEverything(landCover, scanArea.center[0], scanArea.water);
         setChosen(indicators);
       }
       const availabilities = await Promise.all(indicators.map((id) => fetchAvailability(id)));
@@ -178,6 +180,9 @@ export function useTrendScans(query: TrendQuery | null, view: BBox | null): Tren
         const months = current.months ?? seasonMonths(current.season ?? INDICATORS[indicator].season, scanArea.center[0]);
         const plan = planPeriod(current.time, months, availabilities[k].window, budget);
         const base: MeasureScan = { indicator, status: "waiting", plan: null, months, availability: availabilities[k], progress: null, result: null, error: null };
+        // Land measures over the open ocean: said straight away, without reading any map.
+        const wrongPlace = mismatch(indicator, scanArea);
+        if (wrongPlace) return { ...base, status: "error", error: wrongPlace, wrongPlace: true };
         return "error" in plan ? { ...base, status: "error", error: plan.error } : { ...base, plan };
       });
       setMeasures(Object.fromEntries(planned.map((m) => [m.indicator, m])));

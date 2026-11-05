@@ -2,8 +2,6 @@
 // something (ask a question, open a hotspot…) and may wait for NASA data before going on. Every
 // number shown comes from a real scan; the captions describe what to look at, not the values.
 
-import { bboxPolygon } from "../geo/geometry";
-import { encodeGeometryForLink } from "../geo/polyline";
 import type { Direction } from "../query/indicators";
 import type { QueryEdit } from "../trends/query";
 
@@ -45,8 +43,6 @@ export interface DemoScript {
 export function demoAttr(target: DemoTarget): { "data-demo": DemoTarget } {
   return { "data-demo": target };
 }
-
-const ARAL_REGION = encodeGeometryForLink(bboxPolygon([57.8, 43.3, 62.0, 47.2]));
 
 export const DEMOS: DemoScript[] = [
   {
@@ -120,6 +116,10 @@ export const DEMOS: DemoScript[] = [
         target: "hotspots",
         caption: "The places that warmed most. Open water has no address, so hotspots at sea are named by their position.",
       },
+      {
+        target: "where",
+        caption: "To pick a sea yourself, press “Country or sea” and click the water on the map, or choose it from the list of known seas and oceans.",
+      },
     ],
   },
   {
@@ -130,12 +130,12 @@ export const DEMOS: DemoScript[] = [
       {
         target: "mode",
         action: { kind: "mode", mode: "pick" },
-        caption: "No question needed: choose everything yourself. Draw a rectangle, polygon or circle on the map, click a country, or type a place.",
+        caption: "No question needed: choose everything yourself. Draw a rectangle, polygon or circle, click a country or a sea, choose a known region from the list, or type a place.",
       },
       {
         target: "where",
-        action: { kind: "edit", edit: { area: { poly: ARAL_REGION, name: "Aral Sea region" }, indicators: ["dust"], time: { kind: "default" } } },
-        caption: "Here a box around the Aral Sea is chosen — the lake that shrank to a fraction of its size, leaving a dusty seabed.",
+        action: { kind: "edit", edit: { place: "Aral Sea", indicators: ["dust"], time: { kind: "default" } } },
+        caption: "Here the Aral Sea is chosen from the list of known regions — the lake that shrank to a fraction of its size, leaving a dusty seabed.",
       },
       {
         target: "cover",

@@ -10,6 +10,8 @@ const TOOLS: { mode: DrawMode; label: string; icon: typeof Square }[] = [
   { mode: "country", label: "Pick a country", icon: Flag },
 ];
 
+const SEA_HINT = "Point at a country or a sea to see its name, then click to select it. You can still drag the map. Esc to cancel.";
+
 const HINTS: Record<DrawMode, string> = {
   rectangle: "Press and drag on the map to draw a rectangle. Esc to cancel.",
   polygon: "Click to add points. Double-click, press Enter or click the first point to finish.",
@@ -26,15 +28,18 @@ interface DrawToolbarProps {
   className?: string;
   /** Show the instructions card under the buttons (off for small maps, which render <DrawHint> elsewhere). */
   showHint?: boolean;
+  /** The country tool also picks seas and oceans. */
+  seas?: boolean;
 }
 
-export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish, onUndo, className, showHint = true }: DrawToolbarProps) {
+export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish, onUndo, className, showHint = true, seas = false }: DrawToolbarProps) {
   return (
     <div className={cn("pointer-events-auto flex flex-col items-end gap-2", className)}>
-      <div className="flex flex-col items-end gap-1" role="toolbar" aria-label="Draw an area or pick a country" aria-orientation="vertical">
+      <div className="flex flex-col items-end gap-1" role="toolbar" aria-label={seas ? "Draw an area or pick a country or sea" : "Draw an area or pick a country"} aria-orientation="vertical">
         {TOOLS.map((tool) => {
           const Icon = tool.icon;
           const active = mode === tool.mode;
+          const label = seas && tool.mode === "country" ? "Pick a country or sea" : tool.label;
           return (
             <Tooltip key={tool.mode}>
               <TooltipTrigger asChild>
@@ -42,7 +47,7 @@ export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish,
                   type="button"
                   onClick={() => onModeChange(active ? null : tool.mode)}
                   aria-pressed={active}
-                  aria-label={tool.label}
+                  aria-label={label}
                   className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-lg border border-primary/90 text-panel-foreground shadow-[0_2px_10px_rgb(0_0_0/0.25)] transition-colors dark:border-[hsl(174_72%_50%/0.9)] dark:shadow-[0_2px_10px_rgb(0_0_0/0.5)]",
                     active
@@ -53,13 +58,13 @@ export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish,
                   <Icon className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="left">{tool.label}</TooltipContent>
+              <TooltipContent side="left">{label}</TooltipContent>
             </Tooltip>
           );
         })}
       </div>
       {mode && showHint && (
-        <DrawHint mode={mode} vertexCount={vertexCount} onFinish={onFinish} onUndo={onUndo} onCancel={() => onModeChange(null)} className="max-w-[18rem]" />
+        <DrawHint mode={mode} vertexCount={vertexCount} onFinish={onFinish} onUndo={onUndo} onCancel={() => onModeChange(null)} seas={seas} className="max-w-[18rem]" />
       )}
     </div>
   );
@@ -71,11 +76,13 @@ interface DrawHintProps {
   onFinish: () => void;
   onUndo: () => void;
   onCancel: () => void;
+  /** The country tool also picks seas and oceans. */
+  seas?: boolean;
   className?: string;
 }
 
 /** What to do next while drawing, with Finish / Undo / Cancel. */
-export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, className }: DrawHintProps) {
+export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, seas = false, className }: DrawHintProps) {
   return (
     <div
       className={cn(
@@ -83,7 +90,7 @@ export function DrawHint({ mode, vertexCount, onFinish, onUndo, onCancel, classN
         className,
       )}
     >
-      <p>{HINTS[mode]}</p>
+      <p>{seas && mode === "country" ? SEA_HINT : HINTS[mode]}</p>
       <div className="mt-2 flex items-center gap-1.5">
         {mode === "polygon" && (
           <>

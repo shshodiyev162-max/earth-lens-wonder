@@ -21,6 +21,8 @@ interface AreaSummaryCardProps {
   verdict: TrendVerdict | null;
   series: YearValue[];
   indicator: Indicator;
+  /** What the measure was read on here (air measures over a sea are read on its water). */
+  surface?: Indicator["surface"];
   plan: PeriodPlan;
   filter: ResultFilter;
   /** "The Apr–Sep average" */
@@ -44,14 +46,15 @@ function share(part: number, whole: number): string {
 /** The whole scanned area in the same detail as a hotspot: numbers, verdict, chart and links. */
 export default function AreaSummaryCard(props: AreaSummaryCardProps) {
   const { name, kind, summary, verdict, series, indicator, plan, filter, seasonSubject, hotspotCount, hotspotKm2, analysisHref, compareHref, onZoom, hint, onTryAllYears } = props;
+  const surface = props.surface ?? indicator.surface;
   const value = (v: number) => `${v.toFixed(indicator.decimals)} ${indicator.unit}`;
   const percent = summary.change !== null && summary.baselineMean && indicator.unit !== "°C" && Math.abs(summary.baselineMean) > 1e-6 ? (summary.change / Math.abs(summary.baselineMean)) * 100 : null;
   const threshold = `${(indicator.minChange * filter.minFactor).toFixed(Math.max(indicator.decimals, 2)).replace(/\.?0+$/, "")} ${indicator.unit}`;
   const windows = plan.kind === "comparison" ? [`${plan.baseline[0]}`, `${plan.recent[0]}`] : [`${plan.baseline[0]}–${plan.baseline[1]}`, `${plan.recent[0]}–${plan.recent[1]}`];
   const tone =
     !verdict || verdict.direction === "none" || indicator.concern === "none" ? "text-panel-foreground" : verdict.direction === indicator.concern ? "text-tone-warn" : "text-tone-good";
-  // Sea measures are read on water, air measures everywhere.
-  const ground = indicator.surface === "water" ? "Sea" : indicator.surface === "any" ? "Area" : "Land";
+  // Sea measures are read on water, air measures everywhere (or over the water of a named sea).
+  const ground = surface === "water" ? "Sea" : surface === "any" ? "Area" : "Land";
   const groundWord = ground.toLowerCase();
 
   return (

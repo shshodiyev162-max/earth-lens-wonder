@@ -53,7 +53,8 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
   - finer re-reads of the top hotspots for large areas
   - `rebuildHotspots` regroups the pixels for new filters without network.
 - `landcover.ts` reads NASA's yearly MODIS land cover, groups the 17 classes by NASA's own class names, and suggests measures by fixed rules.
-- `place.ts` resolves a place: named regions and seas (some with outlines), countries from the bundled outlines, otherwise OpenStreetMap.
+- `place.ts` resolves a place: named regions, seas and oceans, countries from the bundled outlines, otherwise OpenStreetMap (found places are kept for the session, so the preview and the scan ask once). A sea or ocean marks the area as water: air measures are then read over the water only, and land measures over an ocean are refused with a plain explanation (`surfaceFor`, `mismatch` in `scan.ts`).
+- `lib/geo/waters.ts` keeps the rough outlines of seas and oceans. Neighbouring waters share edges drawn through the land between them (the Americas between the Atlantic and the Pacific), so a click lands in the right one; `waterAt` returns the smallest outline at a point. The Pacific comes in two halves because a scan can't wrap around the 180° line. A test checks that all open water on a 3° grid belongs to some sea or ocean.
 
 ### `lib/analysis` — the report
 
@@ -86,7 +87,7 @@ Plain one- or two-sentence definitions of every measure and of the statistics wo
   - `BaseMap` is the shared Leaflet setup.
   - `GibsTileLayer` and `LayerStack` show a science layer over a dimmed Blue Marble so gaps still show context.
   - `ReferenceOverlays` draws the bundled Natural Earth 1:50m country outlines (borders and coastlines, `public/data/countries-50m.json`, built by `scripts/build-borders.mjs`) on one canvas, cyan over a soft dark edge so they stay visible over clouds. Each outline carries its name and 3-letter code; `lib/geo/countries.ts` loads them once and answers "which country is here?" (`countryAt`) and "which outline is this code?" (`findCountry`). There are no label tiles: CARTO's need a key and NASA's `Reference_Labels_15m` come back as solid black tiles.
-  - `DrawTools` and `DrawToolbar` provide pointer-based rectangle, circle and polygon drawing, with no plugin, and a "Pick a country" mode (`CountryPickTool`: hover highlight with the name, click to select). On Explore/Split/Sync a picked country is saved as a named area; on Analysis it becomes `?country=UZB` (a shareable link resolved from the bundled outlines).
+  - `DrawTools` and `DrawToolbar` provide pointer-based rectangle, circle and polygon drawing, with no plugin, and a "Pick a country" mode (`CountryPickTool`: hover highlight with the name, click to select). On Trends the same tool also picks the sea or ocean under the pointer (`onPickWater`), which is the same as naming it. On Explore/Split/Sync a picked country is saved as a named area; on Analysis it becomes `?country=UZB` (a shareable link resolved from the bundled outlines).
   - `ValueProbe` handles click-to-read.
   - `SwipeClip` clips Leaflet panes for the comparison divider.
   - Also here: the legend, date control, layer picker and the shared page shell.

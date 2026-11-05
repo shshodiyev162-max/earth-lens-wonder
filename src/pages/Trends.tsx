@@ -35,6 +35,8 @@ import TimeAnimator from "@/components/trends/TimeAnimator";
 import { useFrames, type FrameMode } from "@/hooks/useFrames";
 import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
 import { useExactAreaGeometry } from "@/hooks/useExactAreaGeometry";
+import { usePlaceArea } from "@/hooks/usePlaceArea";
+import type { Water } from "@/lib/geo/waters";
 import { gridBudget, useTrendScans } from "@/hooks/useTrendScans";
 import { defaultEndMonth } from "@/lib/analysis/period";
 import { explainVerdict, signed } from "@/lib/analysis/stats";
@@ -173,7 +175,11 @@ export default function Trends() {
   const [finishSignal, setFinishSignal] = useState(0);
   const [undoSignal, setUndoSignal] = useState(0);
   const panelId = useId();
-  const chosenGeometry = useExactAreaGeometry(draft?.area ?? null);
+  const exactGeometry = useExactAreaGeometry(draft?.area ?? null);
+  // A typed, listed or clicked place (a sea, a region, a city…) is found straight away, so it is
+  // outlined and described before anything is scanned.
+  const placeArea = usePlaceArea(draft && !draft.area ? draft.place : null, Boolean(draft?.near));
+  const chosenGeometry = exactGeometry ?? placeArea.area?.geometry ?? null;
 
   // A search without a place scans the map view as it was when the search ran.
   useEffect(() => {
@@ -263,6 +269,19 @@ export default function Trends() {
     setFlyTarget({ bbox: bboxOf(geometry), key: `chosen-${Date.now()}` });
     if (window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(true);
   };
+
+  /** A sea or ocean clicked on the map: the same as naming it, so it is read exactly like the question would be. */
+  const onPickWater = (water: Water) => {
+    setDrawMode(null);
+    edit({ place: water.label });
+    if (window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(true);
+  };
+
+  // Show a place once it is found (the scan's own area, when it arrives, is the same place).
+  useEffect(() => {
+    const found = placeArea.area;
+    if (found) setFlyTarget({ bbox: found.bbox, key: `${found.name}|${found.bbox.join(",")}` });
+  }, [placeArea.area]);
 
   const pickSavedArea = (id: string) => {
     const area = workspace.getArea(id);
@@ -358,11 +377,18 @@ export default function Trends() {
 
   // What the place is like: the exact outline when one is chosen, otherwise the area last scanned.
   const coverGeometry = chosenGeometry ?? (area && !(draft?.place && draft.place !== applied?.place) ? area.geometry : null);
-  const coverName = chosenGeometry ? (draft?.area?.name ?? "This area") : area && coverGeometry ? (area.kind === "view" ? "The map view" : area.name) : null;
+  const coverName = chosenGeometry
+    ? (draft?.area?.name ?? placeArea.area?.name ?? "This area")
+    : area && coverGeometry
+      ? area.kind === "view"
+        ? "The map view"
+        : area.name
+      : null;
   const landCover = useLandCover(coverGeometry);
+  const coverWater = exactGeometry ? undefined : chosenGeometry ? placeArea.area?.water : area?.water;
   const suggestions = useMemo(
-    () => (landCover.cover && coverGeometry ? suggestMeasures(landCover.cover, centroidOf(coverGeometry)[0]) : []),
-    [landCover.cover, coverGeometry],
+    () => (landCover.cover && coverGeometry ? suggestMeasures(landCover.cover, centroidOf(coverGeometry)[0], coverWater) : []),
+    [landCover.cover, coverGeometry, coverWater],
   );
 
   const busy = scan.status === "preparing" || scan.status === "scanning";
@@ -423,7 +449,7 @@ export default function Trends() {
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-tone-warn" aria-hidden />
               {measure.status === "error" ? measure.error : `The ${indicator.label.toLowerCase()} scan was stopped.`}
             </p>
-            {measure.plan && (
+            {measure.plan && !measure.wrongPlace && (
               <button
                 type="button"
                 onClick={() => scan.retry(active)}
@@ -446,6 +472,7 @@ export default function Trends() {
                 verdict={result.region.verdict}
                 series={result.region.series}
                 indicator={indicator}
+                surface={result.surface}
                 plan={plan}
                 filter={filter}
                 seasonSubject={seasonAverage(months)}
@@ -491,10 +518,12 @@ export default function Trends() {
                 {plan.kind === "trend" && <li>Each pixel's yearly values are tested with Mann–Kendall; the slope is Sen's slope (robust to outliers).</li>}
                 <li>Changing what is shown re-groups the pixels already read — no new maps are needed.</li>
                 <li>
-                  {indicator.surface === "land"
+                  {result.surface === "land"
                     ? "Lakes and seas are left out; clouds or gaps leave pixels without data."
-                    : indicator.surface === "water"
-                      ? "Land is left out (this measure is read on the sea); clouds or gaps leave pixels without data."
+                    : result.surface === "water"
+                      ? indicator.surface === "water"
+                        ? "Land is left out (this measure is read on the sea); clouds or gaps leave pixels without data."
+                        : "Land is left out: this area is a sea, so the air over its water is read."
                       : "This measure covers the air over land and sea alike, so nothing is left out."}
                 </li>
                 {result.notes.map((note) => (
@@ -534,7 +563,7 @@ export default function Trends() {
       ) : (
         <p className="mb-4 text-xs leading-relaxed text-panel-muted">
           Pick an area on the map, what to measure, the years and the months — then find changes.
-          {draft?.understood && (
+          {draft?.understood && draft.text && (
             <>
               {" "}
               In words: <span className="text-panel-soft">“{draft.text}”</span>
@@ -571,7 +600,15 @@ export default function Trends() {
             where={
               <div className="space-y-3">
                 <div {...demoAttr("where")}>
-                  <AreaPicker query={draft} foundName={area?.name ?? null} savedAreas={workspace.areas} drawMode={drawMode} onDraw={startDrawing} onEdit={edit} />
+                  <AreaPicker
+                    query={draft}
+                    foundName={placeArea.area?.name ?? area?.name ?? null}
+                    savedAreas={workspace.areas}
+                    drawMode={drawMode}
+                    onDraw={startDrawing}
+                    onEdit={edit}
+                    placeError={placeArea.error}
+                  />
                 </div>
                 {coverName && (
                   <AreaCoverCard
@@ -629,11 +666,20 @@ export default function Trends() {
           onFinish={() => setFinishSignal((n) => n + 1)}
           onUndo={() => setUndoSignal((n) => n + 1)}
           showHint={false}
+          seas
         />
       </div>
       {drawMode && (
         <div className="absolute inset-x-3 top-[3.75rem] flex justify-center lg:inset-x-auto lg:left-1/2 lg:-translate-x-1/2">
-          <DrawHint mode={drawMode} vertexCount={vertexCount} onFinish={() => setFinishSignal((n) => n + 1)} onUndo={() => setUndoSignal((n) => n + 1)} onCancel={() => startDrawing(null)} className="max-w-[20rem]" />
+          <DrawHint
+            mode={drawMode}
+            vertexCount={vertexCount}
+            onFinish={() => setFinishSignal((n) => n + 1)}
+            onUndo={() => setUndoSignal((n) => n + 1)}
+            onCancel={() => startDrawing(null)}
+            seas
+            className="max-w-[20rem]"
+          />
         </div>
       )}
       {selected && plan && indicator && active && area && (
@@ -772,7 +818,15 @@ export default function Trends() {
           {(panelMode === "pick" || drawMode || !result) && <AreasLayer areas={workspace.areas} activeId={null} onSelect={pickSavedArea} interactive={!drawMode} />}
           {chosenGeometry && (dirty || !result) && <ChosenAreaLayer geometry={chosenGeometry} />}
           {result && <HotspotLayer hotspots={hotspots} selectedId={selectedId} onSelect={select} area={area?.kind === "view" ? null : (area?.geometry ?? null)} />}
-          <DrawTools mode={drawMode} onComplete={onAreaComplete} onCancel={() => startDrawing(null)} finishSignal={finishSignal} undoSignal={undoSignal} onVertexCount={setVertexCount} />
+          <DrawTools
+            mode={drawMode}
+            onComplete={onAreaComplete}
+            onPickWater={onPickWater}
+            onCancel={() => startDrawing(null)}
+            finishSignal={finishSignal}
+            undoSignal={undoSignal}
+            onVertexCount={setVertexCount}
+          />
           <BoundsTracker onChange={setMapBounds} />
           <FlyTo target={flyTarget} maxZoom={10} />
         </BaseMap>

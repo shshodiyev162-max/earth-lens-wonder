@@ -27,7 +27,14 @@ vi.mock("@/lib/trends/place", async (original) => {
   const actual = (await original()) as object;
   return {
     ...actual,
-    resolveArea: vi.fn(async (place: string) => ({ name: place, geometry: bboxPolygon([56, 37, 73, 46]), bbox: [56, 37, 73, 46], center: [41, 64], kind: "country" })),
+    resolveArea: vi.fn(async (place: string) => ({
+      name: place,
+      geometry: bboxPolygon([56, 37, 73, 46]),
+      bbox: [56, 37, 73, 46],
+      center: [41, 64],
+      kind: "country",
+      water: /atlantic/i.test(place) ? "ocean" : undefined,
+    })),
   };
 });
 
@@ -63,6 +70,16 @@ describe("useTrendScans", () => {
     expect(result.current.indicators).toEqual(["dust", "vegetation", "heat", "rainfall", "soil"]);
     expect(calls).toEqual(["dust", "vegetation", "heat", "rainfall", "soil"]);
     expect(result.current.cover?.shares.barren).toBe(0.7);
+  });
+
+  it("says straight away when a measure can't be read in the place, and scans the rest", async () => {
+    const ocean = queryFromParams(new URLSearchParams({ ind: "vegetation,sst", place: "North Atlantic", t: "default", season: "usual" }));
+    const { result } = renderHook(() => useTrendScans(ocean, null));
+    await waitFor(() => expect(result.current.status).toBe("done"));
+    expect(calls).toEqual(["sst"]);
+    expect(result.current.measures.vegetation).toMatchObject({ status: "error", wrongPlace: true });
+    expect(result.current.measures.vegetation?.error).toMatch(/open ocean/);
+    expect(result.current.measures.sst?.status).toBe("done");
   });
 
   it("falls back to the six main measures when land cover can't be read", async () => {

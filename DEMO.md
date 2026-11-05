@@ -43,6 +43,8 @@ Run *is the Mediterranean sea temperature rising since 2003*:
 
 Optionally: *ozone layer recovery over Antarctica since 2005*.
 
+To show that anyone can repeat this: switch to **Choose step by step**, press **Country or sea** and click the Mediterranean, or pick it from **Or choose a known region, sea or ocean**.
+
 **2:40 – Honesty and learning**
 Open **Words used here**:
 > "Every statistics word is explained in plain language. If something isn't measured — sea level, NO₂, river flow — TerraScope says so and offers the closest real measures."

@@ -70,7 +70,7 @@ const steps = [
   {
     icon: ScanSearch,
     title: "1. Ask, or choose",
-    description: "Ask in plain words, or pick the measure, the place, the years and the months yourself — draw an area or click a country.",
+    description: "Ask in plain words, or pick the measure, the place, the years and the months yourself — draw an area, click a country or a sea, or choose a known region.",
   },
   {
     icon: Satellite,

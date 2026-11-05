@@ -46,6 +46,8 @@ export interface ScanResult {
   plan: PeriodPlan;
   layerId: string;
   grid: GridSpec;
+  /** What the measure was read on inside the area. */
+  surface: Surface;
   /** 1 = pixels inside the area that the measure is read on (land, sea or both). */
   mask: Uint8Array;
   trends: PixelTrends;
@@ -74,6 +76,38 @@ export interface ScanResult {
 }
 
 export class ScanError extends Error {}
+
+/** The measure can't be read in this place at all: trying again won't help, another measure or place will. */
+export class WrongPlaceError extends ScanError {}
+
+/**
+ * What a measure is read on in an area: its own surface, except that measures of the air (read
+ * everywhere) are read over the water only when the area is a named sea or ocean, since a sea's
+ * rough outline also takes in the land around it.
+ */
+export function surfaceFor(indicator: IndicatorId, area: Pick<ScanArea, "water">): Surface {
+  const own = INDICATORS[indicator].surface;
+  return own === "any" && area.water ? "water" : own;
+}
+
+/** A measure that can't be read in the area at all (land measures over the open ocean). */
+export function mismatch(indicator: IndicatorId, area: Pick<ScanArea, "water" | "name">): string | null {
+  const info = INDICATORS[indicator];
+  if (info.surface === "land" && area.water === "ocean") {
+    return `${info.label} is measured on land, but the ${area.name} is open ocean. Choose sea surface temperature or a measure of the air, or an area on land.`;
+  }
+  return null;
+}
+
+function emptySurfaceMessage(indicator: IndicatorId, area: ScanArea, surface: Surface): string {
+  const info = INDICATORS[indicator];
+  if (surface === "water") {
+    return info.surface === "water"
+      ? `There's no sea or large lake in ${area.name}, and ${info.label.toLowerCase()} is measured on water only. Choose a sea (“Country or sea” lets you click one on the map) or an area on the coast.`
+      : `There's no water in ${area.name} to read ${info.label.toLowerCase()} over.`;
+  }
+  return `There's no land in ${area.name}, and ${info.label.toLowerCase()} is measured on land. Choose sea surface temperature or a measure of the air, or an area with land.`;
+}
 
 export interface DataAvailability {
   window: DataWindow;
@@ -115,7 +149,7 @@ const NETWORK: ScanLoaders = { monthGrid: fetchMonthGrid, surfaceMask: fetchSurf
 
 const SURFACE_WORDS: Record<Surface, { failed: string }> = {
   land: { failed: "The land/water map couldn't be loaded, so lakes and sea are not masked out." },
-  water: { failed: "The land/water map couldn't be loaded, so land isn't masked out (the sea temperature map has no values on land anyway)." },
+  water: { failed: "The land/water map couldn't be loaded, so land isn't masked out." },
   any: { failed: "" },
 };
 
@@ -218,6 +252,11 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   const info = INDICATORS[indicator];
   const layer = getLayer(info.layerId) as GibsLayer;
   const notes = [...plan.notes];
+  const wrongPlace = mismatch(indicator, area);
+  if (wrongPlace) throw new WrongPlaceError(wrongPlace);
+  const surface = surfaceFor(indicator, area);
+  if (surface === "water" && info.surface === "any") notes.push(`${info.label} is read over the water only, since this area is a sea or ocean (its rough outline also takes in some land).`);
+  if (surface === "land" && area.water) notes.push(`This area is a sea. ${info.label} is measured on land, so only the land inside the sea's rough outline (its coasts and islands) is scanned.`);
   const [w, s, e, n] = area.bbox;
   const coarse = Math.max(e - w, n - s) > COARSE_SPAN && info.nativeDeg < 0.2;
   const grid = scanGrid(area.bbox, request.maxSize ?? (coarse ? 160 : 200), info.nativeDeg);
@@ -239,15 +278,22 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   const report = (phase: ScanProgress["phase"], message: string) => onProgress?.({ phase, done, total, message });
   report("maps", `Reading NASA maps: 0 of ${months.length}`);
 
-  const [surfaceResult, monthResult, scaleTop] = await Promise.all([
-    loaders.surfaceMask(grid, info.surface, signal).then(
-      (mask) => mask,
-      (error) => {
-        if (isAbortError(error)) throw error;
-        notes.push(SURFACE_WORDS[info.surface].failed);
-        return new Uint8Array(size).fill(1);
-      },
-    ),
+  // The land/water map first (one request, or none for "any"): no monthly maps are read for an area
+  // with nothing to measure.
+  const regionMask = rasterizeMask(area.geometry, grid);
+  const surfaceResult = await loaders.surfaceMask(grid, surface, signal).then(
+    (mask) => mask,
+    (error) => {
+      if (isAbortError(error)) throw error;
+      notes.push(SURFACE_WORDS[surface].failed);
+      return new Uint8Array(size).fill(1);
+    },
+  );
+  const mask = new Uint8Array(size);
+  for (let i = 0; i < size; i++) mask[i] = regionMask[i] && surfaceResult[i] ? 1 : 0;
+  if (regionMask.some(Boolean) && !mask.some(Boolean)) throw new WrongPlaceError(emptySurfaceMessage(indicator, area, surface));
+
+  const [monthResult, scaleTop] = await Promise.all([
     loadMonths(
       months,
       (month) => loaders.monthGrid(layer, grid, month, signal),
@@ -272,9 +318,6 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   if (failed.length) notes.push(`${failed.length} monthly map(s) couldn't be loaded and were skipped.`);
 
   report("computing", "Testing each pixel for a trend");
-  const regionMask = rasterizeMask(area.geometry, grid);
-  const mask = new Uint8Array(size);
-  for (let i = 0; i < size; i++) mask[i] = regionMask[i] && surfaceResult[i] ? 1 : 0;
   if (scaleTop !== null) {
     const share = cappedShare(monthGrids.values(), mask, scaleTop);
     if (share >= 0.05) {
@@ -328,6 +371,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
     plan,
     layerId: layer.id,
     grid,
+    surface,
     mask,
     trends,
     yearGrids,
@@ -451,7 +495,7 @@ async function refineHotspots(
     report("refining", `Sharpening hotspot ${k + 1}`);
     try {
       const [land, loaded] = await Promise.all([
-        loaders.surfaceMask(grid, info.surface, signal).catch((error) => {
+        loaders.surfaceMask(grid, surfaceFor(request.indicator, area), signal).catch((error) => {
           if (isAbortError(error)) throw error;
           return new Uint8Array(grid.width * grid.height).fill(1);
         }),

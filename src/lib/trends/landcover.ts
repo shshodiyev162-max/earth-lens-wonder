@@ -7,7 +7,8 @@ import type { BBox, PolygonGeometry } from "../geo/geometry";
 import { GIBS_COLORMAPS, getLayer, type GibsLayer } from "../gibs/catalog";
 import { fetchRgba, rasterizeMask, wmsGetMapUrl } from "../gibs/sample";
 import { fetchTimeDomain } from "../gibs/time";
-import { CORE_INDICATORS, type IndicatorId } from "../query/indicators";
+import type { WaterKind } from "../geo/waters";
+import { CORE_INDICATORS, INDICATORS, type IndicatorId } from "../query/indicators";
 import { scanGrid } from "./grid";
 import { pixelAreaKm2, type GridSpec } from "./hotspots";
 
@@ -160,7 +161,7 @@ const RULES: { group: CoverGroup; min: number; measures: [IndicatorId, string][]
     measures: [
       ["sst", "Mostly water: sea temperature shows warming or cooling water."],
       ["airTemp", "The air over the water warms and cools too."],
-      ["rainfall", "Rain over the sea and its coasts."],
+      ["rainfall", "Rain on its coasts and islands (rain is read on land)."],
     ],
   },
   {
@@ -236,11 +237,13 @@ export const MAX_SUGGESTIONS = 6;
 
 /**
  * Up to six measures for a place, from its land cover: the biggest kind of land first. Places near
- * the South Pole also get the ozone layer (the ozone hole forms there each spring).
+ * the South Pole also get the ozone layer (the ozone hole forms there each spring). An ocean gets no
+ * land measures: the land inside its rough outline isn't part of it.
  */
-export function suggestMeasures(cover: LandCover, latitude: number): Suggestion[] {
+export function suggestMeasures(cover: LandCover, latitude: number, water?: WaterKind): Suggestion[] {
   const out: Suggestion[] = [];
   const add = (indicator: IndicatorId, reason: string) => {
+    if (water === "ocean" && INDICATORS[indicator].surface === "land") return;
     if (out.length < MAX_SUGGESTIONS && !out.some((s) => s.indicator === indicator)) out.push({ indicator, reason });
   };
   const rules = [...RULES].filter((r) => cover.shares[r.group] >= r.min).sort((a, b) => cover.shares[b.group] - cover.shares[a.group]);
@@ -252,9 +255,10 @@ export function suggestMeasures(cover: LandCover, latitude: number): Suggestion[
   return out;
 }
 
-/** Measures for "what changed": the suggestions, or the six main measures when land cover is unknown. */
-export function measuresForEverything(cover: LandCover | null, latitude: number): IndicatorId[] {
-  return cover && cover.totalKm2 > 0 ? suggestMeasures(cover, latitude).map((s) => s.indicator) : [...CORE_INDICATORS];
+/** Measures for "what changed": the suggestions, or (when land cover is unknown) the six main measures, or sea and air ones for a sea. */
+export function measuresForEverything(cover: LandCover | null, latitude: number, water?: WaterKind): IndicatorId[] {
+  if (cover && cover.totalKm2 > 0) return suggestMeasures(cover, latitude, water).map((s) => s.indicator);
+  return water ? ["sst", "airTemp"] : [...CORE_INDICATORS];
 }
 
 // ---------------------------------------------------------------------------
