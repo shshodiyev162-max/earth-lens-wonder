@@ -2,26 +2,26 @@
 
 **An Earth system trend detective, built on NASA data.** Pick a measure, a place and the years — say vegetation in Uzbekistan since 2015, or sea temperature in the Mediterranean since 2003. TerraScope reads one NASA map per month, tests every pixel and the whole area for a real trend, ranks the places that changed most, and says plainly when a change is *not* significant.
 
-Built for the NASA Space Apps Challenge 2026, **Be an Earth System Trend Detective**. Everything runs in the browser against public NASA and OpenStreetMap services: no API keys, no backend, no simulated numbers.
+Everything runs in the browser against public NASA and OpenStreetMap services: no API keys, no backend, no simulated numbers.
 
 **Try it:** `npm install && npm run dev`, open the app and press **Watch a demo** on the home page. Three worked examples play through the app with live NASA data (script for presenters: [DEMO.md](DEMO.md)).
 
-## How TerraScope meets the challenge
+## What it does
 
-| The challenge asks for… | Where it is in TerraScope |
+| Feature | In TerraScope |
 | --- | --- |
-| **Variables that may be trending** | 13 measures on land, in the air, at sea and in the upper atmosphere (table below), grouped in the picker and each with a one-line plain definition. **"Suggested for this place"** picks the measures that suit the place from NASA's land cover map: dust and heat for deserts, surface heat and SO₂ for cities, sea temperature and the air above it for seas. |
-| **Data for a particular region** | Any country or sea clicked on the map (“Country or sea”, on every map page), any place found by search, a known region, sea or ocean from a list (Aral Sea, Pamirs, Central Asia, Mediterranean, the Atlantic and Pacific halves…), a rectangle, polygon or circle drawn on the map, a saved area, or the map view. Searching for a sea gives its whole water area, not a point. A place is outlined, and its land cover described, as soon as it is chosen. Land measures leave out lakes and seas, sea measures leave out land, and air measures cover both, except over a named sea, where only its water is read. A measure that can't be read in a place (vegetation over a sea, sea temperature over a landlocked country) is explained before any map is read. |
-| **A time series long enough for statistics** | Monthly NASA maps from 2000 (MERRA-2 records reach back to 1980; the scan starts at the MODIS era). Each pixel and each area become one value per year for the chosen months, so the seasonal cycle can't fake a trend. Year-by-year charts for the whole area and every hotspot, a monthly animation on the map, monthly charts on the Analysis page, and a CSV download. |
-| **Rate of change and significance** (t-test, Mann–Kendall, confidence intervals) | **Mann–Kendall** trend test (tie-corrected; seasonal version for monthly data) and **Sen's slope** with its **95% confidence range**, per year and per decade, for the whole area, every hotspot and every pixel. **Welch's t-test** when comparing two periods (e.g. 2001–2010 vs 2016–2025). When a trend isn't significant, TerraScope says so and offers to test the whole record. |
+| **Measures** | 13 measures on land, in the air, at sea and in the upper atmosphere (table below), grouped in the picker and each with a one-line plain definition. **"Suggested for this place"** picks the measures that suit the place from NASA's land cover map: dust and heat for deserts, surface heat and SO₂ for cities, sea temperature and the air above it for seas. |
+| **Places** | Any country or sea clicked on the map (“Country or sea”, on every map page), any place found by search, a known region, sea or ocean from a list (Aral Sea, Pamirs, Central Asia, Mediterranean, the Atlantic and Pacific halves…), a rectangle, polygon or circle drawn on the map, a saved area, or the map view. Searching for a sea gives its whole water area, not a point. A place is outlined, and its land cover described, as soon as it is chosen. Land measures leave out lakes and seas, sea measures leave out land, and air measures cover both, except over a named sea, where only its water is read. A measure that can't be read in a place (vegetation over a sea, sea temperature over a landlocked country) is explained before any map is read. |
+| **Time series** | Monthly NASA maps from 2000 (MERRA-2 records reach back to 1980; the scan starts at the MODIS era). Each pixel and each area become one value per year for the chosen months, so the seasonal cycle can't fake a trend. Year-by-year charts for the whole area and every hotspot, a monthly animation on the map, monthly charts on the Analysis page, and a CSV download. |
+| **Rate of change and significance** | **Mann–Kendall** trend test (tie-corrected; seasonal version for monthly data) and **Sen's slope** with its **95% confidence range**, per year and per decade, for the whole area, every hotspot and every pixel. **Welch's t-test** when comparing two periods (e.g. 2001–2010 vs 2016–2025). When a trend isn't significant, TerraScope says so and offers to test the whole record. |
 
-The challenge's other suggestions are covered too:
-- **Audience: students and the public.** Plain words throughout, a "What does each one measure?" list, and a "Words used here" glossary of trend, p-value, 95% range, Sen's slope and the rest.
-- **A short series of questions about what and where.** The Trends form asks them one by one: what to measure, where, when and which months, without typing.
-- **Demonstration examples users can watch.** Three guided demos with live data.
-- **Data that suits a kind of place.** Land-cover-based suggestions, made by fixed written rules rather than AI.
+Also:
+- **Written for students and the public.** Plain words throughout, a "What does each one measure?" list, and a "Words used here" glossary of trend, p-value, 95% range, Sen's slope and the rest.
+- **A step-by-step form.** The Trends form asks what to measure, where, when and which months, without typing.
+- **Guided demos.** Three worked examples you can watch, with live data.
+- **Suggestions that suit the place.** Land-cover-based suggestions, made by fixed written rules rather than AI.
 - **Seasonal cycles removed.** Seasonal statistics and same-months-every-year comparisons.
-- **"A trend is interesting even if it doesn't reach significance."** Every rate is shown with its range, and there's a one-click "test every year since 2000".
+- **Weak trends still shown.** Every rate is shown with its range, even when it isn't significant, and there's a one-click "test every year since 2000".
 
 ## The measures
 

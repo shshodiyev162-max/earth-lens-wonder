@@ -1,6 +1,6 @@
 # Presenting TerraScope in 3 minutes
 
-A script for showing TerraScope to judges or a class. Everything uses live NASA data.
+A script for showing TerraScope to an audience. Everything uses live NASA data.
 
 ## Before you start (5 minutes, once)
 
@@ -15,7 +15,7 @@ The built-in demos then play smoothly too: home page → **Watch a demo**, or `/
 ## The script
 
 **0:00 – The question (home page)**
-> "The challenge asks: what is changing on Earth, where, by how much — and is it significant? TerraScope answers with NASA data only."
+> "What is changing on Earth, where, by how much — and is it significant? TerraScope answers with NASA data only."
 
 Press **Find changes**.
 
