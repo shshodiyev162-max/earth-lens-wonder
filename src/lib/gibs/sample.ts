@@ -5,7 +5,7 @@
 
 import { bboxOf, clampBBox, polygonsOf, type BBox, type LatLng, type PolygonGeometry } from "../geo/geometry";
 import { GIBS_WMS_4326, isTimeEnabled, nativeResolutionDeg, type GibsLayer } from "./catalog";
-import { applyTransform, decodePixel, fetchColorMap, type ParsedColorMap } from "./colormap";
+import { applyTransform, decodePixel, fetchColorMap, scaleLimits, type ParsedColorMap } from "./colormap";
 import { fetchWithTimeout } from "../async";
 
 export interface RasterGrid {
@@ -28,6 +28,8 @@ export interface AreaStats {
   total: number;
   /** count / total (0–1): the share of the area the satellite actually measured. */
   coverage: number;
+  /** Share of the readings at the end of NASA's colour scale, where it stops counting (0–1). */
+  capped?: number;
 }
 
 export class GibsRequestError extends Error {
@@ -162,15 +164,20 @@ export function statsFromPixels(
   transform?: GibsLayer["transform"],
 ): AreaStats {
   const values: number[] = [];
+  const { bottom, top } = scaleLimits(colormap, transform);
   let total = 0;
+  let capped = 0;
   for (let i = 0; i < mask.length; i++) {
     if (!mask[i]) continue;
     total += 1;
     const o = i * 4;
-    const value = decodePixel(colormap, rgba[o], rgba[o + 1], rgba[o + 2], rgba[o + 3]);
-    if (value !== null) values.push(applyTransform(value, transform));
+    const decoded = decodePixel(colormap, rgba[o], rgba[o + 1], rgba[o + 2], rgba[o + 3]);
+    if (decoded === null) continue;
+    const value = applyTransform(decoded, transform);
+    values.push(value);
+    if ((bottom !== null && value <= bottom) || (top !== null && value >= top)) capped += 1;
   }
-  return summarize(values, total);
+  return { ...summarize(values, total), capped: values.length ? capped / values.length : 0 };
 }
 
 function createCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {

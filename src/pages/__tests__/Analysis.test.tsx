@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Analysis from "../Analysis";
 import { WorkspaceProvider } from "@/context/WorkspaceContext";
@@ -13,7 +13,9 @@ vi.mock("@/lib/geo/geocode", async (original) => {
   return { ...actual, reverseGeocode: vi.fn().mockResolvedValue(null) };
 });
 
-const runAnalysis = vi.fn(async (request: AnalysisRequest): Promise<AnalysisResult> => {
+type RunOptions = { onPartial?: (result: AnalysisResult) => void };
+
+const runAnalysis = vi.fn(async (request: AnalysisRequest, _options?: RunOptions): Promise<AnalysisResult> => {
   const months = request.months ?? monthRange(request.start, request.end);
   return {
     target: request.target,
@@ -61,7 +63,7 @@ const runAnalysis = vi.fn(async (request: AnalysisRequest): Promise<AnalysisResu
 
 vi.mock("@/lib/analysis/run", async (original) => {
   const actual = (await original()) as object;
-  return { ...actual, runAnalysis: (request: AnalysisRequest) => runAnalysis(request) };
+  return { ...actual, runAnalysis: (request: AnalysisRequest, options?: RunOptions) => runAnalysis(request, options) };
 });
 
 function renderAt(url: string) {
@@ -75,6 +77,7 @@ function renderAt(url: string) {
 }
 
 const BUKHARA = "/analysis?lat=39.77&lon=64.42&r=10&name=Bukhara";
+const board = () => screen.getByRole("region", { name: "Every measure tested" });
 
 describe("Analysis page", () => {
   beforeEach(() => {
@@ -88,28 +91,121 @@ describe("Analysis page", () => {
     expect(runAnalysis).not.toHaveBeenCalled();
   });
 
-  it("runs a real analysis for the place in the URL and shows the findings", async () => {
+  it("runs a real analysis for the place in the URL and answers from the tests", async () => {
     renderAt(BUKHARA);
     expect(screen.getByRole("heading", { name: "Bukhara" })).toBeInTheDocument();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
     const request = runAnalysis.mock.calls[0][0];
     expect(request.target.center).toEqual([39.77, 64.42]);
     expect(request.target.areaKm2).toBeGreaterThan(300);
-    expect((await screen.findAllByText(/Air temperature \+1\.0 °C warmer than the 2001–2020 normal/)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Vegetation (NDVI)").length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", { name: "Is it changing?" })).toBeInTheDocument();
+    expect(screen.getByText(/No clear trend in any of the \d+ measures tested/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Download CSV/i })).toBeEnabled();
   });
 
-  it("tests every measure for a trend and offers the whole record when there's no clear trend", async () => {
+  it("starts with twenty years, climate and the two land measures", async () => {
     renderAt(BUKHARA);
-    expect(await screen.findByRole("heading", { name: /Is it changing\? Trend tests/ })).toBeInTheDocument();
-    expect(screen.getAllByText("No clear trend").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("95% range").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getAllByRole("button", { name: /Test every year since 2000/ })[0]);
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
+    const request = runAnalysis.mock.calls[0][0];
+    expect(request.datasets).toEqual(["climate", "vegetation", "surfaceHeat"]);
+    expect(request.months?.length).toBe(240);
+    expect(screen.getByText(/480 monthly NASA maps to read/)).toBeInTheDocument();
+  });
+
+  it("puts every measure on one line, with all six climate measures from one request", async () => {
+    renderAt(BUKHARA);
+    await screen.findByRole("heading", { name: "Is it changing?" });
+    for (const label of ["Air temperature", "Rainfall", "Soil moisture", "Humidity", "Wind", "Sunshine", "Vegetation (NDVI)"]) {
+      expect(within(board()).getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getAllByText("No clear trend").length).toBeGreaterThanOrEqual(7);
+    expect(screen.getAllByText(/95% range/).length).toBeGreaterThanOrEqual(7);
+  });
+
+  it("opens one measure's details at a time, in place", async () => {
+    renderAt(BUKHARA);
+    await screen.findByRole("heading", { name: "Is it changing?" });
+    // The top row starts open; the others keep their definitions out of the way.
+    expect(screen.getByText(/What a thermometer in the shade would read/i)).toBeInTheDocument();
+    expect(screen.queryByText(/How close the air 2 metres above the ground/)).not.toBeInTheDocument();
+    const humidity = within(board()).getByText("Humidity").closest("details") as HTMLDetailsElement;
+    humidity.open = true;
+    fireEvent(humidity, new Event("toggle"));
+    expect(await screen.findByText(/How close the air 2 metres above the ground/)).toBeInTheDocument();
+  });
+
+  it("offers the whole record once when there's no clear trend", async () => {
+    renderAt(BUKHARA);
+    await screen.findByRole("heading", { name: "Is it changing?" });
+    const buttons = screen.getAllByRole("button", { name: /Test every year since 2000/ });
+    expect(buttons).toHaveLength(1);
+    fireEvent.click(buttons[0]);
     // The whole record is a big request, so its size is shown before anything is read.
     fireEvent.click(await screen.findByRole("button", { name: /Start the analysis/ }));
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(2));
     expect(runAnalysis.mock.calls[1][0].start).toBe("2000-03");
+  });
+
+  it("shows results as they arrive and says it isn't finished", async () => {
+    let finish: (result: AnalysisResult) => void = () => {};
+    runAnalysis.mockImplementationOnce(async (request, options) => {
+      const months = request.months ?? [];
+      options?.onPartial?.({
+        target: request.target,
+        start: request.start,
+        end: request.end,
+        datasets: request.datasets,
+        months,
+        period: request.period,
+        generatedAt: "2026-11-09T00:00:00Z",
+        satellite: {},
+        climate: {
+          status: "ok",
+          samplePoints: [request.target.center],
+          points: months.map((month) => ({ month, temp: 21, tempMax: 28, tempMin: 14, tempNormal: 20, tempAnomaly: 1, precip: 20, precipNormal: 25, solar: 5.2, solarNormal: 5.1, humidity: 45, wind: 3, soil: 40, soilNormal: 41 })),
+        },
+      });
+      return new Promise<AnalysisResult>((resolve) => (finish = resolve));
+    });
+    renderAt(BUKHARA);
+    expect(await screen.findByText("So far:")).toBeInTheDocument();
+    expect(within(board()).getByText("Air temperature")).toBeInTheDocument();
+    // What's still being read has its own line, and the data can't be downloaded half done.
+    expect(within(board()).getByText("Vegetation (NDVI)")).toBeInTheDocument();
+    expect(within(board()).getByText("Surface heat (day)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Download CSV/i })).toBeDisabled();
+    expect(finish).toBeTruthy();
+  });
+
+  it("explains a measure that has nothing to read here", async () => {
+    runAnalysis.mockImplementationOnce(async (request) => ({
+      target: request.target,
+      start: request.start,
+      end: request.end,
+      datasets: request.datasets,
+      months: request.months ?? [],
+      period: request.period,
+      generatedAt: "2026-11-09T00:00:00Z",
+      satellite: {
+        salinity: { dataset: "salinity", layerId: "x", label: "Sea salinity", unit: "PSU", decimals: 2, source: "test", latestAvailable: null, status: "empty", points: [] },
+      },
+    }));
+    renderAt(`${BUKHARA}&ds=salinity`);
+    expect(await screen.findByText(/This area has no sea/)).toBeInTheDocument();
+    expect(screen.getByText("No NASA readings for this area and period.")).toBeInTheDocument();
+  });
+
+  it("no longer gives a concern score", async () => {
+    renderAt(BUKHARA);
+    await screen.findByRole("heading", { name: "Is it changing?" });
+    expect(screen.queryByText(/concern/i)).not.toBeInTheDocument();
+  });
+
+  it("compares the latest months with the normal, as a figure apart from the trend", async () => {
+    renderAt(BUKHARA);
+    expect(await screen.findByRole("heading", { name: /Latest 12 months vs the 2001–2020 normal/ })).toBeInTheDocument();
+    expect(screen.getByText("+1.0 °C")).toBeInTheDocument();
+    expect(screen.getByText("80%")).toBeInTheDocument();
   });
 
   it("reads only the chosen months", async () => {
@@ -127,7 +223,8 @@ describe("Analysis page", () => {
     const request = runAnalysis.mock.calls[0][0];
     expect(request.period?.compare).toEqual({ baseline: [2001, 2010], recent: [2016, 2025] });
     expect(request.months?.some((m) => m.startsWith("2012"))).toBe(false);
-    expect(await screen.findByRole("heading", { name: /Then \(2001–2010\) vs now \(2016–2025\)/ })).toBeInTheDocument();
+    expect(await screen.findByText(/No clear difference in any of the \d+ measures tested/)).toBeInTheDocument();
+    expect(within(board()).getByText("t-test")).toBeInTheDocument();
     expect(screen.getAllByText("Welch's t-test").length).toBeGreaterThan(0);
     expect(screen.getAllByText("No clear difference").length).toBeGreaterThan(0);
   });

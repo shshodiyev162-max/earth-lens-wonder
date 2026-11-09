@@ -3,7 +3,7 @@ import { demoAttr } from "@/lib/demo/scripts";
 import { Check, Loader2, Sparkles } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
 import { MEASURE_DEFINITIONS } from "@/lib/glossary";
-import { CORE_INDICATORS, INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
+import { CORE_INDICATORS, INDICATOR_ORDER, INDICATORS, MEASURE_GROUPS, monthsLabel, recordTag, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
 import type { TimeSpec } from "@/lib/query/period";
 import { DEFAULT_FILTER, filterFor, type QueryEdit, type SeasonChoice, type TrendQuery } from "@/lib/trends/query";
 import { cn } from "@/lib/utils";
@@ -28,12 +28,6 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; 
 
 // ---------------------------------------------------------------------------
 // What to measure
-
-const GROUPS: { id: "land" | "air" | "ocean"; label: string }[] = [
-  { id: "land", label: "Land" },
-  { id: "air", label: "Air and rain" },
-  { id: "ocean", label: "Sea" },
-];
 
 function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: QueryEdit) => void }) {
   const suggested = query.everything;
@@ -65,7 +59,7 @@ function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Qu
           <span className="block text-[11px] text-panel-muted">Up to six measures picked from NASA land cover once the place is found.</span>
         </span>
       </button>
-      {GROUPS.map((group) => (
+      {MEASURE_GROUPS.map((group) => (
         <div key={group.id} className="space-y-1">
           <p id={`measure-group-${group.id}`} className="text-[10px] font-medium uppercase tracking-wide text-panel-muted">
             {group.label}
@@ -86,7 +80,10 @@ function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Qu
                   )}
                 >
                   <Check className={cn("h-3.5 w-3.5 shrink-0", on ? "opacity-100" : "opacity-0")} aria-hidden />
-                  {INDICATORS[id].label}
+                  <span className="min-w-0">
+                    {INDICATORS[id].label}
+                    {recordTag(id) && <span className="block text-[10px] font-normal text-panel-muted">{recordTag(id)}</span>}
+                  </span>
                 </button>
               );
             })}

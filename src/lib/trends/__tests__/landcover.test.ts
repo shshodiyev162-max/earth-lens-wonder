@@ -71,7 +71,7 @@ describe("measures for a place", () => {
   const ids = (shares: Partial<Record<CoverGroup, number>>, lat = 40) => suggestMeasures(cover(shares), lat).map((s) => s.indicator);
 
   it("suits a desert", () => {
-    expect(ids({ barren: 0.6, grass: 0.3, cropland: 0.1 })).toEqual(["dust", "vegetation", "heat", "rainfall", "soil"]);
+    expect(ids({ barren: 0.6, grass: 0.3, cropland: 0.1 })).toEqual(["dust", "vegetation", "heat", "rainfall", "soil", "fineDust"]);
   });
 
   it("suits a city with farmland around it", () => {
@@ -86,7 +86,7 @@ describe("measures for a place", () => {
   });
 
   it("suits Antarctica, including the ozone layer", () => {
-    expect(ids({ snow: 0.98, barren: 0.02 }, -80)).toEqual(["snow", "airTemp", "ozone"]);
+    expect(ids({ snow: 0.98, barren: 0.02 }, -80)).toEqual(["snow", "airTemp", "snowfall", "ozone"]);
   });
 
   it("gives every suggestion a reason", () => {
@@ -106,7 +106,7 @@ describe("measures for a place", () => {
     expect(ocean).not.toContain("dust");
     expect(ocean).not.toContain("rainfall");
     const sea = suggestMeasures(cover({ water: 1 }), 35, "sea");
-    expect(sea.map((s) => s.indicator)).toEqual(["sst", "airTemp", "co", "so2"]);
-    expect(sea[3].reason).toMatch(/over the sea/);
+    expect(sea.map((s) => s.indicator)).toEqual(["sst", "airTemp", "salinity"]);
+    expect(sea[2].reason).toMatch(/salty/);
   });
 });

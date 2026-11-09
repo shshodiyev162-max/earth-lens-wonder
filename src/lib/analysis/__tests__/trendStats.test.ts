@@ -140,7 +140,7 @@ describe("verdicts", () => {
     expect(verdict?.label).toBe("No clear trend");
     expect(verdict?.slopePerDecade).toBeNull();
     const text = explainVerdict(verdict!, "Plant greenness", "NDVI", 3);
-    expect(text).toContain("without a consistent direction");
+    expect(text).toContain("no consistent direction");
     // The likely range is stated too, and it straddles zero.
     expect(verdict!.lowerPerYear).toBeLessThanOrEqual(0);
     expect(verdict!.upperPerYear).toBeGreaterThanOrEqual(0);
@@ -205,5 +205,27 @@ describe("laggedCorrelation", () => {
   it("pearson needs four pairs", () => {
     expect(pearson([1, 2, 3], [1, 2, 3])).toBeNull();
     expect(pearson([1, 2, 3, 4], [2, 4, 6, 8])?.r).toBeCloseTo(1, 10);
+  });
+});
+
+describe("explaining a result just short of the cut-off", () => {
+  const years = Array.from({ length: 20 }, (_, i) => 2005 + i);
+  // Mann–Kendall p ≈ 0.07: weak evidence of a rise, not a finding.
+  const leaning = [3, 1, 4, 1.5, 5, 9, 2, 6, 5.5, 3.5, 8, 9.5, 7, 9.3, 2.3, 8.4, 6.2, 4.3, 3.2, 8.3];
+
+  it("says it leaned that way, without calling it a trend or calling it nothing", () => {
+    const verdict = annualTrendVerdict(years, leaning);
+    expect(verdict?.label).toBe("No clear trend");
+    expect(verdict?.p).toBeGreaterThan(0.05);
+    expect(verdict?.p).toBeLessThan(0.1);
+    const text = explainVerdict(verdict!, "Rainfall", "mm", 1);
+    expect(text).toContain("Rainfall leaned upward");
+    expect(text).toContain("not consistently enough to rule out chance");
+    expect(text).not.toContain("no consistent direction");
+  });
+
+  it("leans the right way for a fall", () => {
+    const verdict = annualTrendVerdict(years, leaning.map((v) => -v));
+    expect(explainVerdict(verdict!, "Rainfall", "mm", 1)).toContain("leaned downward");
   });
 });

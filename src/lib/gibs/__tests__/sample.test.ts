@@ -102,6 +102,18 @@ describe("statsFromPixels", () => {
     expect(stats.max).toBeCloseTo(0.55, 5);
   });
 
+  it("reports how many readings sit at an open end of the colour scale", () => {
+    const scale = parseColorMapXml(`<ColorMaps><ColorMap title="Water" units="cm"><Entries>
+      <ColorMapEntry rgb="1,1,1" transparent="false" value="[-INF,-30)"/>
+      <ColorMapEntry rgb="2,2,2" transparent="false" value="[0,1)"/>
+      <ColorMapEntry rgb="3,3,3" transparent="false" value="[30,+INF)"/>
+    </Entries></ColorMap></ColorMaps>`);
+    const rgba = rgbaGrid(4, 1, (x) => (x === 0 ? [1, 1, 1, 255] : x === 3 ? [3, 3, 3, 255] : [2, 2, 2, 255]));
+    expect(statsFromPixels(rgba, new Uint8Array(4).fill(1), scale).capped).toBeCloseTo(0.5, 6);
+    expect(statsFromPixels(rgbaGrid(4, 1, () => [2, 2, 2, 255]), new Uint8Array(4).fill(1), scale).capped).toBe(0);
+    expect(statsFromPixels(rgba, new Uint8Array(4), scale).capped).toBe(0);
+  });
+
   it("summarises empty input safely", () => {
     const stats = summarize([], 10);
     expect(stats.count).toBe(0);

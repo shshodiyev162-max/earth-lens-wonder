@@ -8,7 +8,7 @@ import { clampBBox, type BBox } from "../geo/geometry";
 import { LAND_WATER_LAYER_ID, type GibsLayer } from "../gibs/catalog";
 import { applyTransform, decodePixel, fetchColorMap } from "../gibs/colormap";
 import { fetchRgba, wmsGetMapUrl } from "../gibs/sample";
-import { addMonthsToMonth } from "../gibs/time";
+import { addMonthsToMonth, dateForMonth } from "../gibs/time";
 import { defaultEndMonth } from "../analysis/period";
 import type { GridSpec } from "./hotspots";
 
@@ -37,8 +37,8 @@ function gridKey(grid: GridSpec): string {
 /** Decoded values of one monthly map (NaN where there is no measurement). */
 export function decodeGrid(rgba: Uint8ClampedArray, colormap: Awaited<ReturnType<typeof fetchColorMap>>, layer: GibsLayer, size: number): Float32Array {
   const values = new Float32Array(size);
-  // Snow-free land is transparent in the snow product: that's 0 % snow, not missing data.
-  const transparentIsZero = layer.id.includes("Snow_Cover");
+  // Snow-free land is transparent in the snow products: that's no snow, not missing data.
+  const transparentIsZero = /Snow_Cover|Snow_Water/.test(layer.id);
   for (let i = 0; i < size; i++) {
     const o = i * 4;
     const value = decodePixel(colormap, rgba[o], rgba[o + 1], rgba[o + 2], rgba[o + 3]);
@@ -61,7 +61,8 @@ export function fetchMonthGrid(layer: GibsLayer, grid: GridSpec, month: string, 
           () =>
             withRetry(
               async () => {
-                const [colormap, rgba] = await Promise.all([fetchColorMap(layer.colormap as string), fetchRgba(wmsGetMapUrl(layer, grid, `${month}-01`), grid, inner)]);
+                const date = await dateForMonth(layer, month);
+                const [colormap, rgba] = await Promise.all([fetchColorMap(layer.colormap as string), fetchRgba(wmsGetMapUrl(layer, grid, date), grid, inner)]);
                 return decodeGrid(rgba, colormap, layer, grid.width * grid.height);
               },
               { signal: inner, retries: 2 },

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { cappedShare, rebuildHotspots, runScan, ScanError, summarizeArea, WrongPlaceError, type ScanLoaders } from "../scan";
+import { cappedShare, flooredShare, rebuildHotspots, runScan, ScanError, summarizeArea, WrongPlaceError, type ScanLoaders } from "../scan";
 import { scanGrid, decodeGrid } from "../grid";
 import { AreaError, matchCountry, resolveArea, widen, type ScanArea } from "../place";
 import { planPeriod, type PeriodPlan } from "../../query/period";
@@ -130,6 +130,24 @@ describe("runScan", () => {
       maxSize: 20,
     });
     expect(quiet.notes.join(" ")).not.toMatch(/colour scale/);
+  });
+
+  it("warns when many readings sit at the bottom of NASA's colour scale", async () => {
+    const result = await runScan({
+      indicator: "vegetation",
+      direction: "decline",
+      area: AREA,
+      plan: plan(),
+      availability: { window: { earliest: "2000-03", latest: "2026-08" }, available: null },
+      loaders: { ...loaders(), scaleBottom: async () => 0.9 },
+      maxSize: 20,
+    });
+    expect(result.notes.join(" ")).toMatch(/\d+% of the readings were at the bottom of NASA's colour scale \(0\.900 NDVI or less\)/);
+  });
+
+  it("counts readings at the bottom of the scale inside the mask only", () => {
+    const grid = new Float32Array([-30, -30, 5, -30, NaN]);
+    expect(flooredShare([grid], new Uint8Array([1, 1, 1, 0, 1]), -30)).toBeCloseTo(2 / 3, 6);
   });
 
   it("counts readings at the top of the scale inside the mask only", () => {

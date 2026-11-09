@@ -200,7 +200,7 @@ export function fetchColorMap(name: string): Promise<ParsedColorMap> {
 }
 
 /** Unit conversions from the units NASA publishes to the ones people read. */
-export type ValueTransform = "kelvinToCelsius" | "kgm2sToMmPerMonth" | "fractionToPercent" | "kgm3ToUgm3" | "kgm2ToMgm2" | "ozoneMassToPpmv" | undefined;
+export type ValueTransform = "kelvinToCelsius" | "kgm2sToMmPerMonth" | "snowfallToMmPerMonth" | "fractionToPercent" | "kgm3ToUgm3" | "kgm2ToMgm2" | "ozoneMassToPpmv" | undefined;
 
 /** Average month length in seconds (365.25 / 12 days). */
 const SECONDS_PER_MONTH = 30.4375 * 86_400;
@@ -212,6 +212,9 @@ export function applyTransform(value: number, transform: ValueTransform): number
     case "kgm2sToMmPerMonth":
       // 1 kg of water per m² is a 1 mm layer; negative bins are rounding below zero.
       return Math.max(0, value) * SECONDS_PER_MONTH;
+    case "snowfallToMmPerMonth":
+      // NASA's first step (below 5e-7 kg/m²/s, about 1.3 mm a month) is the colour of "no snow", so it counts as none, not as its midpoint.
+      return value < 5e-7 ? 0 : value * SECONDS_PER_MONTH;
     case "fractionToPercent":
       return value * 100;
     case "kgm3ToUgm3":
@@ -224,4 +227,15 @@ export function applyTransform(value: number, transform: ValueTransform): number
     default:
       return value;
   }
+}
+
+/**
+ * Where NASA's colour scale stops counting: everything beyond is drawn in the last colour, so a
+ * reading there only says "this much or more". A floor at zero isn't a limit (nothing lies below it).
+ */
+export function scaleLimits(colormap: Pick<ParsedColorMap, "legend">, transform?: ValueTransform): { bottom: number | null; top: number | null } {
+  const legend = colormap.legend;
+  if (!legend) return { bottom: null, top: null };
+  const bottom = legend.openMin ? applyTransform(legend.min, transform) : null;
+  return { bottom: bottom !== null && Math.abs(bottom) > 1e-9 ? bottom : null, top: legend.openMax ? applyTransform(legend.max, transform) : null };
 }

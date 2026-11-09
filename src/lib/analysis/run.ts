@@ -9,7 +9,7 @@ import { defaultEndMonth } from "./period";
 import { areaKm2 as geometryArea, representativePoints, type PolygonGeometry } from "../geo/geometry";
 import { getLayer, type GibsLayer } from "../gibs/catalog";
 import { sampleArea, type AreaStats } from "../gibs/sample";
-import { addMonthsToMonth, fetchTimeDomain, monthRange, monthsInDomain } from "../gibs/time";
+import { addMonthsToMonth, dateForMonth, fetchTimeDomain, monthRange, monthsInDomain } from "../gibs/time";
 import {
   averageClimatology,
   averageMonthly,
@@ -34,53 +34,58 @@ import type {
 
 export const DATASETS: DatasetInfo[] = [
   {
+    id: "climate",
+    label: "Climate at this place",
+    description: "Air temperature, rainfall, soil moisture, humidity, wind and sunshine, compared with the 2001–2020 normal. Six measures, ready in seconds.",
+    source: "NASA POWER (MERRA-2 & CERES)",
+    unit: "",
+    decimals: 1,
+    color: "#38bdf8",
+    group: "climate",
+  },
+  {
     id: "vegetation",
-    label: "Vegetation health",
-    description: "Plant greenness (NDVI) measured by MODIS every month.",
+    label: "Vegetation (NDVI)",
+    description: "Plant greenness measured by MODIS every month.",
     source: "MODIS Terra monthly NDVI (MOD13A3) · NASA GIBS",
     layerId: "MODIS_Terra_L3_NDVI_Monthly",
     unit: "NDVI",
     decimals: 2,
     color: "#34d399",
+    group: "land",
+  },
+  {
+    id: "evi",
+    label: "Leaf density (EVI)",
+    description: "How leafy plants are; keeps responding over thick forest.",
+    source: "MODIS Terra monthly EVI (MOD13A3) · NASA GIBS",
+    layerId: "MODIS_Terra_L3_EVI_Monthly",
+    unit: "EVI",
+    decimals: 2,
+    color: "#22c55e",
+    group: "land",
   },
   {
     id: "surfaceHeat",
-    label: "Surface heat",
+    label: "Surface heat (day)",
     description: "Daytime temperature of the ground itself.",
     source: "MODIS Terra monthly land surface temperature (MOD11C3) · NASA GIBS",
     layerId: "MODIS_Terra_L3_Land_Surface_Temp_Monthly_Day",
     unit: "°C",
     decimals: 1,
     color: "#fb923c",
+    group: "land",
   },
   {
-    id: "climate",
-    label: "Climate",
-    description: "Air temperature, rainfall, sunshine and soil moisture vs. the 2001–2020 normal.",
-    source: "NASA POWER (MERRA-2 & CERES)",
-    unit: "",
+    id: "nightHeat",
+    label: "Surface heat (night)",
+    description: "How warm the ground stays at night.",
+    source: "MODIS Terra monthly night-time land surface temperature (MOD11C3) · NASA GIBS",
+    layerId: "MODIS_Terra_L3_Land_Surface_Temp_Monthly_Night",
+    unit: "°C",
     decimals: 1,
-    color: "#38bdf8",
-  },
-  {
-    id: "air",
-    label: "Aerosols & dust",
-    description: "How hazy the air is (aerosol optical depth).",
-    source: "MERRA-2 monthly aerosol optical thickness · NASA GIBS",
-    layerId: "MERRA2_Total_Aerosol_Optical_Thickness_550nm_Extinction_Monthly",
-    unit: "AOD",
-    decimals: 2,
-    color: "#facc15",
-  },
-  {
-    id: "snow",
-    label: "Snow cover",
-    description: "Average share of the area covered by snow.",
-    source: "MODIS Terra monthly snow cover · NASA GIBS",
-    layerId: "MODIS_Terra_L3_Snow_Cover_Monthly_Average_Pct",
-    unit: "%",
-    decimals: 0,
-    color: "#a5b4fc",
+    color: "#f97316",
+    group: "land",
   },
   {
     id: "evaporation",
@@ -91,36 +96,73 @@ export const DATASETS: DatasetInfo[] = [
     unit: "mm/month",
     decimals: 1,
     color: "#2dd4bf",
+    group: "land",
   },
   {
-    id: "sst",
-    label: "Sea temperature",
-    description: "Night-time temperature of the sea surface (areas with sea only).",
-    source: "MODIS Terra monthly night sea surface temperature · NASA GIBS",
-    layerId: "MODIS_Terra_L3_SST_Thermal_4km_Night_Monthly",
-    unit: "°C",
+    id: "topsoil",
+    label: "Topsoil moisture",
+    description: "Water in the top 10 cm of soil.",
+    source: "GLDAS Noah monthly soil moisture, top 10 cm · NASA GIBS",
+    layerId: "GLDAS_Underground_Soil_Moisture_Monthly",
+    unit: "%",
     decimals: 1,
-    color: "#fb7185",
+    color: "#84cc16",
+    group: "water",
   },
   {
-    id: "so2",
-    label: "Sulphur dioxide",
-    description: "Sulphur dioxide in the air, from coal, oil, smelters and volcanoes.",
-    source: "MERRA-2 monthly SO₂ column · NASA GIBS",
-    layerId: "MERRA2_SO2_Column_Mass_Density_Monthly",
-    unit: "mg/m²",
-    decimals: 2,
-    color: "#c084fc",
+    id: "waterStorage",
+    label: "Water storage",
+    description: "All the water held on and under the land, from gravity (Apr 2002 – Jul 2022).",
+    source: "GRACE and GRACE-FO monthly water storage · NASA GIBS",
+    layerId: "GRACE_Tellus_Liquid_Water_Equivalent_Thickness_Mascon_CRI",
+    unit: "cm",
+    decimals: 1,
+    color: "#0ea5e9",
+    group: "water",
   },
   {
-    id: "co",
-    label: "Carbon monoxide",
-    description: "Carbon monoxide about 5 km up, from fires, traffic and industry (from Sep 2002).",
-    source: "AIRS (Aqua) monthly carbon monoxide at 500 hPa · NASA GIBS",
-    layerId: "AIRS_L3_Carbon_Monoxide_500hPa_Volume_Mixing_Ratio_Monthly_Day",
-    unit: "ppb",
+    id: "snow",
+    label: "Snow cover",
+    description: "Average share of the area covered by snow.",
+    source: "MODIS Terra monthly snow cover · NASA GIBS",
+    layerId: "MODIS_Terra_L3_Snow_Cover_Monthly_Average_Pct",
+    unit: "%",
     decimals: 0,
-    color: "#fdba74",
+    color: "#a5b4fc",
+    group: "water",
+  },
+  {
+    id: "snowWater",
+    label: "Snow water",
+    description: "Water held in the snowpack (Jul 2012 – Sep 2025).",
+    source: "AMSR2 monthly snow water equivalent · NASA GIBS",
+    layerId: "AMSRU2_Snow_Water_Equivalent_Monthly",
+    unit: "mm",
+    decimals: 1,
+    color: "#818cf8",
+    group: "water",
+  },
+  {
+    id: "snowfall",
+    label: "Snowfall",
+    description: "How much snow falls each month.",
+    source: "MERRA-2 monthly snowfall · NASA GIBS",
+    layerId: "MERRA2_Snowfall_Monthly",
+    unit: "mm/month",
+    decimals: 1,
+    color: "#c7d2fe",
+    group: "water",
+  },
+  {
+    id: "waterVapour",
+    label: "Water vapour",
+    description: "All the water vapour in the air above the area.",
+    source: "MERRA-2 monthly total water vapour · NASA GIBS",
+    layerId: "MERRA2_Total_Precipitable_Water_Vapor_Monthly",
+    unit: "mm",
+    decimals: 1,
+    color: "#22d3ee",
+    group: "air",
   },
   {
     id: "upperAir",
@@ -131,6 +173,7 @@ export const DATASETS: DatasetInfo[] = [
     unit: "°C",
     decimals: 1,
     color: "#93c5fd",
+    group: "air",
   },
   {
     id: "ozone",
@@ -141,11 +184,125 @@ export const DATASETS: DatasetInfo[] = [
     unit: "ppm",
     decimals: 2,
     color: "#a78bfa",
+    group: "air",
+  },
+  {
+    id: "heatLeaving",
+    label: "Heat leaving for space",
+    description: "Heat Earth radiates out to space (from Sep 2002).",
+    source: "AIRS (Aqua) monthly outgoing longwave radiation · NASA GIBS",
+    layerId: "AIRS_L3_All_Sky_Outgoing_Longwave_Radiation_Monthly_Day",
+    unit: "W/m²",
+    decimals: 1,
+    color: "#fca5a5",
+    group: "air",
+  },
+  {
+    id: "air",
+    label: "Haze (AOD)",
+    description: "How hazy the air is (aerosol optical depth).",
+    source: "MERRA-2 monthly aerosol optical thickness · NASA GIBS",
+    layerId: "MERRA2_Total_Aerosol_Optical_Thickness_550nm_Extinction_Monthly",
+    unit: "AOD",
+    decimals: 2,
+    color: "#facc15",
+    group: "gases",
+  },
+  {
+    id: "dust",
+    label: "Dust",
+    description: "Desert dust in the air near the ground.",
+    source: "MERRA-2 monthly dust near the ground · NASA GIBS",
+    layerId: "MERRA2_Dust_Surface_Mass_Concentration_Monthly",
+    unit: "µg/m³",
+    decimals: 1,
+    color: "#d97706",
+    group: "gases",
+  },
+  {
+    id: "fineDust",
+    label: "Fine dust (PM2.5)",
+    description: "The finest dust, small enough to reach the lungs.",
+    source: "MERRA-2 monthly fine dust (PM2.5) · NASA GIBS",
+    layerId: "MERRA2_Dust_Surface_Mass_Concentration_PM25_Monthly",
+    unit: "µg/m³",
+    decimals: 1,
+    color: "#b45309",
+    group: "gases",
+  },
+  {
+    id: "so2",
+    label: "Sulphur dioxide",
+    description: "Sulphur dioxide in the air, from coal, oil, smelters and volcanoes.",
+    source: "MERRA-2 monthly SO₂ column · NASA GIBS",
+    layerId: "MERRA2_SO2_Column_Mass_Density_Monthly",
+    unit: "mg/m²",
+    decimals: 2,
+    color: "#c084fc",
+    group: "gases",
+  },
+  {
+    id: "co",
+    label: "Carbon monoxide",
+    description: "Carbon monoxide about 5 km up, from fires, traffic and industry (from Sep 2002).",
+    source: "AIRS (Aqua) monthly carbon monoxide at 500 hPa · NASA GIBS",
+    layerId: "AIRS_L3_Carbon_Monoxide_500hPa_Volume_Mixing_Ratio_Monthly_Day",
+    unit: "ppb",
+    decimals: 0,
+    color: "#fdba74",
+    group: "gases",
+  },
+  {
+    id: "coGround",
+    label: "CO near the ground",
+    description: "Carbon monoxide near the ground (to Nov 2024).",
+    source: "MOPITT (Terra) monthly carbon monoxide near the ground · NASA GIBS",
+    layerId: "MOPITT_CO_Monthly_Surface_Mixing_Ratio_Day",
+    unit: "ppb",
+    decimals: 0,
+    color: "#fb7185",
+    group: "gases",
+  },
+  {
+    id: "methane",
+    label: "Methane",
+    description: "Methane about 7 km up (from Sep 2002).",
+    source: "AIRS (Aqua) monthly methane at 400 hPa · NASA GIBS",
+    layerId: "AIRS_L3_Methane_400hPa_Volume_Mixing_Ratio_Monthly_Day",
+    unit: "ppb",
+    decimals: 0,
+    color: "#bef264",
+    group: "gases",
+  },
+  {
+    id: "sst",
+    label: "Sea temperature",
+    description: "Night-time temperature of the sea surface (areas with sea only).",
+    source: "MODIS Terra monthly night sea surface temperature · NASA GIBS",
+    layerId: "MODIS_Terra_L3_SST_Thermal_4km_Night_Monthly",
+    unit: "°C",
+    decimals: 1,
+    color: "#f472b6",
+    group: "ocean",
+  },
+  {
+    id: "salinity",
+    label: "Sea salinity",
+    description: "How salty the top of the sea is (areas with sea only, from Apr 2015).",
+    source: "SMAP monthly sea surface salinity · NASA GIBS",
+    layerId: "SMAP_L3_Sea_Surface_Salinity_CAP_Monthly",
+    unit: "PSU",
+    decimals: 2,
+    color: "#7dd3fc",
+    group: "ocean",
   },
 ];
 
-/** Read when no datasets are chosen: the original five (the others are one click away). */
-export const DEFAULT_DATASETS: DatasetId[] = ["vegetation", "surfaceHeat", "climate", "air", "snow"];
+/**
+ * Read when no datasets are chosen: climate gives six measures in seconds, and the two satellite
+ * measures of the land keep twenty years within the size that starts by itself.
+ */
+export const DEFAULT_DATASETS: DatasetId[] = ["climate", "vegetation", "surfaceHeat"];
 
 export const DATASET_BY_ID = Object.fromEntries(DATASETS.map((d) => [d.id, d])) as Record<DatasetId, DatasetInfo>;
 
@@ -183,7 +340,10 @@ function cachedSample(layer: GibsLayer, geometry: PolygonGeometry, key: string, 
     id,
     (inner) =>
       cachedValue(`stats:${id}`, ttlForMonth(month), () =>
-        gibsLimiter(() => withRetry(() => sampleArea({ layer, geometry, date: `${month}-01`, signal: inner }), { signal: inner, retries: 2 }), inner),
+        gibsLimiter(async () => {
+          const date = await dateForMonth(layer, month);
+          return withRetry(() => sampleArea({ layer, geometry, date, signal: inner }), { signal: inner, retries: 2 });
+        }, inner),
       ),
     signal,
   );
@@ -191,14 +351,14 @@ function cachedSample(layer: GibsLayer, geometry: PolygonGeometry, key: string, 
 
 function toSatellitePoint(dataset: DatasetId, month: string, stats: AreaStats | null): SatellitePoint {
   if (!stats || stats.total === 0) return { month, value: null, p10: null, p90: null, coverage: 0 };
-  if (dataset === "snow") {
-    // Snow-free pixels are transparent in the snow product, so average over the
-    // whole area treating them as 0 % snow.
+  if (dataset === "snow" || dataset === "snowWater") {
+    // Snow-free pixels are transparent in the snow products, so average over the
+    // whole area treating them as no snow.
     const total = stats.count ? stats.mean * stats.count : 0;
     return { month, value: total / stats.total, p10: null, p90: null, coverage: 1 };
   }
   if (stats.count === 0) return { month, value: null, p10: null, p90: null, coverage: 0 };
-  return { month, value: stats.mean, p10: stats.p10, p90: stats.p90, coverage: stats.coverage };
+  return { month, value: stats.mean, p10: stats.p10, p90: stats.p90, coverage: stats.coverage, capped: stats.capped };
 }
 
 async function runSatellite(
@@ -207,7 +367,7 @@ async function runSatellite(
   key: string,
   months: string[],
   signal: AbortSignal | undefined,
-  tick: (label: string) => void,
+  tick: () => void,
 ): Promise<SatelliteSeries> {
   const info = DATASET_BY_ID[dataset];
   const layer = getLayer(info.layerId) as GibsLayer;
@@ -235,7 +395,7 @@ async function runSatellite(
   }
   const available = new Set(domainMonths);
   // Months that are not published yet still count toward progress.
-  months.filter((m) => !available.has(m)).forEach(() => tick(info.label));
+  months.filter((m) => !available.has(m)).forEach(() => tick());
 
   let failures = 0;
   let lastError: unknown = null;
@@ -251,7 +411,7 @@ async function runSatellite(
         lastError = error;
         return toSatellitePoint(dataset, month, null);
       } finally {
-        tick(info.label);
+        tick();
       }
     }),
   );
@@ -312,14 +472,14 @@ export function buildClimatePoints(months: string[], monthly: PowerMonthly, norm
   });
 }
 
-async function runClimate(request: AnalysisRequest, months: string[], signal: AbortSignal | undefined, tick: (label: string) => void): Promise<ClimateSeries> {
+async function runClimate(request: AnalysisRequest, months: string[], signal: AbortSignal | undefined, tick: () => void): Promise<ClimateSeries> {
   const samplePoints = representativePoints(request.target.geometry, samplePointCount(request.target.areaKm2 || geometryArea(request.target.geometry)));
   const startYear = Number(request.start.slice(0, 4));
   const endYear = Number(request.end.slice(0, 4));
   try {
     const [monthlyList, normalsList] = await Promise.all([
-      Promise.all(samplePoints.map((p) => cachedPower(p, startYear, endYear, signal).finally(() => tick("Climate")))),
-      Promise.all(samplePoints.map((p) => cachedClimatology(p, signal).finally(() => tick("Climate")))),
+      Promise.all(samplePoints.map((p) => cachedPower(p, startYear, endYear, signal).finally(tick))),
+      Promise.all(samplePoints.map((p) => cachedClimatology(p, signal).finally(tick))),
     ]);
     const points = buildClimatePoints(months, averageMonthly(monthlyList), averageClimatology(normalsList));
     const hasValues = points.some((p) => p.temp !== null || p.precip !== null);
@@ -354,35 +514,37 @@ export function countTasks(request: AnalysisRequest): number {
   return countMaps(request) + countClimateRequests(request);
 }
 
+/**
+ * Reads the chosen datasets. Climate comes back within seconds; satellite datasets are read one after
+ * another (the limit on map requests is shared, so this takes no longer than reading them together).
+ * Each finished dataset is handed to `onPartial`, so results appear as they arrive.
+ */
 export async function runAnalysis(
   request: AnalysisRequest,
-  options: { signal?: AbortSignal; onProgress?: (progress: AnalysisProgress) => void } = {},
+  options: { signal?: AbortSignal; onProgress?: (progress: AnalysisProgress) => void; onPartial?: (result: AnalysisResult) => void } = {},
 ): Promise<AnalysisResult> {
-  const { signal, onProgress } = options;
+  const { signal, onProgress, onPartial } = options;
   const months = requestMonths(request);
   const key = geometryKey(request.target.geometry);
   const total = Math.max(1, countTasks(request));
-  let done = 0;
-  const tick = (label: string) => {
-    done = Math.min(total, done + 1);
-    onProgress?.({ done, total, label });
-  };
-  onProgress?.({ done: 0, total, label: "Starting" });
-
   const satelliteIds = request.datasets.filter((d): d is Exclude<DatasetId, "climate"> => d !== "climate");
-  const [satelliteSeries, climate] = await Promise.all([
-    Promise.all(satelliteIds.map((id) => runSatellite(id, request, key, months, signal, tick))),
-    request.datasets.includes("climate") ? runClimate(request, months, signal, tick) : Promise.resolve(undefined),
-  ]);
+  const datasets: NonNullable<AnalysisProgress["datasets"]> = {};
+  for (const id of satelliteIds) datasets[id] = { done: 0, total: months.length };
+  if (request.datasets.includes("climate")) datasets.climate = { done: 0, total: countClimateRequests(request) };
 
-  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  let done = 0;
+  const report = (label: string) => onProgress?.({ done, total, label, datasets: { ...datasets } });
+  const tickFor = (id: DatasetId) => () => {
+    done = Math.min(total, done + 1);
+    const own = datasets[id];
+    if (own) datasets[id] = { done: own.done + 1, total: own.total };
+    report(DATASET_BY_ID[id].label);
+  };
+  report("Starting");
 
   const satellite: AnalysisResult["satellite"] = {};
-  satelliteSeries.forEach((series) => {
-    satellite[series.dataset as Exclude<DatasetId, "climate">] = series;
-  });
-
-  return {
+  let climate: ClimateSeries | undefined;
+  const assemble = (): AnalysisResult => ({
     target: request.target,
     start: request.start,
     end: request.end,
@@ -390,7 +552,28 @@ export async function runAnalysis(
     months,
     period: request.period,
     generatedAt: new Date().toISOString(),
-    satellite,
+    satellite: { ...satellite },
     climate,
+  });
+  const publish = () => {
+    if (!signal?.aborted) onPartial?.(assemble());
   };
+
+  const climateDone = request.datasets.includes("climate")
+    ? runClimate(request, months, signal, tickFor("climate")).then((series) => {
+        climate = series;
+        publish();
+      })
+    : Promise.resolve();
+  // Handled below; this stops a cancelled run from reporting a second, unwatched failure.
+  climateDone.catch(() => undefined);
+
+  for (const id of satelliteIds) {
+    satellite[id] = await runSatellite(id, request, key, months, signal, tickFor(id));
+    publish();
+  }
+  await climateDone;
+
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  return assemble();
 }

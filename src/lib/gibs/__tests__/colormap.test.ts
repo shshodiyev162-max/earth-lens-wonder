@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTransform, decodePixel, parseColorMapXml, parseInterval } from "../colormap";
+import { applyTransform, decodePixel, parseColorMapXml, parseInterval, scaleLimits } from "../colormap";
 
 // Mirrors the structure of real GIBS v1.3 colormaps (e.g. MODIS_Land_Surface_Temp.xml):
 // a "No Data" map, a data map with an over-wide first/last bin, and classification entries.
@@ -116,5 +116,40 @@ describe("unit conversions for the newer measures", () => {
     // Evaporation uses the rainfall conversion: 4e-5 kg/m²/s ≈ 105 mm a month.
     expect(applyTransform(4e-5, "kgm2sToMmPerMonth")).toBeCloseTo(105.2, 1);
     expect(applyTransform(-1e-7, "kgm2ToMgm2")).toBe(0);
+    // Fine dust: 5.8e-8 kg/m³ ≈ 58 µg/m³.
+    expect(applyTransform(5.8e-8, "kgm3ToUgm3")).toBeCloseTo(58, 6);
+  });
+
+  it("counts NASA's first snowfall step as no snow, not as its midpoint", () => {
+    // The bin below 5e-7 kg/m²/s covers the whole Sahara; its midpoint would read as 0.66 mm of snow a month.
+    expect(applyTransform(2.5e-7, "snowfallToMmPerMonth")).toBe(0);
+    expect(applyTransform(1e-5, "snowfallToMmPerMonth")).toBeCloseTo(26.3, 1);
+  });
+});
+
+describe("where a colour scale stops counting", () => {
+  const scale = (first: string, last: string) =>
+    parseColorMapXml(`<ColorMaps><ColorMap title="Thing" units="cm"><Entries>
+      <ColorMapEntry rgb="1,1,1" transparent="false" value="${first}"/>
+      <ColorMapEntry rgb="2,2,2" transparent="false" value="[0,1)"/>
+      <ColorMapEntry rgb="3,3,3" transparent="false" value="[1,2)"/>
+      <ColorMapEntry rgb="4,4,4" transparent="false" value="${last}"/>
+    </Entries></ColorMap></ColorMaps>`);
+
+  it("finds both ends when they are open", () => {
+    expect(scaleLimits(scale("[-INF,-30)", "[30,+INF)"))).toEqual({ bottom: -30, top: 30 });
+  });
+
+  it("converts them to the units people read", () => {
+    expect(scaleLimits(scale("[-INF,200)", "[350,+INF)"), "kelvinToCelsius")).toEqual({ bottom: 200 - 273.15, top: 350 - 273.15 });
+  });
+
+  it("doesn't call a floor at zero a limit: nothing lies below it", () => {
+    expect(scaleLimits(scale("[-INF,0.0)", "[50,+INF)")).bottom).toBeNull();
+  });
+
+  it("has no limits on a closed scale", () => {
+    expect(scaleLimits(scale("[-1,0)", "[2,3)"))).toEqual({ bottom: null, top: null });
+    expect(scaleLimits({ legend: null })).toEqual({ bottom: null, top: null });
   });
 });

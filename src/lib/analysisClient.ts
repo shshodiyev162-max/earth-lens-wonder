@@ -38,9 +38,10 @@ export function buildAiPayload(result: AnalysisResult, report: InsightReport) {
       center: result.target.center,
     },
     period: { start: result.start, end: result.end },
-    concern: report.concern,
+    answer: report.headline,
+    counts: report.counts,
     findings: report.findings.map((f) => ({ title: f.title, detail: f.detail, tone: f.tone })),
-    indicators: report.kpis.map((k) => ({ label: k.label, value: k.value, note: k.sub })),
+    latestMonthsVsNormal: report.recent?.figures.map((f) => ({ label: f.label, value: f.value, note: f.note })) ?? [],
     caveats: report.caveats,
   };
 }

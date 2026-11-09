@@ -8,7 +8,7 @@ import { isAbortError } from "../async";
 import { reverseGeocode } from "../geo/geocode";
 import { formatLatLng, padBBox } from "../geo/geometry";
 import { getLayer, type GibsLayer } from "../gibs/catalog";
-import { applyTransform, fetchColorMap } from "../gibs/colormap";
+import { fetchColorMap, scaleLimits } from "../gibs/colormap";
 import { rasterizeMask } from "../gibs/sample";
 import { domainWindow, fetchTimeDomain, monthsInDomain } from "../gibs/time";
 import { INDICATORS, type Direction, type IndicatorId } from "../query/indicators";
@@ -136,16 +136,22 @@ export interface ScanLoaders {
   surfaceMask: (grid: GridSpec, surface: Surface, signal?: AbortSignal) => Promise<Uint8Array>;
   /** The top of the product's colour scale, when values above it are all shown as that value. */
   scaleTop?: (layer: GibsLayer) => Promise<number | null>;
+  /** The bottom of the scale, when values below it are all shown as that value. */
+  scaleBottom?: (layer: GibsLayer) => Promise<number | null>;
 }
 
-/** Values at or above the open-ended top bin of NASA's colour scale can't be told apart. */
-async function colourScaleTop(layer: GibsLayer): Promise<number | null> {
-  if (!layer.colormap) return null;
-  const colormap = await fetchColorMap(layer.colormap);
-  return colormap.legend?.openMax ? applyTransform(colormap.legend.max, layer.transform) : null;
+/** Values past the open-ended end bins of NASA's colour scale can't be told apart. */
+async function colourScaleEnds(layer: GibsLayer): Promise<{ bottom: number | null; top: number | null }> {
+  if (!layer.colormap) return { bottom: null, top: null };
+  return scaleLimits(await fetchColorMap(layer.colormap), layer.transform);
 }
 
-const NETWORK: ScanLoaders = { monthGrid: fetchMonthGrid, surfaceMask: fetchSurfaceMask, scaleTop: colourScaleTop };
+const NETWORK: ScanLoaders = {
+  monthGrid: fetchMonthGrid,
+  surfaceMask: fetchSurfaceMask,
+  scaleTop: (layer) => colourScaleEnds(layer).then((ends) => ends.top),
+  scaleBottom: (layer) => colourScaleEnds(layer).then((ends) => ends.bottom),
+};
 
 const SURFACE_WORDS: Record<Surface, { failed: string }> = {
   land: { failed: "The land/water map couldn't be loaded, so lakes and sea are not masked out." },
@@ -168,6 +174,13 @@ export function cappedShare(grids: Iterable<Float32Array>, mask: Uint8Array, top
     }
   }
   return valid ? capped / valid : 0;
+}
+
+/** Share of readings inside the mask that sit at the bottom of the colour scale. */
+export function flooredShare(grids: Iterable<Float32Array>, mask: Uint8Array, bottom: number): number {
+  const flipped: Float32Array[] = [];
+  for (const grid of grids) flipped.push(grid.map((value) => -value));
+  return cappedShare(flipped, mask, -bottom);
 }
 
 export interface ScanRequest {
@@ -292,7 +305,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   for (let i = 0; i < size; i++) mask[i] = regionMask[i] && surfaceResult[i] ? 1 : 0;
   if (regionMask.some(Boolean) && !mask.some(Boolean)) throw new WrongPlaceError(emptySurfaceMessage(indicator, area, surface));
 
-  const [monthResult, scaleTop] = await Promise.all([
+  const [monthResult, scaleTop, scaleBottom] = await Promise.all([
     loadMonths(
       months,
       (month) => loaders.monthGrid(layer, grid, month, signal),
@@ -303,6 +316,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
       },
     ),
     (loaders.scaleTop?.(layer) ?? Promise.resolve(null)).catch(() => null),
+    (loaders.scaleBottom?.(layer) ?? Promise.resolve(null)).catch(() => null),
   ]);
   done = total;
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
@@ -322,6 +336,15 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
     if (share >= 0.05) {
       notes.push(
         `${Math.round(share * 100)}% of the readings were at the top of NASA's colour scale (${scaleTop.toFixed(info.decimals)} ${info.unit} or more) and count as exactly that, so the real values — and changes — there may be larger than shown.`,
+      );
+    }
+  }
+
+  if (scaleBottom !== null) {
+    const share = flooredShare(monthGrids.values(), mask, scaleBottom);
+    if (share >= 0.05) {
+      notes.push(
+        `${Math.round(share * 100)}% of the readings were at the bottom of NASA's colour scale (${scaleBottom.toFixed(info.decimals)} ${info.unit} or less) and count as exactly that, so the real values — and changes — there may be larger than shown.`,
       );
     }
   }

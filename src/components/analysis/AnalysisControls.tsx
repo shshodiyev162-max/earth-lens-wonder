@@ -1,10 +1,10 @@
 import { useEffect, useId, useState } from "react";
-import { Calendar, CalendarRange, CloudRain, Droplets, Factory, Flame, Leaf, Plane, Shield, Snowflake, Waves, Wind } from "lucide-react";
+import { Calendar, CalendarRange, Check } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
-import { DATASETS, DEFAULT_DATASETS } from "@/lib/analysis/run";
+import { DATASETS, DATASET_BY_ID } from "@/lib/analysis/run";
 import type { DatasetId } from "@/lib/analysis/types";
 import { formatMonth } from "@/lib/gibs/time";
-import { monthsLabel, SEASONS } from "@/lib/query/indicators";
+import { MEASURE_GROUPS, monthsLabel, SEASONS } from "@/lib/query/indicators";
 import {
   EARLIEST_MONTH,
   EARLIEST_YEAR,
@@ -189,71 +189,67 @@ export function MonthsPicker({ selection, latitude, onChange }: { selection: Per
   );
 }
 
-const DATASET_ICON: Record<DatasetId, typeof Leaf> = {
-  vegetation: Leaf,
-  surfaceHeat: Flame,
-  climate: CloudRain,
-  air: Wind,
-  snow: Snowflake,
-  evaporation: Droplets,
-  sst: Waves,
-  so2: Factory,
-  co: Flame,
-  upperAir: Plane,
-  ozone: Shield,
-};
-
-export function DatasetPicker({ selected, onChange }: { selected: DatasetId[]; onChange: (next: DatasetId[]) => void }) {
+/** The climate dataset on its own line (six measures from one quick request), then every map-based measure by group. */
+export function DatasetPicker({ selected, onChange, note }: { selected: DatasetId[]; onChange: (next: DatasetId[]) => void; note?: string }) {
   const toggle = (id: DatasetId) => {
     const next = selected.includes(id) ? selected.filter((d) => d !== id) : [...selected, id];
     if (next.length) onChange(DATASETS.map((d) => d.id).filter((d) => next.includes(d)));
   };
-  const more = DATASETS.filter((d) => !DEFAULT_DATASETS.includes(d.id));
+  const climateOn = selected.includes("climate");
   return (
     <div className="space-y-3">
-      <div className="text-xs font-medium text-muted-foreground">NASA datasets</div>
-      <DatasetList datasets={DATASETS.filter((d) => DEFAULT_DATASETS.includes(d.id))} selected={selected} onToggle={toggle} />
-      <details open={more.some((d) => selected.includes(d.id))} className="space-y-2">
-        <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">
-          More NASA measures ({more.length}): sea, upper air, ozone, pollution gases, evaporation
-        </summary>
-        <div className="pt-2">
-          <DatasetList datasets={more} selected={selected} onToggle={toggle} />
+      <div className="text-xs font-medium text-muted-foreground">NASA measures</div>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={climateOn}
+        onClick={() => toggle("climate")}
+        className={cn("flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition-colors pointer-coarse:min-h-11", climateOn ? "border-primary bg-primary/5" : "border-border/50 hover:bg-card/60")}
+      >
+        <Check className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 text-primary", climateOn ? "opacity-100" : "opacity-0")} aria-hidden />
+        <span className="min-w-0">
+          <span className="block text-xs font-medium text-foreground">{DATASET_BY_ID.climate.label}</span>
+          <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{DATASET_BY_ID.climate.description}</span>
+        </span>
+      </button>
+      {MEASURE_GROUPS.map((group) => (
+        <div key={group.id} className="space-y-1">
+          <p id={`dataset-group-${group.id}`} className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {group.label}
+          </p>
+          <div className="grid grid-cols-2 gap-1.5" role="group" aria-labelledby={`dataset-group-${group.id}`}>
+            {DATASETS.filter((d) => d.group === group.id).map((dataset) => {
+              const on = selected.includes(dataset.id);
+              return (
+                <button
+                  key={dataset.id}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  title={dataset.description}
+                  onClick={() => toggle(dataset.id)}
+                  className={cn("flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-xs transition-colors pointer-coarse:min-h-11", on ? "border-primary bg-primary/5 font-medium text-foreground" : "border-border/50 text-muted-foreground hover:bg-card/60 hover:text-foreground")}
+                >
+                  <Check className={cn("h-3 w-3 shrink-0 text-primary", on ? "opacity-100" : "opacity-0")} aria-hidden />
+                  {dataset.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
+      ))}
+      {note && <p className="text-xs leading-relaxed text-muted-foreground">{note}</p>}
+      <details className="rounded-lg border border-border/50 px-3 py-2">
+        <summary className="flex cursor-pointer items-center text-xs font-medium text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">What does each one measure?</summary>
+        <dl className="mt-2 space-y-1.5 text-[11px] leading-relaxed">
+          {DATASETS.map((dataset) => (
+            <div key={dataset.id}>
+              <dt className="font-semibold text-foreground">{dataset.label}</dt>
+              <dd className="text-muted-foreground">{dataset.description}</dd>
+            </div>
+          ))}
+        </dl>
       </details>
-    </div>
-  );
-}
-
-function DatasetList({ datasets, selected, onToggle }: { datasets: typeof DATASETS; selected: DatasetId[]; onToggle: (id: DatasetId) => void }) {
-  const toggle = onToggle;
-  return (
-    <div className="space-y-3">
-      <div className="grid gap-2">
-        {datasets.map((dataset) => {
-          const Icon = DATASET_ICON[dataset.id];
-          const on = selected.includes(dataset.id);
-          return (
-            <button
-              key={dataset.id}
-              type="button"
-              role="checkbox"
-              aria-checked={on}
-              onClick={() => toggle(dataset.id)}
-              className={cn(
-                "flex items-start gap-3 rounded-xl px-3 py-2 text-left border transition-colors",
-                on ? "border-primary bg-primary/5" : "border-border/50 hover:bg-card/60",
-              )}
-            >
-              <Icon className="w-4 h-4 mt-0.5 shrink-0" style={{ color: dataset.color }} />
-              <span className="min-w-0 flex-1 space-y-0.5">
-                <span className="block text-sm font-medium text-foreground">{dataset.label}</span>
-                <span className="block text-xs text-muted-foreground">{dataset.description}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }

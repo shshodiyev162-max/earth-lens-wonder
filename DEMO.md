@@ -17,12 +17,12 @@ The built-in demos then play smoothly too: home page → **Watch a demo**, or `/
 **0:00 – The question (home page)**
 > "What is changing on Earth, where, by how much — and is it significant? TerraScope answers with NASA data only."
 
-Press **Find changes**.
+If there's time, scroll: the planet flies to three measured results (yes, no and barely), then press **Find changes**. Otherwise press it straight away.
 
 **0:15 – Choose (Trends)**
 > "Four choices, one after another: what to measure, where, when, and which months."
 
-Press **Country or sea** and click Uzbekistan on the map. Pick **Vegetation** and choose *Since a year… 2015*. Point at the line at the top that says the choices in words. Mention the 13 measures (land, air, sea, ozone layer) and **Suggested for this place**, which picks measures from NASA's land cover map. Press **Find changes**.
+Press **Country or sea** and click Uzbekistan on the map. Pick **Vegetation** and choose *Since a year… 2015*. Point at the line at the top that says the choices in words. Mention the 29 measures (land, water and snow, air, gases, sea) and **Suggested for this place**, which picks measures from NASA's land cover map. Press **Find changes**.
 
 **0:45 – Is it significant? (the whole area)**
 > "One NASA map per month, every pixel tested. For Uzbekistan as a whole: no clear trend — the 95% range includes zero. TerraScope says so instead of overstating it, and offers to test the whole record since 2000."
@@ -35,7 +35,7 @@ Set **Show** to *Declines* and click hotspot 1. Then switch **Show** to *Both*:
 
 **1:40 – Then vs now (Analysis)**
 Open preset 3 (or press **Open full analysis** on the whole-area card and choose *Compare two periods*):
-> "For any place: every measure gets a trend test, or here a then-versus-now comparison with Welch's t-test on the yearly averages."
+> "For any place: the answer in one sentence, then one line per measure with its verdict and rate. Here it's a then-versus-now comparison, with Welch's t-test on the yearly averages. Open a line for its charts and explanation."
 
 **2:10 – Beyond land (sea and ozone)**
 Back on Trends, press **Country or sea** and click the Mediterranean — the whole sea lights up, not a dot. (Searching for "Mediterranean" at the top, or choosing it from **Or choose a known region, sea or ocean**, does the same.) Pick **Sea temperature**, *since 2003*, and find changes:
@@ -48,7 +48,7 @@ Open **Words used here**:
 > "Every statistics word is explained in plain language. And if a measure doesn't fit the place — vegetation over a sea — TerraScope says so before reading a single map."
 
 **3:00 – Close**
-> "Thirteen NASA measures, any place on Earth — countries, seas, or a shape you draw — real significance tests, and honest answers, in the browser, with no keys and no simulated numbers."
+> "Twenty-nine NASA measures, any place on Earth — countries, seas, or a shape you draw — real significance tests, and honest answers, in the browser, with no keys and no simulated numbers."
 
 ## If something goes wrong
 

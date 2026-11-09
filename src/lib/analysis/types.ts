@@ -1,6 +1,31 @@
 import type { BBox, LatLng, PolygonGeometry } from "../geo/geometry";
+import type { MeasureGroup } from "../query/indicators";
 
-export type DatasetId = "vegetation" | "surfaceHeat" | "climate" | "air" | "snow" | "evaporation" | "sst" | "so2" | "co" | "upperAir" | "ozone";
+export type DatasetId =
+  | "climate"
+  | "vegetation"
+  | "evi"
+  | "surfaceHeat"
+  | "nightHeat"
+  | "evaporation"
+  | "topsoil"
+  | "waterStorage"
+  | "snow"
+  | "snowWater"
+  | "snowfall"
+  | "waterVapour"
+  | "upperAir"
+  | "ozone"
+  | "heatLeaving"
+  | "air"
+  | "dust"
+  | "fineDust"
+  | "so2"
+  | "co"
+  | "coGround"
+  | "methane"
+  | "sst"
+  | "salinity";
 
 export interface DatasetInfo {
   id: DatasetId;
@@ -12,6 +37,8 @@ export interface DatasetInfo {
   unit: string;
   decimals: number;
   color: string;
+  /** Group in the picker (the climate dataset stands apart: it is six measures from one quick request). */
+  group: MeasureGroup | "climate";
 }
 
 export type TargetRef =
@@ -60,6 +87,8 @@ export interface SatellitePoint {
   p90: number | null;
   /** Share (0–1) of the area with a valid measurement that month. */
   coverage: number;
+  /** Share (0–1) of the readings at the end of NASA's colour scale, where it stops counting. */
+  capped?: number;
 }
 
 export interface SatelliteSeries {
@@ -120,4 +149,6 @@ export interface AnalysisProgress {
   done: number;
   total: number;
   label: string;
+  /** Maps or requests read so far, per dataset. */
+  datasets?: Partial<Record<DatasetId, { done: number; total: number }>>;
 }

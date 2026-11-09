@@ -162,6 +162,7 @@ const RULES: { group: CoverGroup; min: number; measures: [IndicatorId, string][]
       ["sst", "Mostly water: sea temperature shows warming or cooling water."],
       ["airTemp", "The air over the water warms and cools too."],
       ["rainfall", "Rain on its coasts and islands (rain is read on land)."],
+      ["salinity", "Rain, rivers and evaporation change how salty the water is."],
     ],
   },
   {
@@ -172,6 +173,7 @@ const RULES: { group: CoverGroup; min: number; measures: [IndicatorId, string][]
       ["heat", "Bare ground heats up fast in the sun."],
       ["rainfall", "Deserts live on rare rain."],
       ["vegetation", "The edges of deserts can green or brown."],
+      ["fineDust", "The finest dust travels far and reaches the lungs."],
     ],
   },
   {
@@ -182,6 +184,7 @@ const RULES: { group: CoverGroup; min: number; measures: [IndicatorId, string][]
       ["rainfall", "Forests depend on rain."],
       ["evaporation", "Forests return much of their rain to the air."],
       ["heat", "Cleared forest gets hotter at the surface."],
+      ["evi", "Leaf density keeps responding over thick forest."],
     ],
   },
   {
@@ -192,6 +195,7 @@ const RULES: { group: CoverGroup; min: number; measures: [IndicatorId, string][]
       ["soil", "Crops need water in the soil."],
       ["rainfall", "Farming depends on rain."],
       ["evaporation", "Watered fields send water into the air."],
+      ["waterStorage", "Irrigation can draw down the water held underground."],
     ],
   },
   {
@@ -202,6 +206,7 @@ const RULES: { group: CoverGroup; min: number; measures: [IndicatorId, string][]
       ["rainfall", "Grassland depends on rain."],
       ["soil", "Drying soil shows drought early."],
       ["heat", "Dry grassland gets hotter at the surface."],
+      ["topsoil", "The top of the soil dries first in a drought."],
     ],
   },
   {
@@ -212,6 +217,7 @@ const RULES: { group: CoverGroup; min: number; measures: [IndicatorId, string][]
       ["airTemp", "Air temperature where people live."],
       ["so2", "Burning coal and oil adds sulphur dioxide."],
       ["co", "Traffic, industry and fires add carbon monoxide."],
+      ["nightHeat", "Cities hold their heat through the night."],
     ],
   },
   {
@@ -220,6 +226,7 @@ const RULES: { group: CoverGroup; min: number; measures: [IndicatorId, string][]
     measures: [
       ["snow", "Snow and ice cover part of the area."],
       ["airTemp", "Warmer air melts snow and ice."],
+      ["snowfall", "How much new snow falls each season."],
     ],
   },
   {
@@ -229,6 +236,7 @@ const RULES: { group: CoverGroup; min: number; measures: [IndicatorId, string][]
       ["soil", "Wetlands rise and fall with the water in the ground."],
       ["rainfall", "Wetlands are fed by rain."],
       ["evaporation", "Wet ground and open water evaporate fast."],
+      ["waterStorage", "Wetlands rise and fall with the water held in the land."],
     ],
   },
 ];

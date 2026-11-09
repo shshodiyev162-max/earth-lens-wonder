@@ -1,381 +1,489 @@
-import { lazy, Suspense, useMemo, useState, type ComponentType } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { lazy, Suspense, useRef, useState, type ReactNode } from "react";
+import { motion } from "framer-motion";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Globe, Map, Columns, BarChart3, PenTool, Search, ArrowRight, Satellite, ScanSearch, Database, LineChart, PlayCircle, Sigma } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { openGlobalSearch } from "@/components/search/openSearch";
-import DayNightControl from "@/components/landing/DayNightControl";
-import { createHourStore, utcHours, type DayNightMode } from "@/components/landing/sun";
+import TrendChart from "@/components/landing/TrendChart";
+import { areaText, DATA_MAPS, FINDINGS, meanBetween, MEASURED_ON, pText, rangeText, shareText, signedNumber } from "@/components/landing/findings";
+import { INDICATORS, INDICATOR_ORDER, MEASURE_GROUPS, numberInWords, recordTag } from "@/lib/query/indicators";
 
-// The WebGL globe is the heaviest part of the app, so it loads after the page.
+// The WebGL planet is the heaviest part of the app, so it loads after the page.
 const CinematicEarth = lazy(() => import("@/components/CinematicEarth"));
-
-interface Feature {
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  color: string;
-  to?: string;
-  onClick?: () => void;
-}
-
-const features: Feature[] = [
-  {
-    icon: LineChart,
-    title: "Trend Detective",
-    description:
-      "Find where Earth is changing. Pick one of thirteen NASA measures — land, air, sea and the ozone layer — and a place; every pixel is tested for a real trend and the hotspots ranked.",
-    to: "/trends",
-    color: "text-glow-blue",
-  },
-  {
-    icon: Map,
-    title: "Explore NASA Layers",
-    description: "Browse daily satellite imagery, vegetation, land heat, aerosols, rain, snow and night lights — for any date NASA has published, back to 2000.",
-    to: "/map",
-    color: "text-primary",
-  },
-  {
-    icon: Columns,
-    title: "Compare Then and Now",
-    description: "Swipe between two dates on one map, or see them side by side in maps that move together.",
-    to: "/split",
-    color: "text-earth-blue",
-  },
-  {
-    icon: BarChart3,
-    title: "Area Analysis",
-    description: "Pick any place and test every measure for a trend year by year — with the rate, its 95% range, and a t-test to compare two periods.",
-    to: "/analysis",
-    color: "text-earth-orange",
-  },
-  {
-    icon: PenTool,
-    title: "Draw & Measure",
-    description: "Outline a field, lake or district on the map, see its size, click to read real values, then send it to analysis.",
-    to: "/map",
-    color: "text-earth-green",
-  },
-  {
-    icon: Search,
-    title: "Global Search",
-    description: "Find any city, region, country, sea or coordinates from the search bar at the top — or press Ctrl K (⌘K on Mac).",
-    onClick: openGlobalSearch,
-    color: "text-glow-blue",
-  },
-];
-
-const steps = [
-  {
-    icon: ScanSearch,
-    title: "1. Choose",
-    description: "Pick the measure, the place, the years and the months — draw an area, click a country or a sea, search for a place, or choose a known region.",
-  },
-  {
-    icon: Satellite,
-    title: "2. Read NASA's maps",
-    description: "One NASA map per month (MODIS, MERRA-2, AIRS) is turned back into numbers pixel by pixel, using NASA's own colour scales.",
-  },
-  {
-    icon: Sigma,
-    title: "3. Test for a trend",
-    description: "Mann–Kendall tests and Sen's slope with its 95% range say whether a change is real — and honestly say so when it isn't.",
-  },
-];
-
-const sources = [
-  { name: "NASA GIBS", detail: "MODIS & VIIRS imagery, vegetation, heat, aerosols, snow, oceans" },
-  { name: "NASA POWER", detail: "Monthly temperature, rainfall, sunshine and soil moisture, with 2001–2020 normals" },
-  { name: "MERRA-2 & AIRS", detail: "NASA reanalysis and satellite data: air temperature, rain, soil, evaporation, dust, SO₂, CO and the ozone layer" },
-  { name: "OpenStreetMap", detail: "Place search and boundaries" },
-];
-
-function FeatureCard({ feature }: { feature: Feature }) {
-  const body = (
-    <>
-      <feature.icon className={`w-10 h-10 ${feature.color} mb-4`} />
-      <h3 className="font-display font-semibold text-lg text-foreground mb-2 group-hover:text-primary transition-colors">{feature.title}</h3>
-      <p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
-    </>
-  );
-  const className = "block w-full text-left p-6 rounded-2xl glass hover:bg-card/70 transition-all group h-full";
-  return feature.to ? (
-    <Link to={feature.to} className={className}>
-      {body}
-    </Link>
-  ) : (
-    <button type="button" onClick={feature.onClick} className={className}>
-      {body}
-    </button>
-  );
-}
 
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 }
 
+const measuredDate = new Date(`${MEASURED_ON}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
+/** The main button: one solid, quiet shape on every screen. */
+function PrimaryLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="pointer-events-auto group inline-flex min-h-12 items-center gap-2.5 rounded-full bg-white px-7 py-3 text-[15px] font-medium text-black transition-colors hover:bg-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+    >
+      {children}
+      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+    </Link>
+  );
+}
+
+function QuietLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="pointer-events-auto inline-flex min-h-12 items-center px-1 py-3 text-[15px] text-white/85 underline decoration-white/35 underline-offset-[6px] transition-colors hover:text-white hover:decoration-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function Eyebrow({ children }: { children: ReactNode }) {
+  return <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/70">{children}</p>;
+}
+
+interface ChapterProps {
+  number: string;
+  place: string;
+  question: string;
+  answer: string;
+  /** The headline figure, with its unit. */
+  figure: string;
+  unit?: string;
+  /** Significance and range. */
+  evidence: string;
+  children: ReactNode;
+  chart: ReactNode;
+  /** What was read, in small print. */
+  source: string;
+  link: string;
+  legend?: { colour: string; text: string };
+  reducedMotion: boolean;
+}
+
+function Chapter({ number, place, question, answer, figure, unit, evidence, children, chart, source, link, legend, reducedMotion }: ChapterProps) {
+  return (
+    <article data-stop className="relative flex min-h-[150svh] items-center landscape:px-6 landscape:md:px-12 portrait:items-end portrait:px-4 portrait:pb-[8svh]">
+      <motion.div
+        initial={reducedMotion ? false : { opacity: 0, y: 28 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ amount: 0.35 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="mx-auto w-full max-w-[1400px]"
+      >
+        <div className="max-w-[29rem] portrait:mx-auto portrait:max-w-xl portrait:rounded-2xl portrait:border portrait:border-white/10 portrait:bg-black/80 portrait:p-5 portrait:backdrop-blur-xl">
+          <Eyebrow>
+            {number} <span className="text-white/40">/</span> {place}
+          </Eyebrow>
+          <p className="mt-4 font-editorial text-[1.5rem] leading-tight text-white/75">{question}</p>
+          <h2 className="mt-0.5 font-editorial text-[clamp(2.75rem,4.7vw,4.25rem)] leading-[1.02] tracking-[-0.01em] text-white">{answer}</h2>
+
+          <div className="mt-5 border-t border-white/15 pt-4">
+            <p className="font-mono text-[clamp(1.25rem,1.9vw,1.6rem)] font-medium tabular-nums tracking-tight text-white">
+              {figure}
+              {unit && <span className="ml-2 text-[0.62em] font-normal tracking-normal text-white/70">{unit}</span>}
+            </p>
+            <p className="mt-1 font-mono text-xs tabular-nums text-white/70">{evidence}</p>
+          </div>
+
+          <div className="mt-4 text-white">{chart}</div>
+
+          <p className="mt-4 text-[15px] leading-relaxed text-white/85">{children}</p>
+
+          {legend && (
+            <p className="mt-3 flex items-center gap-2.5 font-mono text-[11px] text-white/70">
+              <span aria-hidden="true" className="h-[3px] w-10 shrink-0 rounded-full" style={{ background: `linear-gradient(to right, rgb(255 255 255 / 0.12), ${legend.colour})` }} />
+              {legend.text}
+            </p>
+          )}
+
+          <p className="mt-3 text-xs leading-relaxed text-white/60">{source}</p>
+          <div className="-mb-2 mt-1">
+            <QuietLink to={link}>Run this test yourself</QuietLink>
+          </div>
+        </div>
+      </motion.div>
+    </article>
+  );
+}
+
+const STEPS = [
+  {
+    title: "One NASA map a month",
+    text: "MODIS, MERRA-2 and AIRS monthly maps are read from NASA's map service, and each colour is turned back into a number using NASA's own colour scale.",
+  },
+  {
+    title: "Seasons can't fake it",
+    text: "Each pixel becomes one value a year, using the same months every year, so a warm summer is never compared with a cold winter.",
+  },
+  {
+    title: "A real test, every pixel",
+    text: "A Mann–Kendall test and Sen's slope, with its 95% range, run on every pixel and on the whole area. If it doesn't pass, the page says so.",
+  },
+];
+
+/** "Twenty-nine", from the list itself, so the words can't fall out of date. */
+const MEASURE_COUNT = numberInWords(INDICATOR_ORDER.length).replace(/^./, (first) => first.toUpperCase());
+
+const TOOLS = [
+  { to: "/trends", name: "Trends", text: "Choose a measure, a place and the years. Get the tested answer and the places that changed most." },
+  { to: "/analysis", name: "Analysis", text: "A full measured report on any place, with a trend test for every measure, or then against now." },
+  { to: "/map", name: "Explore", text: "Browse NASA's satellite layers on a map, for any date they have published, and read real values." },
+  { to: "/split", name: "Compare", text: "Swipe between two dates on one map, or watch them side by side." },
+];
+
+const LIMITS = [
+  { title: "Why it changed", text: "It measures change. It doesn't prove what caused it." },
+  { title: "Everything", text: "Sea level, lake and river levels, groundwater, burned area, NO₂, CO₂, methane and ground-level ozone aren't measured." },
+  { title: "Finer than the colours", text: "Values come from the colour steps of NASA's maps, so they are only as precise as that scale." },
+  { title: "Beyond doubt", text: "Testing many pixels at once throws up some false alarms, so a hotspot also needs a connected patch, a minimum change and a minimum area." },
+];
+
+const DATA_SOURCES = [
+  { href: "https://www.earthdata.nasa.gov/gibs", name: "NASA GIBS" },
+  { href: "https://power.larc.nasa.gov/", name: "NASA POWER" },
+  { href: "https://www.openstreetmap.org/copyright", name: "OpenStreetMap" },
+  { href: "https://www.naturalearthdata.com/", name: "Natural Earth" },
+];
+
+const REPOSITORY = "https://github.com/shshodiyev162-max/earth-lens-wonder";
+
+function SectionHeading({ eyebrow, children }: { eyebrow: string; children: ReactNode }) {
+  return (
+    <header>
+      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{eyebrow}</p>
+      <h2 className="mt-4 max-w-3xl font-editorial text-[clamp(2.25rem,4.4vw,3.75rem)] leading-[1.06] tracking-[-0.01em] text-foreground">{children}</h2>
+    </header>
+  );
+}
+
 export default function Landing() {
   const [reducedMotion] = useState(prefersReducedMotion);
-  // Auto lets the days pass slowly; people who prefer less motion start on the real time.
-  const [dayNightMode, setDayNightMode] = useState<DayNightMode>(() => (prefersReducedMotion() ? "now" : "auto"));
-  const hourStore = useMemo(() => createHourStore(utcHours(new Date())), []);
-  const [customHour, setCustomHour] = useState(() => hourStore.get());
+  const storyRef = useRef<HTMLDivElement>(null);
 
-  // Scrolling away: the planet lingers and fades slowly while the words lift off first.
-  const { scrollY } = useScroll();
-  const globeY = useTransform(scrollY, [0, 900], [0, 260]);
-  const globeOpacity = useTransform(scrollY, [0, 800], [1, 0.3]);
-  const textY = useTransform(scrollY, [0, 600], [0, -70]);
-  const textOpacity = useTransform(scrollY, [0, 480], [1, 0]);
-
-  const changeDayNightMode = (mode: DayNightMode) => {
-    // Custom starts from the time on screen, rounded to 5 minutes.
-    if (mode === "custom") setCustomHour(Math.round(hourStore.get() * 12) / 12);
-    setDayNightMode(mode);
-  };
+  const med = FINDINGS.mediterranean;
+  const uzb = FINDINGS.uzbekistan;
+  const aral = FINDINGS.uzbekistan.hotspot;
+  const ant = FINDINGS.antarctica;
+  const aralBefore = meanBetween(aral.series, uzb.baseline[0], uzb.baseline[1]) as number;
+  const aralAfter = meanBetween(aral.series, uzb.recent[0], uzb.recent[1]) as number;
 
   return (
-    <div className="min-h-screen">
-      {/* Hero */}
-      {/* The hero shows Earth in space, so it keeps the dark colours in light mode too. */}
-      <section className="dark relative min-h-screen flex items-center justify-center overflow-hidden gradient-hero text-foreground">
-        {/* Ambient glow */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px] animate-pulse-glow" />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-glow-blue/5 blur-[100px] animate-pulse-glow" style={{ animationDelay: "1.5s" }} />
-
-        {/* Full-viewport WebGL composition; the planet extends beyond the hero edges. */}
-        {/* The planet melts into the page at the bottom edge instead of being cut off. */}
-        <div className="absolute inset-0 z-0 [mask-image:linear-gradient(to_bottom,black_86%,transparent)]">
-          <motion.div className="absolute inset-0" style={reducedMotion ? undefined : { y: globeY, opacity: globeOpacity }}>
-            <motion.div
-              initial={{ opacity: 0, scale: 1.06 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1.5, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="pointer-events-auto absolute inset-0"
-            >
-              <ErrorBoundary fallback={null}>
-                <Suspense fallback={null}>
-                  <CinematicEarth mode={dayNightMode} customHour={customHour} hourStore={hourStore} reducedMotion={reducedMotion} />
-                </Suspense>
-              </ErrorBoundary>
-            </motion.div>
-          </motion.div>
+    <div>
+      {/* The planet stays pinned while the story scrolls over it. This part is always dark: it's space. */}
+      <div ref={storyRef} id="planet-story" className="dark relative bg-space text-white">
+        <div className="sticky top-0 h-[100svh] w-full overflow-hidden">
+          <ErrorBoundary fallback={null}>
+            <Suspense fallback={null}>
+              <CinematicEarth reducedMotion={reducedMotion} story={storyRef} />
+            </Suspense>
+          </ErrorBoundary>
         </div>
 
-        {/* Preserve contrast without hiding the illuminated globe. */}
-        <div
-          className="pointer-events-none absolute inset-0 z-[1]"
-          style={{
-            background:
-              "linear-gradient(to bottom, hsl(var(--background) / 0.12), transparent 38%, hsl(var(--background) / 0.62)), radial-gradient(circle at 52% 42%, transparent 0%, hsl(var(--background) / 0.08) 42%, hsl(var(--background) / 0.58) 100%)",
-          }}
-        />
-
-        <motion.div
-          className="pointer-events-none relative z-10 max-w-5xl mx-auto px-6 text-center pt-24"
-          style={reducedMotion ? undefined : { y: textY, opacity: textOpacity }}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="relative"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8 text-sm text-muted-foreground">
-              <Satellite className="w-4 h-4 text-primary" />
-              Powered by NASA Earth Observation Data
-            </div>
-
-            <h1 className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6">
-              <span className="text-foreground">See Earth Like</span>
-              <br />
-              <span className="bg-gradient-to-r from-primary via-glow-blue to-primary bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-drift">Never Before</span>
-            </h1>
-
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 leading-relaxed">Find where Earth is changing — and why — with NASA data.</p>
-
-            <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-4">
-              <Link
-                to="/map"
-                className="pointer-events-auto inline-flex items-center gap-2 px-8 py-4 rounded-xl font-display font-semibold gradient-primary text-primary-foreground hover:opacity-90 transition-opacity glow-primary"
-              >
-                <Globe className="w-5 h-5" />
-                Start Exploring
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                to="/trends"
-                className="pointer-events-auto inline-flex items-center gap-2 px-6 py-4 rounded-xl font-display font-semibold glass text-foreground hover:bg-card/80 transition-colors"
-              >
-                <LineChart className="w-5 h-5 text-glow-blue" />
-                Find changes
-              </Link>
-              <Link
-                to="/analysis"
-                className="pointer-events-auto inline-flex items-center gap-2 px-6 py-4 rounded-xl font-display font-semibold glass text-foreground hover:bg-card/80 transition-colors"
-              >
-                <BarChart3 className="w-5 h-5 text-earth-orange" />
-                Analyze a place
-              </Link>
-              <Link
-                to="/trends?demo=choose"
-                className="pointer-events-auto inline-flex items-center gap-2 px-6 py-4 rounded-xl font-display font-semibold glass text-foreground hover:bg-card/80 transition-colors"
-              >
-                <PlayCircle className="w-5 h-5 text-glow-blue" />
-                Watch a demo
-              </Link>
-            </div>
-
-            {/* Just under the buttons, without moving the text from where it always was. */}
-            <div className="absolute inset-x-0 top-full mt-4 flex justify-center">
-              <DayNightControl
-                mode={dayNightMode}
-                onModeChange={changeDayNightMode}
-                customHour={customHour}
-                onCustomHourChange={setCustomHour}
-                hourStore={hourStore}
-              />
-            </div>
-          </motion.div>
-        </motion.div>
-
-        <p className="pointer-events-none absolute inset-x-0 bottom-6 z-10 text-center text-xs tracking-wide text-muted-foreground/75">
-          Drag to explore · Click to turn · Arrow keys to rotate
-        </p>
-      </section>
-
-      {/* Features */}
-      <section className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-4">
-              Everything You Need to Understand Earth
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              From satellite imagery to environmental analytics, TerraScope gives you the tools
-              to explore, compare, and understand our planet.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, i) => (
+        <div className="pointer-events-none relative z-10 -mt-[100svh]">
+          {/* Opening */}
+          <section data-stop className="relative flex min-h-[100svh] flex-col landscape:justify-center portrait:pt-24">
+            <div className="mx-auto w-full max-w-[1400px] px-6 md:px-12">
               <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
+                initial={reducedMotion ? false : { opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1.2, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                className="max-w-[35rem] portrait:mx-auto portrait:text-center"
               >
-                <FeatureCard feature={feature} />
+                <Eyebrow>NASA satellite records, tested</Eyebrow>
+                <h1 className="mt-6 font-editorial text-[clamp(3rem,5.7vw,5.4rem)] leading-[0.98] tracking-[-0.015em] text-white">
+                  What is changing <br />
+                  on Earth, <br />
+                  <em className="text-white/80">and is it real?</em>
+                </h1>
+                <p className="mt-6 max-w-[27rem] text-[17px] leading-relaxed text-white/80 [text-wrap:balance] portrait:mx-auto [text-shadow:0_1px_12px_rgb(0_0_0/0.8)]">
+                  TerraScope reads NASA's monthly maps, tests every pixel for a real trend, and says so plainly when there isn't one.
+                </p>
+                <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-2 portrait:justify-center">
+                  <PrimaryLink to="/trends">Find changes</PrimaryLink>
+                  <QuietLink to="/trends?demo=choose">Watch a demo</QuietLink>
+                </div>
               </motion.div>
-            ))}
-          </div>
+            </div>
+            <div className="absolute inset-x-0 bottom-7 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 font-mono text-[11px] uppercase tracking-[0.18em] text-white/75 md:px-12 portrait:justify-center">
+              <span className="portrait:rounded-sm portrait:bg-black/70 portrait:px-2.5 portrait:py-1.5 portrait:text-white">Scroll for three real findings</span>
+              <span className="portrait:hidden">Drag to turn the planet</span>
+            </div>
+          </section>
+
+          {/* The question */}
+          <section data-stop className="flex min-h-[110svh] items-center landscape:px-6 landscape:md:px-12 portrait:items-end portrait:px-6 portrait:pb-[12svh]">
+            <div className="mx-auto w-full max-w-[1400px]">
+              <motion.div
+                initial={reducedMotion ? false : { opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ amount: 0.5 }}
+                transition={{ duration: 1 }}
+                className="max-w-[34rem] portrait:mx-auto portrait:rounded-2xl portrait:bg-black/80 portrait:p-5 portrait:backdrop-blur-xl"
+              >
+                <h2 className="font-editorial text-[clamp(2.5rem,4.8vw,4.5rem)] leading-[1.04] tracking-[-0.01em] text-white">
+                  We asked it three questions. It answered <em>yes</em>, <em>no</em> and <em>barely</em>.
+                </h2>
+                <p className="mt-6 text-[15px] leading-relaxed text-white/75">Every number below was measured by this app on {measuredDate}. You can run each test again yourself.</p>
+              </motion.div>
+            </div>
+          </section>
+
+          <Chapter
+            number="01"
+            place={med.area}
+            question="Is the Mediterranean warming?"
+            answer="Yes. Clearly."
+            figure={`${signedNumber(med.verdict.slopePerDecade, 2)} °C`}
+            unit="per decade"
+            evidence={`${rangeText(med.verdict.lowerPerYear * 10, med.verdict.upperPerYear * 10, 2)} · ${pText(med.verdict.p)}`}
+            chart={
+              <TrendChart
+                series={med.series}
+                verdict={med.verdict}
+                colour={DATA_MAPS.mediterranean.rise}
+                format={(value) => `${value.toFixed(1)} °C`}
+                label={`Yearly mean sea temperature in the Mediterranean, ${med.startYear} to ${med.endYear}, with a rising trend of ${med.verdict.slopePerDecade.toFixed(2)} degrees per decade.`}
+              />
+            }
+            source={`${med.subject}, ${med.startYear} to ${med.endYear}. ${med.mapsRead} monthly NASA maps over ${areaText(med.scannedKm2)}, from ${med.yearsCount} of the ${med.verdict.years} years, evenly spread. NASA has no map for ${med.missingMonths} of the months.`}
+            link={med.link}
+            legend={{ colour: DATA_MAPS.mediterranean.rise, text: `Warming, up to +${med.overlay.scalePerDecade.toFixed(2)} °C per decade` }}
+            reducedMotion={reducedMotion}
+          >
+            Of the {med.overlay.measuredPixels.toLocaleString("en-US")} pixels of sea tested, every one is warming, and {shareText(med.overlay.significantRising)} pass the test on their own.
+          </Chapter>
+
+          <Chapter
+            number="02"
+            place={uzb.area}
+            question="Is Uzbekistan losing its vegetation?"
+            answer="As a whole, no."
+            figure="No clear trend"
+            evidence={`${rangeText(uzb.verdict.lowerPerYear, uzb.verdict.upperPerYear, 4)} NDVI a year · ${pText(uzb.verdict.p)}`}
+            chart={
+              <TrendChart
+                series={uzb.series}
+                verdict={uzb.verdict}
+                colour="#ffffff"
+                format={(value) => `${value.toFixed(2)} NDVI`}
+                label={`Yearly growing-season greenness in Uzbekistan, ${uzb.startYear} to ${uzb.endYear}, with no clear trend.`}
+              />
+            }
+            source={`Plant greenness (NDVI) from ${uzb.product.split(",")[0]}, ${uzb.months}, ${uzb.startYear} to ${uzb.endYear}. ${uzb.mapsRead} monthly NASA maps over ${areaText(uzb.scannedKm2)}.`}
+            link={uzb.link}
+            legend={{ colour: DATA_MAPS.uzbekistan.fall, text: "Orange: less green. Green: more green. Faint: not significant." }}
+            reducedMotion={reducedMotion}
+          >
+            About {shareText(uzb.overlay.significantRising)} of its land is getting significantly greener and {shareText(uzb.overlay.significantFalling)} significantly less green. Together, the range includes zero. So the honest answer is that there is no clear trend.
+          </Chapter>
+
+          <Chapter
+            number="02"
+            place={aral.name}
+            question="But on the dried-up Aral Sea shore?"
+            answer="There, yes."
+            figure={signedNumber(aral.verdict.slopePerYear, 4)}
+            unit="NDVI a year"
+            evidence={`${rangeText(aral.verdict.lowerPerYear, aral.verdict.upperPerYear, 4)} · ${pText(aral.verdict.p)}`}
+            chart={
+              <TrendChart
+                series={aral.series}
+                verdict={aral.verdict}
+                colour={DATA_MAPS.uzbekistan.fall}
+                format={(value) => `${value.toFixed(2)} NDVI`}
+                label={`Yearly growing-season greenness in Muynoq district, ${uzb.startYear} to ${uzb.endYear}, with a significant decline.`}
+              />
+            }
+            source={`The top-ranked of ${uzb.hotspotCount} hotspots found in Uzbekistan, ${areaText(aral.areaKm2)}. Hotspots are picked because they changed, then shown with their own test.`}
+            link={uzb.link}
+            reducedMotion={reducedMotion}
+          >
+            A country-wide average hid it. Average greenness here fell from {aralBefore.toFixed(2)} in {uzb.baseline[0]}–{uzb.baseline[1]} to {aralAfter.toFixed(2)} in {uzb.recent[0]}–{uzb.recent[1]}.
+          </Chapter>
+
+          <Chapter
+            number="03"
+            place={ant.area}
+            question="Is the ozone layer recovering over Antarctica?"
+            answer="Barely. Maybe."
+            figure={`${signedNumber(ant.verdict.slopePerYear, 3)} ppm`}
+            unit="a year"
+            evidence={`${rangeText(ant.verdict.lowerPerYear, ant.verdict.upperPerYear, 4)} · ${pText(ant.verdict.p)}`}
+            chart={
+              <TrendChart
+                series={ant.series}
+                verdict={ant.verdict}
+                colour={DATA_MAPS.antarctica.rise}
+                format={(value) => `${value.toFixed(2)} ppm`}
+                label={`Yearly mean ozone about 20 kilometres above Antarctica, ${ant.startYear} to ${ant.endYear}, with a small rise that is only just significant.`}
+              />
+            }
+            source={`${ant.subject}, from MERRA-2 (a NASA model constrained by observations), ${ant.startYear} to ${ant.endYear}. ${ant.mapsRead} monthly maps from ${ant.yearsCount} of the ${ant.verdict.years} years, evenly spread.`}
+            link={ant.link}
+            legend={{ colour: DATA_MAPS.antarctica.rise, text: `Rising, up to +${ant.overlay.scalePerDecade.toFixed(2)} ppm per decade` }}
+            reducedMotion={reducedMotion}
+          >
+            That p-value sits only just under the usual 0.05 line, and the range almost touches zero. A small rise: worth watching, not worth a headline.
+          </Chapter>
+
+          {/* Your turn */}
+          <section data-stop className="flex min-h-[120svh] items-center landscape:px-6 landscape:md:px-12 portrait:items-start portrait:px-6 portrait:pt-[16svh]">
+            <div className="mx-auto w-full max-w-[1400px]">
+              <motion.div
+                initial={reducedMotion ? false : { opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ amount: 0.5 }}
+                transition={{ duration: 1 }}
+                className="max-w-[34rem] portrait:mx-auto portrait:text-center"
+              >
+                <h2 className="font-editorial text-[clamp(3rem,6vw,5.5rem)] leading-[1] tracking-[-0.015em] text-white">Now ask your own.</h2>
+                <p className="mt-6 max-w-[28rem] text-[17px] leading-relaxed text-white/80 portrait:mx-auto">Any country, any sea, or a shape you draw yourself. {MEASURE_COUNT} measures. No account, no keys, no simulated numbers.</p>
+                <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-2 portrait:justify-center">
+                  <PrimaryLink to="/trends">Find changes</PrimaryLink>
+                  <QuietLink to="/trends?demo=choose">Watch a demo</QuietLink>
+                </div>
+              </motion.div>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
 
       {/* How it works */}
-      <section className="pb-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-4">
-              How It Works — Real NASA Data
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Every number comes from published NASA datasets. When data is missing or clouds hide an area,
-              TerraScope says so instead of filling the gap.
-            </p>
-          </motion.div>
+      <section id="method" className="border-t border-border bg-background px-6 py-24 md:px-12 md:py-36">
+        <div className="mx-auto max-w-[1400px]">
+          <SectionHeading eyebrow="Method">How an answer is made.</SectionHeading>
+          <ol className="mt-16 grid gap-10 border-t border-border pt-8 md:grid-cols-3 md:gap-12">
+            {STEPS.map((step, index) => (
+              <li key={step.title}>
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">0{index + 1}</span>
+                <h3 className="mt-5 font-editorial text-[1.75rem] leading-tight text-foreground">{step.title}</h3>
+                <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-muted-foreground">{step.text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
 
-          <div className="grid md:grid-cols-3 gap-6 mb-6">
-            {steps.map((step, i) => (
-              <motion.div
-                key={step.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="p-6 rounded-2xl glass h-full"
-              >
-                <step.icon className="w-10 h-10 text-primary mb-4" />
-                <h3 className="font-display font-semibold text-lg text-foreground mb-2">{step.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{step.description}</p>
-              </motion.div>
+      {/* The measures */}
+      <section id="measures" className="border-t border-border bg-background px-6 py-24 md:px-12 md:py-36">
+        <div className="mx-auto max-w-[1400px]">
+          <SectionHeading eyebrow="Data">{MEASURE_COUNT} measures, from the soil to the ozone layer.</SectionHeading>
+          <div className="mt-16 grid gap-12 md:grid-cols-2 md:gap-x-12 xl:grid-cols-3">
+            {MEASURE_GROUPS.map((group) => (
+              <div key={group.id}>
+                <h3 className="border-b border-border pb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{group.label}</h3>
+                <ul>
+                  {INDICATOR_ORDER.map((id) => INDICATORS[id])
+                    .filter((indicator) => indicator.group === group.id)
+                    .map((indicator) => (
+                      <li key={indicator.id} className="border-b border-border">
+                        <Link to={`/trends?ind=${indicator.id}`} className="group flex min-h-11 items-center justify-between gap-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                          <span>
+                            <span className="block text-[15px] text-foreground">
+                              {indicator.label}
+                              {recordTag(indicator.id) && <span className="ml-2 font-mono text-[11px] text-muted-foreground">{recordTag(indicator.id)}</span>}
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{indicator.product}</span>
+                          </span>
+                          <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+                        </Link>
+                      </li>
+                    ))}
+                </ul>
+              </div>
             ))}
           </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="p-6 rounded-2xl glass"
-          >
-            <div className="flex items-center gap-2 mb-5">
-              <Database className="w-5 h-5 text-primary" />
-              <h3 className="font-display font-semibold text-lg text-foreground">Data sources</h3>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {sources.map((source) => (
-                <div key={source.name}>
-                  <div className="font-display font-semibold text-sm text-foreground mb-1">{source.name}</div>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{source.detail}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-24 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="p-12 rounded-3xl glass relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-primary/5" />
-            <div className="relative z-10">
-              <h2 className="text-3xl font-display font-bold text-foreground mb-4">
-                Ready to See the World Differently?
-              </h2>
-              <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-                Open the map, search for any place and see how it changes in NASA satellite data.
-              </p>
-              <Link
-                to="/map"
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-display font-semibold gradient-primary text-primary-foreground hover:opacity-90 transition-opacity glow-primary"
-              >
-                Launch Explorer
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </motion.div>
+      {/* The tools */}
+      <section id="tools" className="border-t border-border bg-background px-6 py-24 md:px-12 md:py-36">
+        <div className="mx-auto max-w-[1400px]">
+          <SectionHeading eyebrow="Tools">Four ways in.</SectionHeading>
+          <ul className="mt-16 border-t border-border">
+            {TOOLS.map((tool) => (
+              <li key={tool.to} className="border-b border-border">
+                <Link to={tool.to} className="group grid items-baseline gap-2 py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] md:gap-10">
+                  <span className="font-editorial text-[clamp(2rem,3.4vw,3rem)] leading-none text-foreground">{tool.name}</span>
+                  <span className="max-w-xl text-[15px] leading-relaxed text-muted-foreground">{tool.text}</span>
+                  <ArrowRight aria-hidden="true" className="hidden h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-foreground motion-reduce:transition-none md:block" />
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-8 px-6 border-t border-border">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded gradient-primary flex items-center justify-center">
-              <Globe className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-display font-semibold text-sm text-foreground">TerraScope</span>
+      {/* Limits */}
+      <section id="limits" className="border-t border-border bg-background px-6 py-24 md:px-12 md:py-36">
+        <div className="mx-auto max-w-[1400px]">
+          <SectionHeading eyebrow="Limits">What it won't tell you.</SectionHeading>
+          <dl className="mt-16 grid gap-10 border-t border-border pt-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12">
+            {LIMITS.map((limit) => (
+              <div key={limit.title}>
+                <dt className="font-editorial text-[1.5rem] leading-tight text-foreground">{limit.title}</dt>
+                <dd className="mt-3 text-[15px] leading-relaxed text-muted-foreground">{limit.text}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      <footer className="border-t border-border bg-background px-6 py-14 md:px-12">
+        <div className="mx-auto grid max-w-[1400px] gap-10 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+          <div>
+            <p className="font-editorial text-2xl text-foreground">TerraScope</p>
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">Built with public NASA data. TerraScope isn't affiliated with or endorsed by NASA. Places © OpenStreetMap contributors.</p>
           </div>
-          <p className="text-xs text-muted-foreground text-center md:text-right">
-            Data provided by NASA GIBS &amp; NASA POWER · Places © OpenStreetMap contributors · Built for Earth observation and environmental awareness
-          </p>
+          <nav aria-label="Tools">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Tools</h2>
+            <ul className="mt-4 space-y-1 text-sm">
+              {TOOLS.map((tool) => (
+                <li key={tool.to}>
+                  <Link to={tool.to} className="inline-flex min-h-8 items-center text-foreground underline-offset-4 hover:underline">
+                    {tool.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <nav aria-label="Data sources">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Data</h2>
+            <ul className="mt-4 space-y-1 text-sm">
+              {DATA_SOURCES.map((source) => (
+                <li key={source.href}>
+                  <a href={source.href} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 text-foreground underline-offset-4 hover:underline">
+                    {source.name}
+                    <ArrowUpRight aria-hidden="true" className="h-3 w-3 text-muted-foreground" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <nav aria-label="This project">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Project</h2>
+            <ul className="mt-4 space-y-1 text-sm">
+              <li>
+                <a href="#method" className="inline-flex min-h-8 items-center text-foreground underline-offset-4 hover:underline">
+                  Method
+                </a>
+              </li>
+              <li>
+                <a href="#limits" className="inline-flex min-h-8 items-center text-foreground underline-offset-4 hover:underline">
+                  Limits
+                </a>
+              </li>
+              <li>
+                <a href={REPOSITORY} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 text-foreground underline-offset-4 hover:underline">
+                  Source code
+                  <ArrowUpRight aria-hidden="true" className="h-3 w-3 text-muted-foreground" />
+                </a>
+              </li>
+            </ul>
+          </nav>
         </div>
       </footer>
     </div>

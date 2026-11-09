@@ -1,56 +1,19 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, BadgeCheck, Check, CircleAlert, Copy, Download, ExternalLink, Info, Loader2, Map as MapIcon, Sparkles, TrendingUp } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, Loader2, Map as MapIcon, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { Sparkline } from "./Charts";
 import PlaceThumbnail from "./PlaceThumbnail";
-import { describeResultPeriod, type Finding, type InsightReport, type Kpi, type Tone } from "@/lib/analysis/insights";
-import type { AnalysisResult, AnalysisTarget, DatasetId } from "@/lib/analysis/types";
-import { DATASET_BY_ID } from "@/lib/analysis/run";
+import { describeResultPeriod, type InsightReport, type RecentConditions } from "@/lib/analysis/insights";
+import type { AnalysisResult, AnalysisTarget } from "@/lib/analysis/types";
 import { buildCsv, downloadText, slugify } from "@/lib/analysis/export";
 import { isAiConfigured, requestAiNarrative, type AiNarrative } from "@/lib/analysisClient";
 import { formatArea, formatLatLng } from "@/lib/geo/geometry";
-import { cn } from "@/lib/utils";
+import { formatMonth } from "@/lib/gibs/time";
 
-const TONE_STYLE: Record<Tone, { icon: typeof Info; className: string }> = {
-  critical: { icon: AlertTriangle, className: "text-tone-bad" },
-  warning: { icon: CircleAlert, className: "text-tone-warn" },
-  positive: { icon: BadgeCheck, className: "text-tone-good" },
-  neutral: { icon: Info, className: "text-accent-cyan" },
-};
+const ACTION = "inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/50 disabled:opacity-60 pointer-coarse:min-h-11";
 
-const CONCERN_STYLE: Record<InsightReport["concern"]["level"], string> = {
-  low: "bg-green-500/10 text-tone-good border-green-500/30",
-  moderate: "bg-cyan-500/10 text-accent-cyan border-cyan-500/30",
-  elevated: "bg-yellow-500/10 text-tone-warn border-yellow-500/30",
-  high: "bg-red-500/10 text-tone-bad border-red-500/30",
-};
-
-const CONCERN_LABEL: Record<InsightReport["concern"]["level"], string> = {
-  low: "Low concern",
-  moderate: "Moderate concern",
-  elevated: "Elevated concern",
-  high: "High concern",
-};
-
-export function ConcernBadge({ level }: { level: InsightReport["concern"]["level"] }) {
-  return <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium", CONCERN_STYLE[level])}>{CONCERN_LABEL[level]}</span>;
-}
-
-/** Report header: satellite thumbnail of the place, its name, the concern level and the actions. */
-export function ResultsHeader({
-  target,
-  result,
-  report,
-  running,
-  shareUrl,
-}: {
-  target: AnalysisTarget;
-  result: AnalysisResult | null;
-  report?: InsightReport | null;
-  running?: boolean;
-  shareUrl: string;
-}) {
+/** Report header: the place, what was read, and the things you can do with the report. */
+export function ResultsHeader({ target, result, running, shareUrl }: { target: AnalysisTarget; result: AnalysisResult | null; running?: boolean; shareUrl: string }) {
   const [copied, setCopied] = useState(false);
   const mapHref = `/map?${new URLSearchParams({
     lat: target.center[0].toFixed(4),
@@ -65,53 +28,45 @@ export function ResultsHeader({
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      toast.error("Couldn't copy the link — copy it from the address bar instead.");
+      toast.error("Couldn't copy the link. Copy it from the address bar instead.");
     }
   };
 
   return (
-    <div className="glass rounded-2xl p-6">
-      <div className="grid gap-5 sm:grid-cols-[12rem,1fr]">
-        <Link to={mapHref} aria-label={`Open ${target.name} on the map`} className="block rounded-xl">
-          <PlaceThumbnail key={`${target.name}-${target.bbox.join(",")}`} target={target} />
-        </Link>
-        <div className="flex min-w-0 flex-col">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">Area report</span>
-            {report ? <ConcernBadge level={report.concern.level} /> : running ? <span className="skeleton h-5 w-28 rounded-full" role="status" aria-label="Working out the concern level" /> : null}
-          </div>
-          <h2 translate="no" className="mt-1 break-words text-2xl font-display font-bold text-foreground">
-            {target.name}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">{[target.context, formatArea(target.areaKm2), formatLatLng(target.center, 2)].filter(Boolean).join(" · ")}</p>
-          {result && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {describeResultPeriod(result).text} · NASA GIBS (MODIS, MERRA-2) · NASA POWER
-            </p>
-          )}
-          <div className="mt-4 flex flex-wrap gap-2 sm:mt-auto sm:pt-4">
-            <button
-              type="button"
-              disabled={!result}
-              onClick={() => result && downloadText(`terrascope-${slugify(target.name)}-${result.start}-to-${result.end}.csv`, buildCsv(result))}
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium gradient-primary text-primary-foreground hover:opacity-90 disabled:opacity-60"
-            >
-              <Download className="h-4 w-4" /> Download CSV
-            </button>
-            <button type="button" onClick={copy} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium glass text-foreground hover:bg-card/80 transition-colors">
-              {copied ? <Check className="h-4 w-4 text-tone-good" /> : <Copy className="h-4 w-4" />} {copied ? "Copied" : "Copy link"}
-            </button>
-            <Link to={mapHref} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium glass text-foreground hover:bg-card/80 transition-colors">
-              <MapIcon className="h-4 w-4" /> View on map
-            </Link>
-          </div>
+    <header className="grid gap-5 sm:grid-cols-[1fr,10rem]">
+      <div className="flex min-w-0 flex-col">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Area report</p>
+        <h2 translate="no" className="mt-2 break-words font-editorial text-[clamp(2.25rem,3.6vw,3.25rem)] leading-[1.05] tracking-[-0.01em] text-foreground">
+          {target.name}
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">{[target.context, formatArea(target.areaKm2), formatLatLng(target.center, 2)].filter(Boolean).join(" · ")}</p>
+        {result && <p className="mt-0.5 text-sm text-muted-foreground">{describeResultPeriod(result).text}</p>}
+        <div className="mt-4 flex flex-wrap gap-2 sm:mt-auto sm:pt-4">
+          <button
+            type="button"
+            disabled={!result || running}
+            onClick={() => result && downloadText(`terrascope-${slugify(target.name)}-${result.start}-to-${result.end}.csv`, buildCsv(result))}
+            className={ACTION}
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden /> Download CSV
+          </button>
+          <button type="button" onClick={copy} className={ACTION}>
+            {copied ? <Check className="h-3.5 w-3.5 text-tone-good" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />} {copied ? "Copied" : "Copy link"}
+          </button>
+          <Link to={mapHref} className={ACTION}>
+            <MapIcon className="h-3.5 w-3.5" aria-hidden /> View on map
+          </Link>
         </div>
       </div>
-    </div>
+      <Link to={mapHref} aria-label={`Open ${target.name} on the map`} className="block rounded-xl sm:order-last">
+        <PlaceThumbnail key={`${target.name}-${target.bbox.join(",")}`} target={target} />
+      </Link>
+    </header>
   );
 }
 
-export function InsightPanel({ report, result }: { report: InsightReport; result: AnalysisResult }) {
+/** The answer in one sentence, written from the trend tests alone. */
+export function AnswerPanel({ report, result, running }: { report: InsightReport; result: AnalysisResult; running: boolean }) {
   const [ai, setAi] = useState<{ status: "idle" | "loading" | "done" | "error"; narrative?: AiNarrative; error?: string }>({ status: "idle" });
   const aiEnabled = isAiConfigured();
 
@@ -125,25 +80,26 @@ export function InsightPanel({ report, result }: { report: InsightReport; result
   };
 
   return (
-    <div className="glass rounded-2xl p-6 space-y-3">
-      <h2 className="text-sm font-semibold text-muted-foreground">Summary</h2>
-      <p className="text-base font-medium text-foreground">{report.headline}</p>
-      <p className="text-sm text-foreground leading-relaxed">{report.summary}</p>
-      <p className="text-xs text-muted-foreground">
-        Overall concern level: <span className="font-medium text-foreground">{report.concern.level}</span>. Computed from the measurements below — the thresholds are listed in each
-        finding. Educational, not an official warning.
+    <section aria-labelledby="answer-title" className="border-t border-border pt-6">
+      <h3 id="answer-title" className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        Is it changing?
+      </h3>
+      <p aria-live="polite" className="mt-3 font-editorial text-[clamp(1.6rem,2.5vw,2.25rem)] leading-[1.15] text-foreground">
+        {running && <span className="text-muted-foreground">So far: </span>}
+        {report.headline}
       </p>
+      <p className="mt-3 max-w-prose text-[13px] leading-relaxed text-muted-foreground">{report.summary}</p>
 
-      {aiEnabled && (
-        <div className="pt-2">
+      {aiEnabled && !running && (
+        <div className="mt-4">
           {ai.status === "done" && ai.narrative ? (
             <>
-              <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-                <Sparkles className="h-3.5 w-3.5 text-primary" /> AI briefing (written from the numbers above)
-              </h3>
-              <p className="text-sm text-foreground leading-relaxed">{ai.narrative.summary}</p>
+              <h4 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden /> AI briefing (written from the numbers above)
+              </h4>
+              <p className="text-sm leading-relaxed text-foreground">{ai.narrative.summary}</p>
               {ai.narrative.bullets.length > 0 && (
-                <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-muted-foreground">
                   {ai.narrative.bullets.map((bullet, i) => (
                     <li key={i}>{bullet}</li>
                   ))}
@@ -151,113 +107,79 @@ export function InsightPanel({ report, result }: { report: InsightReport; result
               )}
             </>
           ) : (
-            <button
-              type="button"
-              onClick={askAi}
-              disabled={ai.status === "loading"}
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium gradient-primary text-primary-foreground hover:opacity-90 disabled:opacity-60"
-            >
-              {ai.status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            <button type="button" onClick={askAi} disabled={ai.status === "loading"} className={ACTION}>
+              {ai.status === "loading" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Sparkles className="h-3.5 w-3.5" aria-hidden />}
               {ai.status === "loading" ? "Writing briefing…" : "Write an AI briefing"}
             </button>
           )}
           {ai.status === "error" && <p className="mt-2 text-xs text-tone-warn">{ai.error}</p>}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
-export function KpiGrid({ kpis }: { kpis: Kpi[] }) {
-  if (!kpis.length) return null;
+/** How the latest months compare with what's usual for the same months. */
+export function RecentPanel({ recent }: { recent: RecentConditions }) {
   return (
-    <div className="glass rounded-2xl p-6">
-      <h3 className="text-sm font-semibold text-muted-foreground mb-4">Key numbers</h3>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {kpis.map((kpi) => (
-          <div key={kpi.id} className="bg-tile rounded-lg p-4">
-            <div className="text-xs text-muted-foreground mb-1">{kpi.label}</div>
-            <div
-              className={cn(
-                "text-2xl font-bold",
-                kpi.tone === "critical" ? "text-tone-bad" : kpi.tone === "warning" ? "text-tone-warn" : kpi.tone === "positive" ? "text-tone-good" : "text-accent-cyan",
-              )}
-            >
-              {kpi.value}
-            </div>
-            <div className="truncate text-xs text-muted-foreground" title={kpi.sub}>
-              {kpi.sub}
-            </div>
-            <Sparkline values={kpi.spark} color={DATASET_BY_ID[kpi.dataset as DatasetId]?.color} className="mt-2" />
+    <section aria-labelledby="recent-title">
+      <h3 id="recent-title" className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        Latest {recent.months} months vs the 2001–2020 normal
+      </h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {formatMonth(recent.from)} – {formatMonth(recent.to)}. Not a trend: one stretch of months beside what's usual, so a wet or hot year shows here without meaning the place is changing.
+      </p>
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-4 md:grid-cols-4">
+        {recent.figures.map((figure) => (
+          <div key={figure.id}>
+            <dt className="text-xs text-muted-foreground">{figure.label}</dt>
+            <dd className="mt-1 font-mono text-lg font-medium tabular-nums text-foreground">{figure.value}</dd>
+            <dd className="mt-0.5 text-xs leading-snug text-muted-foreground">{figure.note}</dd>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-export function FindingsList({ findings }: { findings: Finding[] }) {
-  if (!findings.length) return null;
-  return (
-    <div className="glass rounded-2xl p-6">
-      <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-        <TrendingUp className="h-4 w-4 text-primary" /> What the data shows
-      </h3>
-      <ul className="space-y-2">
-        {findings.map((finding) => {
-          const style = TONE_STYLE[finding.tone];
-          const Icon = style.icon;
-          return (
-            <li key={finding.id} className="flex gap-3 rounded-lg bg-tile p-3">
-              <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", style.className)} />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{finding.title}</p>
-                {finding.detail && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{finding.detail}</p>}
-                <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">{DATASET_BY_ID[finding.dataset]?.source}</p>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+      </dl>
+    </section>
   );
 }
 
 export function Methodology({ report, result }: { report: InsightReport; result: AnalysisResult }) {
   return (
-    <div className="glass rounded-2xl p-6 space-y-3 text-xs leading-relaxed text-muted-foreground">
-      <h3 className="text-sm font-semibold text-muted-foreground">How these numbers are made</h3>
-      <ul className="list-disc list-inside space-y-1.5">
+    <details className="rounded-lg border border-border p-4 text-xs leading-relaxed text-muted-foreground">
+      <summary className="flex cursor-pointer items-center text-xs font-semibold pointer-coarse:min-h-11">How these numbers are made</summary>
+      <ul className="mt-3 list-inside list-disc space-y-1.5">
         <li>
-          Satellite values come from NASA GIBS monthly products. For every month the app requests an image of the area, rasterises the area outline onto it and converts each
-          pixel back to its physical value using NASA's official colormap. The mean of all valid pixels is shown; the band is the 10th–90th percentile.
+          Satellite values come from NASA GIBS monthly products. For every month the app requests an image of the area, rasterises the area outline onto it and converts each pixel back to its physical value using NASA's official
+          colour scale. The mean of all valid pixels is shown; the band is the 10th–90th percentile.
         </li>
         <li>“Measured” share = pixels with a valid value ÷ pixels in the area. Water, persistent cloud and snow can lower it for vegetation and surface heat.</li>
         <li>
-          Climate comes from the NASA POWER API (MERRA-2 reanalysis and CERES satellite radiation) at{" "}
-          {result.climate && result.climate.samplePoints.length > 1 ? `${result.climate.samplePoints.length} points inside the area, averaged` : "the area's centre"}, compared with the
-          2001–2020 monthly normals.
+          Climate comes from the NASA POWER service (MERRA-2 reanalysis and CERES satellite radiation) at{" "}
+          {result.climate && result.climate.samplePoints.length > 1 ? `${result.climate.samplePoints.length} points inside the area, averaged` : "the area's centre"}, compared with the 2001–2020 monthly normals.
         </li>
-        <li>Findings use fixed thresholds (e.g. rainfall below 60% of normal, surface heat above 45 °C, AOD above 0.4) and are educational, not official warnings.</li>
+        <li>
+          Each year becomes one value (the average of the chosen months; rainfall, evaporation and snowfall are their total). A year needs at least three quarters of its months to count. The Mann–Kendall test then asks whether those values
+          rise or fall more consistently than chance would allow, and Sen's slope gives the rate with its 95% range.
+        </li>
+        <li>This is educational, not an official warning. A change here says what the record shows, not why it happened.</li>
       </ul>
       {report.caveats.length > 0 && (
         <>
-          <h4 className="pt-1 text-xs font-semibold text-foreground">Notes for this report</h4>
-          <ul className="list-disc list-inside space-y-1">
-            {report.caveats.map((caveat, i) => (
-              <li key={i}>{caveat}</li>
+          <h4 className="mt-3 font-semibold text-foreground">Notes for this report</h4>
+          <ul className="mt-1 list-inside list-disc space-y-1">
+            {report.caveats.map((caveat) => (
+              <li key={caveat}>{caveat}</li>
             ))}
           </ul>
         </>
       )}
-      <div className="flex flex-wrap gap-3 pt-1">
+      <div className="mt-3 flex flex-wrap gap-3">
         <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-          NASA GIBS <ExternalLink className="h-3 w-3" />
+          NASA GIBS <ExternalLink className="h-3 w-3" aria-hidden />
         </a>
         <a href="https://power.larc.nasa.gov/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-          NASA POWER <ExternalLink className="h-3 w-3" />
+          NASA POWER <ExternalLink className="h-3 w-3" aria-hidden />
         </a>
       </div>
-    </div>
+    </details>
   );
 }

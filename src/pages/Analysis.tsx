@@ -1,20 +1,18 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { AlertTriangle, BarChart3, Globe, Info, Loader2, MapPin, Play, RefreshCw } from "lucide-react";
+import { AlertTriangle, Globe, Info, Loader2, MapPin, Play, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import LocationPicker from "@/components/analysis/LocationPicker";
 import { DatasetPicker, MonthsPicker, PeriodPicker } from "@/components/analysis/AnalysisControls";
-import TrendSummary from "@/components/analysis/TrendSummary";
+import Scoreboard from "@/components/analysis/Scoreboard";
 import Glossary from "@/components/common/Glossary";
-import { MEASURE_DEFINITIONS, METRIC_DEFINITIONS } from "@/lib/glossary";
-import { ChartCard, RainChart, SingleSeriesChart, SoilChart, TemperatureChart, VegetationChart } from "@/components/analysis/Charts";
-import { FindingsList, InsightPanel, KpiGrid, Methodology, ResultsHeader } from "@/components/analysis/ResultsPanels";
+import { AnswerPanel, Methodology, RecentPanel, ResultsHeader } from "@/components/analysis/ResultsPanels";
 import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
 import type { PickedCountry } from "@/components/map/DrawTools";
 import { useAnalysisRun } from "@/hooks/useAnalysisRun";
 import { useAnalysisTarget } from "@/hooks/useAnalysisTarget";
-import { DATASETS, DATASET_BY_ID, DEFAULT_DATASETS, countClimateRequests, countMaps } from "@/lib/analysis/run";
+import { DATASETS, DEFAULT_DATASETS, countClimateRequests, countMaps } from "@/lib/analysis/run";
 import {
   LARGE_RUN_MAPS,
   estimateSeconds,
@@ -28,10 +26,9 @@ import {
   type PeriodEdit,
 } from "@/lib/analysis/period";
 import { analysisTrends } from "@/lib/analysis/trend";
-import type { AnalysisPeriod, AnalysisResult, DatasetId, SatelliteSeries } from "@/lib/analysis/types";
+import type { AnalysisPeriod, DatasetId } from "@/lib/analysis/types";
 import { defaultRadiusKm, hasBoundary, type PlaceResult } from "@/lib/geo/geocode";
 import type { LatLng, PolygonGeometry } from "@/lib/geo/geometry";
-import { formatMonth } from "@/lib/gibs/time";
 import { cn } from "@/lib/utils";
 
 const TARGET_KEYS = ["area", "osm", "country", "region", "poly", "lat", "lon", "r", "bbox", "name", "ctx"];
@@ -41,16 +38,6 @@ function parseDatasets(value: string | null): DatasetId[] {
   if (!value) return DEFAULT_DATASETS;
   const wanted = value.split(",").filter((id): id is DatasetId => (ALL_DATASETS as string[]).includes(id));
   return wanted.length ? ALL_DATASETS.filter((id) => wanted.includes(id)) : DEFAULT_DATASETS;
-}
-
-/** Datasets beyond the original five, each drawn as one simple monthly chart. */
-const EXTRA_DATASETS = ALL_DATASETS.filter((id) => !DEFAULT_DATASETS.includes(id)) as Exclude<DatasetId, "climate">[];
-
-function seriesNote(series: SatelliteSeries | undefined, end: string): string | undefined {
-  if (!series) return undefined;
-  if (series.status === "error") return `Couldn't load: ${series.error ?? "NASA GIBS did not respond"}.`;
-  if (series.latestAvailable && series.latestAvailable < end) return `NASA has published this product up to ${formatMonth(series.latestAvailable, "long")}.`;
-  return undefined;
 }
 
 // Real coordinates for a quick first try; they open as a circle around the point.
@@ -76,119 +63,17 @@ function EmptyCard({ title, children, action }: { title: string; children: React
 /** Placeholder shaped like the report while NASA data is still arriving. */
 function ReportSkeleton() {
   return (
-    <div className="space-y-6" aria-hidden="true">
-      <div className="glass rounded-2xl p-6 space-y-3">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-5 w-3/4" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
+    <div className="space-y-6 border-t border-border pt-6" aria-hidden="true">
+      <div className="space-y-3">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-8 w-4/5" />
+        <Skeleton className="h-4 w-full max-w-prose" />
       </div>
-      <div className="glass rounded-2xl p-6">
-        <Skeleton className="h-4 w-28 mb-4" />
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="bg-tile rounded-lg p-4 space-y-2">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-7 w-24" />
-              <Skeleton className="h-8 w-full" />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="glass rounded-2xl p-6 space-y-3">
-        <Skeleton className="h-4 w-48" />
-        <Skeleton className="h-56 w-full rounded-xl" />
-      </div>
-    </div>
-  );
-}
-
-function SeriesUnavailable({ title, series }: { title: string; series: SatelliteSeries }) {
-  return (
-    <div className="glass rounded-2xl p-6">
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-        {series.status === "error"
-          ? `NASA GIBS couldn't be reached for this dataset (${series.error ?? "network error"}). Try again in a moment.`
-          : series.dataset === "sst"
-            ? "This area has no sea, so there's no sea surface temperature to read. Choose an area that includes coast or open water."
-            : "No valid pixels for this area in the selected period — for example open water, permanent cloud, or a product that doesn't cover this region."}
-      </p>
-    </div>
-  );
-}
-
-function Charts({ result }: { result: AnalysisResult }) {
-  const { satellite, climate } = result;
-  const climatePoints = climate?.status === "ok" ? climate.points : [];
-  const veg = satellite.vegetation;
-  const heat = satellite.surfaceHeat;
-  const air = satellite.air;
-  const snow = satellite.snow;
-  const hasValues = (series?: SatelliteSeries) => Boolean(series?.points.some((p) => p.value !== null));
-  const snowVisible = snow && snow.points.some((p) => (p.value ?? 0) >= 1);
-
-  return (
-    <div className="grid gap-6 2xl:grid-cols-2">
-      {veg &&
-        (hasValues(veg) ? (
-          <ChartCard title="Vegetation health (NDVI)" subtitle="Area mean and spread of pixels · MODIS Terra monthly" definition={METRIC_DEFINITIONS.ndvi} footer={seriesNote(veg, result.end)}>
-            <VegetationChart series={veg} />
-          </ChartCard>
-        ) : (
-          <SeriesUnavailable title="Vegetation health (NDVI)" series={veg} />
+      <div className="space-y-4">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-9 w-full" />
         ))}
-      {(climatePoints.length > 0 || hasValues(heat)) && (
-        <ChartCard
-          title="Temperature"
-          definition={`Air: ${METRIC_DEFINITIONS.airTemp} Ground: ${METRIC_DEFINITIONS.lst.split(".")[0]}.`}
-          subtitle={[climatePoints.length ? "Air: NASA POWER vs 2001–2020 normal" : null, hasValues(heat) ? "Ground: MODIS land surface (day)" : null].filter(Boolean).join(" · ")}
-          footer={seriesNote(heat, result.end)}
-        >
-          <TemperatureChart climate={climatePoints} surface={hasValues(heat) ? heat : undefined} />
-        </ChartCard>
-      )}
-      {heat && !hasValues(heat) && <SeriesUnavailable title="Surface heat" series={heat} />}
-      {climatePoints.length > 0 && (
-        <ChartCard title="Rainfall" subtitle="Monthly total vs 2001–2020 normal · NASA POWER" definition="How much rain and snow fell each month, in millimetres, next to the usual amount for that month.">
-          <RainChart climate={climatePoints} />
-        </ChartCard>
-      )}
-      {climatePoints.some((p) => p.soil !== null) && (
-        <ChartCard title="Soil moisture" subtitle="Root-zone soil wetness vs normal · NASA POWER (MERRA-2)" definition={METRIC_DEFINITIONS.soil}>
-          <SoilChart climate={climatePoints} />
-        </ChartCard>
-      )}
-      {air &&
-        (hasValues(air) ? (
-          <ChartCard title="Aerosols & dust" subtitle="Aerosol optical depth at 550 nm · MERRA-2 monthly" definition={METRIC_DEFINITIONS.aod} footer={seriesNote(air, result.end)}>
-            <SingleSeriesChart series={air} color="#facc15" reference={{ y: 0.4, label: "hazy" }} />
-          </ChartCard>
-        ) : (
-          <SeriesUnavailable title="Aerosols & dust" series={air} />
-        ))}
-      {snow && snowVisible && (
-        <ChartCard title="Snow cover" subtitle="Average share of the area under snow · MODIS Terra monthly" definition={MEASURE_DEFINITIONS.snow} footer={seriesNote(snow, result.end)}>
-          <SingleSeriesChart series={snow} color="#a5b4fc" kind="area" />
-        </ChartCard>
-      )}
-      {EXTRA_DATASETS.map((id) => {
-        const series = satellite[id];
-        if (!series) return null;
-        const info = DATASET_BY_ID[id];
-        return hasValues(series) ? (
-          <ChartCard key={id} title={info.label} subtitle={info.source.replace(" · NASA GIBS", "")} definition={METRIC_DEFINITIONS[id]} footer={seriesNote(series, result.end)}>
-            <SingleSeriesChart series={series} color={info.color} />
-          </ChartCard>
-        ) : (
-          <SeriesUnavailable key={id} title={info.label} series={series} />
-        );
-      })}
-      {climate?.status === "error" && (
-        <section className="glass rounded-2xl p-6 text-sm text-tone-warn">
-          NASA POWER (climate) didn't respond: {climate.error}. Satellite results above are unaffected.
-        </section>
-      )}
+      </div>
     </div>
   );
 }
@@ -223,6 +108,9 @@ export default function Analysis() {
   const waiting = Boolean(target) && !problems.length && large && confirmedRun !== runKey;
   const run = useAnalysisRun(target, { start, end, months, period: analysisPeriod }, datasets, !problems.length && !waiting);
   const trends = useMemo(() => (run.result ? analysisTrends(run.result) : []), [run.result]);
+  const sizeNote = maps
+    ? `${maps.toLocaleString("en-US")} monthly NASA maps to read: ${formatEstimate(estimateSeconds(maps, climateRequests))} the first time, seconds after that.${datasets.includes("climate") ? " Climate results come first." : ""}`
+    : undefined;
   const resultsRef = useRef<HTMLDivElement>(null);
 
   /** On phones the report sits below the controls — bring it into view after a choice. */
@@ -302,14 +190,10 @@ export default function Analysis() {
   return (
     <div className="min-h-[calc(100vh-4rem)]">
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center gap-3 mb-2">
-            <BarChart3 className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-display font-bold text-foreground">Area Analysis</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Choose a place, a time range and the NASA datasets to read. TerraScope measures that exact area in NASA satellite imagery and climate records and explains
-            what changed — every number is measured, not simulated.
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="font-editorial text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.01em] text-foreground">Area analysis</h1>
+          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+            Pick a place. NASA's monthly records are read for exactly that area, and each measure is tested for a real change. Every number is measured, not simulated.
           </p>
         </motion.div>
 
@@ -339,12 +223,12 @@ export default function Analysis() {
                   ))}
                 </ul>
               )}
-              <DatasetPicker selected={datasets} onChange={onDatasets} />
+              <DatasetPicker selected={datasets} onChange={onDatasets} note={sizeNote} />
             </section>
           </div>
 
           {/* Right Report Section */}
-          <section ref={resultsRef} aria-label="Report" className="min-w-0 scroll-mt-20 space-y-6">
+          <section ref={resultsRef} aria-label="Report" className="min-w-0 scroll-mt-20 space-y-8">
             {targetError && (
               <div role="alert" className="glass rounded-2xl p-6 flex items-start gap-3 text-sm text-tone-warn">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {targetError}
@@ -397,7 +281,7 @@ export default function Analysis() {
 
             {target && (
               <>
-                <ResultsHeader target={target} result={run.result} report={run.report} running={running} shareUrl={shareUrl} />
+                <ResultsHeader target={target} result={run.result} running={running} shareUrl={shareUrl} />
 
                 {waiting && (
                   <div className="glass rounded-2xl p-6 space-y-3" role="status">
@@ -409,7 +293,7 @@ export default function Analysis() {
                     <button
                       type="button"
                       onClick={() => setConfirmedRun(runKey)}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium gradient-primary text-primary-foreground hover:opacity-90"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 pointer-coarse:min-h-11"
                     >
                       <Play className="h-4 w-4" aria-hidden /> Start the analysis
                     </button>
@@ -417,8 +301,8 @@ export default function Analysis() {
                 )}
 
                 {running && (
-                  <div className="glass rounded-2xl p-6" role="status" aria-live="polite">
-                    <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <div role="status" aria-live="polite">
+                    <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-2">
                         <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                         Reading NASA data{run.progress?.label && run.progress.label !== "Starting" ? ` · ${run.progress.label}` : ""}
@@ -427,8 +311,8 @@ export default function Analysis() {
                         {run.progress?.done ?? 0}/{run.progress?.total ?? "…"}
                       </span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-                      <div className="h-full rounded-full gradient-primary transition-all duration-300" style={{ width: `${progressPct}%` }} />
+                    <div className="h-px overflow-hidden bg-border">
+                      <div className="h-full bg-primary transition-all duration-300 motion-reduce:transition-none" style={{ width: `${progressPct}%` }} />
                     </div>
                   </div>
                 )}
@@ -451,18 +335,22 @@ export default function Analysis() {
                 {running && !run.result && <ReportSkeleton />}
 
                 {run.result && run.report && (
-                  <div className={cn("space-y-6 transition-opacity", running && "pointer-events-none opacity-50")}>
-                    <InsightPanel key={run.result.generatedAt} report={run.report} result={run.result} />
-                    <TrendSummary
+                  // Results from the run before stay faintly visible until this run's first results arrive.
+                  <div className={cn("space-y-8 transition-opacity", running && !run.current && "pointer-events-none opacity-50")}>
+                    <AnswerPanel report={run.report} result={run.result} running={running} />
+                    <Scoreboard
+                      result={run.result}
                       trends={trends}
                       compare={run.result.period?.compare ?? null}
+                      running={running}
+                      progress={run.progress}
                       onTryAllYears={selection.kind === "all" ? undefined : () => onPeriod({ kind: "all" })}
                     />
-                    <KpiGrid kpis={run.report.kpis} />
-                    <Charts result={run.result} />
-                    <FindingsList findings={run.report.findings} />
-                    <Methodology report={run.report} result={run.result} />
-                    <Glossary look="page" />
+                    {run.report.recent && <RecentPanel recent={run.report.recent} />}
+                    <div className="space-y-3">
+                      <Methodology report={run.report} result={run.result} />
+                      <Glossary look="line" />
+                    </div>
                   </div>
                 )}
               </>

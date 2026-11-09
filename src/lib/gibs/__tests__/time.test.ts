@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, availableMonths, completeDaysAgoUtc, monthRange, parseDomainXml, parsePeriod, resolveInDomain } from "../time";
+import { addMonths, availableMonths, clipDomain, completeDaysAgoUtc, firstDateInMonth, monthRange, monthsInDomain, parseDomainXml, parsePeriod, resolveInDomain } from "../time";
+import { getLayer, type GibsLayer } from "../catalog";
 
 const DAILY = `<Domains><DimensionDomain><ows:Identifier>time</ows:Identifier><Domain>2000-06-01/2025-10-22/P1D,2025-10-30/2026-01-07/P1D,2026-01-09/2026-09-30/P1D</Domain><Size>3</Size></DimensionDomain></Domains>`;
 const SIXTEEN = `<Domains><DimensionDomain><Domain>2025-01-01/2025-12-19/P16D,2026-01-01/2026-08-29/P16D</Domain></DimensionDomain></Domains>`;
@@ -73,5 +74,40 @@ describe("completeDaysAgoUtc", () => {
 
   it("returns today for a lag of zero", () => {
     expect(completeDaysAgoUtc(0, new Date("2026-10-02T03:00:00Z"))).toBe("2026-10-02");
+  });
+});
+
+// A real stretch of the GRACE list: uneven dates, months with none, and dates listed past the real end of the record.
+const GRACE = `<Domains><DimensionDomain><Domain>2002-04-04/2002-04-04/P28D,2002-05-02/2002-05-02/P17D,2002-08-01/2003-04-01/P1M,2011-02-08/2011-02-08/P21D,2011-10-01/2011-10-01/P16D,2011-10-17/2011-10-17/P31D,2016-11-14/2016-12-11/P27D,2017-05-23/2017-05-23/P38D,2018-06-01/2018-06-01/P1M,2019-03-01/2022-12-01/P1M,2020-01-20/2020-01-10/P1M,2020-02-01/2022-07-01/P1M</Domain></DimensionDomain></Domains>`;
+
+describe("products published on uneven dates", () => {
+  const domain = clipDomain(parseDomainXml(GRACE), "2022-07")!;
+
+  it("finds the date NASA lists in a month", () => {
+    expect(firstDateInMonth(domain, "2002-04")).toBe("2002-04-04");
+    expect(firstDateInMonth(domain, "2002-09")).toBe("2002-09-01");
+    expect(firstDateInMonth(domain, "2011-02")).toBe("2011-02-08");
+    expect(firstDateInMonth(domain, "2016-12")).toBe("2016-12-11");
+    // Two dates in one month: the first.
+    expect(firstDateInMonth(domain, "2011-10")).toBe("2011-10-01");
+  });
+
+  it("knows the months with no map", () => {
+    expect(firstDateInMonth(domain, "2002-06")).toBeNull();
+    expect(firstDateInMonth(domain, "2017-08")).toBeNull();
+  });
+
+  it("stops at the real end of the record, whatever NASA's list says", () => {
+    expect(domain.latest).toBe("2022-07-31");
+    expect(firstDateInMonth(domain, "2022-07")).toBe("2022-07-01");
+    expect(firstDateInMonth(domain, "2022-08")).toBeNull();
+    expect(clipDomain(parseDomainXml(GRACE))?.latest).toBe("2022-12-01");
+  });
+
+  it("lists only the months that have a map", () => {
+    const layer = getLayer("GRACE_Tellus_Liquid_Water_Equivalent_Thickness_Mascon_CRI") as GibsLayer;
+    expect(layer.irregularDates).toBe(true);
+    expect(monthsInDomain(layer, domain, "2002-03", "2002-09")).toEqual(["2002-04", "2002-05", "2002-08", "2002-09"]);
+    expect(monthsInDomain(layer, domain, "2022-06", "2022-09")).toEqual(["2022-06", "2022-07"]);
   });
 });

@@ -91,7 +91,8 @@ describe("seas and oceans on the map", () => {
       }
     }
     expect(gaps).toEqual([]);
-  });
+    // A sweep of the whole globe: seconds of real work, more on a busy machine.
+  }, 30_000);
 
   it("have unique names, closed outlines and a kind", () => {
     const names = WATERS.flatMap((water) => water.names);

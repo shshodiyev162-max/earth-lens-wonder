@@ -3,7 +3,36 @@
 
 import type { DatasetId } from "../analysis/types";
 
-export type IndicatorId = "vegetation" | "heat" | "rainfall" | "soil" | "dust" | "snow" | "airTemp" | "evaporation" | "sst" | "so2" | "co" | "upperAir" | "ozone";
+export type IndicatorId =
+  | "vegetation"
+  | "heat"
+  | "rainfall"
+  | "soil"
+  | "dust"
+  | "snow"
+  | "airTemp"
+  | "evaporation"
+  | "sst"
+  | "so2"
+  | "co"
+  | "upperAir"
+  | "ozone"
+  | "evi"
+  | "nightHeat"
+  | "sunlight"
+  | "topsoil"
+  | "waterStorage"
+  | "snowWater"
+  | "snowfall"
+  | "humidity"
+  | "waterVapour"
+  | "wind"
+  | "heatLeaving"
+  | "fineDust"
+  | "haze"
+  | "coGround"
+  | "methane"
+  | "salinity";
 export type Direction = "decline" | "increase" | "any";
 
 export interface SeasonPreset {
@@ -56,10 +85,23 @@ export interface Indicator {
   /** Where the product has values: land only, the sea only, or everywhere (the air above both). */
   surface: "land" | "water" | "any";
   /** Group in the measure picker. */
-  group: "land" | "air" | "ocean";
+  group: MeasureGroup;
   /** First month NASA publishes, when later than the MODIS record (e.g. AIRS from September 2002). */
   firstMonth?: string;
+  /** Last month NASA publishes, when the record has ended (e.g. GRACE to July 2022). */
+  lastMonth?: string;
 }
+
+export type MeasureGroup = "land" | "water" | "air" | "gases" | "ocean";
+
+/** The groups in the measure pickers, in order. */
+export const MEASURE_GROUPS: { id: MeasureGroup; label: string }[] = [
+  { id: "land", label: "Land and plants" },
+  { id: "water", label: "Water and snow" },
+  { id: "air", label: "Weather and upper air" },
+  { id: "gases", label: "Gases and dust" },
+  { id: "ocean", label: "Sea" },
+];
 
 export const INDICATORS: Record<IndicatorId, Indicator> = {
   vegetation: {
@@ -117,7 +159,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     words: { decline: "drying", increase: "wetting", any: "rainfall change" },
     dataset: "climate",
     surface: "land",
-    group: "air",
+    group: "water",
   },
   soil: {
     id: "soil",
@@ -136,7 +178,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     words: { decline: "soil drying", increase: "soil wetting", any: "soil moisture change" },
     dataset: "climate",
     surface: "land",
-    group: "land",
+    group: "water",
   },
   dust: {
     id: "dust",
@@ -155,7 +197,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     words: { decline: "less dust", increase: "dust increase", any: "dust change" },
     dataset: "air",
     surface: "land",
-    group: "air",
+    group: "gases",
   },
   snow: {
     id: "snow",
@@ -174,7 +216,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     words: { decline: "snow cover loss", increase: "snow cover gain", any: "snow cover change" },
     dataset: "snow",
     surface: "land",
-    group: "land",
+    group: "water",
   },
 
   airTemp: {
@@ -252,7 +294,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     words: { decline: "less sulphur dioxide", increase: "more sulphur dioxide", any: "sulphur dioxide change" },
     dataset: "so2",
     surface: "any",
-    group: "air",
+    group: "gases",
   },
   co: {
     id: "co",
@@ -271,7 +313,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     words: { decline: "less carbon monoxide", increase: "more carbon monoxide", any: "carbon monoxide change" },
     dataset: "co",
     surface: "any",
-    group: "air",
+    group: "gases",
     firstMonth: "2002-09",
   },
   upperAir: {
@@ -312,10 +354,324 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     surface: "any",
     group: "air",
   },
+
+  evi: {
+    id: "evi",
+    label: "Leaf density (EVI)",
+    noun: "leaf density",
+    subject: "Leaf density (EVI)",
+    layerId: "MODIS_Terra_L3_EVI_Monthly",
+    product: "MODIS Terra monthly enhanced vegetation index (MOD13A3), ~1 km",
+    unit: "EVI",
+    decimals: 3,
+    minChange: 0.02,
+    nativeDeg: 0.01,
+    concern: "decline",
+    season: "growing",
+    colors: { decline: "#b45309", increase: "#15803d" },
+    words: { decline: "thinning leaves", increase: "denser leaves", any: "leaf density change" },
+    dataset: "evi",
+    surface: "land",
+    group: "land",
+  },
+  nightHeat: {
+    id: "nightHeat",
+    label: "Night heat",
+    noun: "night-time land temperature",
+    subject: "Night-time land surface temperature",
+    layerId: "MODIS_Terra_L3_Land_Surface_Temp_Monthly_Night",
+    product: "MODIS Terra monthly night-time land surface temperature (MOD11C3), ~5 km",
+    unit: "°C",
+    decimals: 2,
+    minChange: 0.5,
+    nativeDeg: 0.05,
+    concern: "increase",
+    season: "summer",
+    colors: { decline: "#2563eb", increase: "#dc2626" },
+    words: { decline: "cooler nights", increase: "warmer nights", any: "night-time temperature change" },
+    dataset: "nightHeat",
+    surface: "land",
+    group: "land",
+  },
+  sunlight: {
+    id: "sunlight",
+    label: "Sunlight at ground",
+    noun: "sunlight at the ground",
+    subject: "Sunlight reaching the ground",
+    layerId: "MERRA2_Incident_Shortwave_Over_Land_Monthly",
+    product: "MERRA-2 monthly sunlight reaching the land, ~50 km",
+    unit: "W/m²",
+    decimals: 1,
+    minChange: 3,
+    nativeDeg: 0.5,
+    concern: "none",
+    season: "all",
+    colors: { decline: "#475569", increase: "#ca8a04" },
+    words: { decline: "dimming", increase: "brightening", any: "sunlight change" },
+    dataset: "climate",
+    surface: "land",
+    group: "land",
+  },
+  topsoil: {
+    id: "topsoil",
+    label: "Topsoil moisture",
+    noun: "topsoil moisture",
+    subject: "Water in the top 10 cm of soil",
+    layerId: "GLDAS_Underground_Soil_Moisture_Monthly",
+    product: "GLDAS Noah monthly soil moisture, top 10 cm, ~25 km",
+    unit: "% vol",
+    decimals: 1,
+    minChange: 1,
+    nativeDeg: 0.25,
+    concern: "decline",
+    season: "all",
+    colors: { decline: "#a16207", increase: "#0e7490" },
+    words: { decline: "topsoil drying", increase: "topsoil wetting", any: "topsoil moisture change" },
+    dataset: "topsoil",
+    surface: "land",
+    group: "water",
+  },
+  waterStorage: {
+    id: "waterStorage",
+    label: "Water storage",
+    noun: "water storage",
+    subject: "Water stored on and under the land",
+    layerId: "GRACE_Tellus_Liquid_Water_Equivalent_Thickness_Mascon_CRI",
+    product: "GRACE and GRACE-FO monthly water storage (change in the water held on and under the land), ~300 km",
+    unit: "cm",
+    decimals: 1,
+    minChange: 3,
+    nativeDeg: 0.5,
+    concern: "decline",
+    season: "all",
+    colors: { decline: "#b91c1c", increase: "#0369a1" },
+    words: { decline: "water loss", increase: "water gain", any: "water storage change" },
+    dataset: "waterStorage",
+    surface: "land",
+    group: "water",
+    firstMonth: "2002-04",
+    lastMonth: "2022-07",
+  },
+  snowWater: {
+    id: "snowWater",
+    label: "Snow water",
+    noun: "snow water",
+    subject: "Water held in the snowpack",
+    layerId: "AMSRU2_Snow_Water_Equivalent_Monthly",
+    product: "AMSR2 monthly snow water equivalent, ~25 km",
+    unit: "mm",
+    decimals: 1,
+    minChange: 3,
+    nativeDeg: 0.25,
+    concern: "decline",
+    season: "cold",
+    colors: { decline: "#c2410c", increase: "#1d4ed8" },
+    words: { decline: "thinner snowpack", increase: "deeper snowpack", any: "snowpack change" },
+    dataset: "snowWater",
+    surface: "land",
+    group: "water",
+    firstMonth: "2012-07",
+    lastMonth: "2025-09",
+  },
+  snowfall: {
+    id: "snowfall",
+    label: "Snowfall",
+    noun: "snowfall",
+    subject: "Monthly snowfall",
+    layerId: "MERRA2_Snowfall_Monthly",
+    product: "MERRA-2 monthly snowfall, ~50 km",
+    unit: "mm/month",
+    decimals: 1,
+    minChange: 3,
+    nativeDeg: 0.5,
+    concern: "none",
+    season: "cold",
+    colors: { decline: "#c2410c", increase: "#1d4ed8" },
+    words: { decline: "less snowfall", increase: "more snowfall", any: "snowfall change" },
+    dataset: "snowfall",
+    surface: "any",
+    group: "water",
+  },
+  humidity: {
+    id: "humidity",
+    label: "Humidity",
+    noun: "humidity",
+    subject: "Relative humidity near the surface",
+    layerId: "AIRS_L3_Surface_Relative_Humidity_Monthly_Day",
+    product: "AIRS (Aqua) monthly daytime relative humidity near the surface, ~100 km",
+    unit: "%",
+    decimals: 1,
+    minChange: 1.5,
+    nativeDeg: 1,
+    concern: "none",
+    season: "all",
+    colors: { decline: "#a16207", increase: "#0e7490" },
+    words: { decline: "drier air", increase: "more humid air", any: "humidity change" },
+    dataset: "climate",
+    surface: "any",
+    group: "air",
+    firstMonth: "2002-09",
+  },
+  waterVapour: {
+    id: "waterVapour",
+    label: "Water vapour",
+    noun: "water vapour",
+    subject: "Water vapour in the air",
+    layerId: "MERRA2_Total_Precipitable_Water_Vapor_Monthly",
+    product: "MERRA-2 monthly water vapour in the whole column of air, ~50 km",
+    unit: "mm",
+    decimals: 1,
+    minChange: 1,
+    nativeDeg: 0.5,
+    concern: "none",
+    season: "all",
+    colors: { decline: "#a16207", increase: "#0e7490" },
+    words: { decline: "less water vapour", increase: "more water vapour", any: "water vapour change" },
+    dataset: "waterVapour",
+    surface: "any",
+    group: "air",
+  },
+  wind: {
+    id: "wind",
+    label: "Wind",
+    noun: "wind speed",
+    subject: "Wind speed near the surface",
+    layerId: "MERRA2_Surface_Wind_Speed_Monthly",
+    product: "MERRA-2 monthly wind speed near the surface, ~50 km",
+    unit: "m/s",
+    decimals: 2,
+    minChange: 0.2,
+    nativeDeg: 0.5,
+    concern: "none",
+    season: "all",
+    colors: { decline: "#475569", increase: "#0f766e" },
+    words: { decline: "calmer winds", increase: "stronger winds", any: "wind speed change" },
+    dataset: "climate",
+    surface: "any",
+    group: "air",
+  },
+  heatLeaving: {
+    id: "heatLeaving",
+    label: "Heat leaving for space",
+    noun: "heat leaving for space",
+    subject: "Heat radiated out to space",
+    layerId: "AIRS_L3_All_Sky_Outgoing_Longwave_Radiation_Monthly_Day",
+    product: "AIRS (Aqua) monthly daytime outgoing longwave radiation, ~100 km",
+    unit: "W/m²",
+    decimals: 1,
+    minChange: 2,
+    nativeDeg: 1,
+    concern: "none",
+    season: "all",
+    colors: { decline: "#2563eb", increase: "#dc2626" },
+    words: { decline: "less heat leaving", increase: "more heat leaving", any: "outgoing heat change" },
+    dataset: "heatLeaving",
+    surface: "any",
+    group: "air",
+    firstMonth: "2002-09",
+  },
+  fineDust: {
+    id: "fineDust",
+    label: "Fine dust (PM2.5)",
+    noun: "fine dust",
+    subject: "Fine dust near the ground",
+    layerId: "MERRA2_Dust_Surface_Mass_Concentration_PM25_Monthly",
+    product: "MERRA-2 monthly fine dust (PM2.5) near the ground, ~50 km",
+    unit: "µg/m³",
+    decimals: 1,
+    minChange: 2,
+    nativeDeg: 0.5,
+    concern: "increase",
+    season: "all",
+    colors: { decline: "#0f766e", increase: "#c2410c" },
+    words: { decline: "less fine dust", increase: "more fine dust", any: "fine dust change" },
+    dataset: "fineDust",
+    surface: "any",
+    group: "gases",
+  },
+  haze: {
+    id: "haze",
+    label: "Haze (AOD)",
+    noun: "haze",
+    subject: "Haze in the air (aerosol optical depth)",
+    layerId: "MERRA2_Total_Aerosol_Optical_Thickness_550nm_Extinction_Monthly",
+    product: "MERRA-2 monthly aerosol optical thickness at 550 nm, ~50 km",
+    unit: "AOD",
+    decimals: 3,
+    minChange: 0.02,
+    nativeDeg: 0.5,
+    concern: "increase",
+    season: "all",
+    colors: { decline: "#0f766e", increase: "#b45309" },
+    words: { decline: "clearer air", increase: "hazier air", any: "haze change" },
+    dataset: "air",
+    surface: "any",
+    group: "gases",
+  },
+  coGround: {
+    id: "coGround",
+    label: "CO near the ground",
+    noun: "carbon monoxide near the ground",
+    subject: "Carbon monoxide near the ground",
+    layerId: "MOPITT_CO_Monthly_Surface_Mixing_Ratio_Day",
+    product: "MOPITT (Terra) monthly daytime carbon monoxide near the ground, ~100 km",
+    unit: "ppb",
+    decimals: 1,
+    minChange: 5,
+    nativeDeg: 1,
+    concern: "increase",
+    season: "all",
+    colors: { decline: "#0f766e", increase: "#b91c1c" },
+    words: { decline: "less carbon monoxide near the ground", increase: "more carbon monoxide near the ground", any: "ground-level carbon monoxide change" },
+    dataset: "coGround",
+    surface: "any",
+    group: "gases",
+    lastMonth: "2024-11",
+  },
+  methane: {
+    id: "methane",
+    label: "Methane",
+    noun: "methane",
+    subject: "Methane about 7 km up",
+    layerId: "AIRS_L3_Methane_400hPa_Volume_Mixing_Ratio_Monthly_Day",
+    product: "AIRS (Aqua) monthly daytime methane at 400 hPa, ~100 km",
+    unit: "ppb",
+    decimals: 1,
+    minChange: 15,
+    nativeDeg: 1,
+    concern: "increase",
+    season: "all",
+    colors: { decline: "#0f766e", increase: "#b91c1c" },
+    words: { decline: "less methane", increase: "more methane", any: "methane change" },
+    dataset: "methane",
+    surface: "any",
+    group: "gases",
+    firstMonth: "2002-09",
+  },
+  salinity: {
+    id: "salinity",
+    label: "Sea salinity",
+    noun: "sea salinity",
+    subject: "Sea surface salinity",
+    layerId: "SMAP_L3_Sea_Surface_Salinity_CAP_Monthly",
+    product: "SMAP monthly sea surface salinity, ~70 km",
+    unit: "PSU",
+    decimals: 2,
+    minChange: 0.1,
+    nativeDeg: 0.25,
+    concern: "none",
+    season: "all",
+    colors: { decline: "#0369a1", increase: "#b45309" },
+    words: { decline: "fresher sea", increase: "saltier sea", any: "salinity change" },
+    dataset: "salinity",
+    surface: "water",
+    group: "ocean",
+    firstMonth: "2015-04",
+  },
 };
 
 /** Every measure, in the order tabs and lists use. */
-export const INDICATOR_ORDER: IndicatorId[] = ["vegetation", "heat", "rainfall", "soil", "dust", "snow", "airTemp", "evaporation", "sst", "so2", "co", "upperAir", "ozone"];
+export const INDICATOR_ORDER: IndicatorId[] = ["vegetation", "heat", "rainfall", "soil", "dust", "snow", "airTemp", "evaporation", "sst", "so2", "co", "upperAir", "ozone", "evi", "nightHeat", "sunlight", "topsoil", "waterStorage", "snowWater", "snowfall", "humidity", "waterVapour", "wind", "heatLeaving", "fineDust", "haze", "coGround", "methane", "salinity"];
 
 /** The six measures scanned for "what changed" when nothing better is known about the place. */
 export const CORE_INDICATORS: IndicatorId[] = ["vegetation", "heat", "rainfall", "soil", "dust", "snow"];
@@ -323,6 +679,31 @@ export const CORE_INDICATORS: IndicatorId[] = ["vegetation", "heat", "rainfall",
 /** The record's first month for a measure. */
 export function firstMonthOf(id: IndicatorId): string {
   return INDICATORS[id].firstMonth ?? "2000-03";
+}
+
+/** A short tag for a record that started late or has ended ("from 2015", "to 2022", "2012–2025"), or null for the full record. */
+export function recordTag(id: IndicatorId): string | null {
+  const { firstMonth, lastMonth } = INDICATORS[id];
+  const first = firstMonth && firstMonth >= "2005" ? firstMonth.slice(0, 4) : null;
+  const last = lastMonth?.slice(0, 4) ?? null;
+  if (first && last) return `${first}–${last}`;
+  if (first) return `from ${first}`;
+  return last ? `to ${last}` : null;
+}
+
+/** "−12%" says nothing for a temperature, a value that is already a share, or one measured from an average (water storage crosses zero). */
+export function percentChangeMeansSomething(indicator: Pick<Indicator, "id" | "unit">): boolean {
+  return indicator.unit !== "°C" && indicator.unit !== "%" && indicator.id !== "waterStorage";
+}
+
+const ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+
+/** "twenty-nine", for counts written in sentences. */
+export function numberInWords(n: number): string {
+  if (n < 20) return ONES[n];
+  if (n >= 100) return String(n);
+  return n % 10 ? `${TENS[Math.floor(n / 10)]}-${ONES[n % 10]}` : TENS[Math.floor(n / 10)];
 }
 
 /** Months for a season, flipped by six months for places south of the equator. */

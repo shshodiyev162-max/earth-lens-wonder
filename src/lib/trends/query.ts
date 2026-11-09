@@ -290,6 +290,22 @@ const NOUN: Record<IndicatorId, string> = {
   co: "carbon monoxide",
   upperAir: "upper-air temperature",
   ozone: "ozone layer",
+  evi: "leaf density",
+  nightHeat: "night-time heat",
+  sunlight: "sunlight at the ground",
+  topsoil: "topsoil moisture",
+  waterStorage: "water storage",
+  snowWater: "snow water",
+  snowfall: "snowfall",
+  humidity: "humidity",
+  waterVapour: "water vapour",
+  wind: "wind",
+  heatLeaving: "heat leaving for space",
+  fineDust: "fine dust",
+  haze: "haze",
+  coGround: "carbon monoxide near the ground",
+  methane: "methane",
+  salinity: "sea salinity",
 };
 const DIRECTION_WORD: Record<Direction, string> = { decline: "decline", increase: "increase", any: "change" };
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

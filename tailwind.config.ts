@@ -17,6 +17,8 @@ export default {
       fontFamily: {
         display: ["Space Grotesk", "sans-serif"],
         body: ["Inter", "sans-serif"],
+        editorial: ["Instrument Serif", "Georgia", "serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -60,6 +62,8 @@ export default {
           yellow: "hsl(var(--earth-yellow))",
         },
         space: {
+          // The sky behind the home page's planet (that part of the page always uses the dark colours).
+          DEFAULT: "hsl(var(--space) / <alpha-value>)",
           deep: "hsl(var(--space-deep))",
         },
         glow: {
@@ -120,10 +124,6 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10px)" },
         },
-        "pulse-glow": {
-          "0%, 100%": { opacity: "0.4" },
-          "50%": { opacity: "1" },
-        },
         "page-in": {
           from: { opacity: "0" },
           to: { opacity: "1" },
@@ -141,7 +141,6 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "float": "float 6s ease-in-out infinite",
-        "pulse-glow": "pulse-glow 3s ease-in-out infinite",
         // Opacity only: a transform here would trap the map pages' fixed panels.
         "page-in": "page-in 0.35s ease-out both",
         "rise-in": "rise-in 0.4s ease-out both",

@@ -1,790 +1,510 @@
-import {
-  Suspense,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  useEffect,
-  useLayoutEffect,
-  type KeyboardEvent,
-  type MutableRefObject,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
-import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { TextureLoader } from "three";
-import { Moon, Sun } from "lucide-react";
-import {
-  advanceAuto,
-  dayOfYear,
-  easeHourTowards,
-  formatClock,
-  latLonToSphere,
-  subsolarPoint,
-  utcHours,
-  type DayNightMode,
-  type HourStore,
-} from "./landing/sun";
-import { browserTimeZone, findHome, localOffsetHours, type Home } from "./landing/home";
+import { browserTimeZone, findHome, formatLocalClock, latLonToSphere, type Home } from "./landing/home";
+import { cloudImagePath, dayImagePath, FIRST_IMAGE, sharpCloudImageSize, sharpDayImageSize } from "./landing/earthTextures";
+import { AIR_FRAGMENT, AIR_VERTEX, CLOUD_FRAGMENT, PLANET_FRAGMENT, PLANET_VERTEX, STAR_FRAGMENT, STAR_VERTEX } from "./landing/planetShaders";
+import { CAMERA_DISTANCE, EDGE_ON_MIDDLE_PLANE, flickSpeed, HORIZON_HEIGHT, lensFor, onScreen, orientationFacing, turnGlobe, type DragSample } from "./landing/globeDrag";
+import { fitRadius, poseAt, stopAt, type DataId } from "./landing/story";
+import { DATA_MAPS, MARKERS } from "./landing/findings";
 
-/**
- * =========================
- *  HIGH-RES EARTH
- *  Perfect sphere
- *  Real satellite texture
- *  Blue particle ring
- *  Rim glow + halo
- *  Rotating + pulsing
- *  Real day and night
- * =========================
- */
+// The planet's images are bundled with the app (public/textures) so the globe never depends on a
+// third-party CDN being reachable. The surface is NASA's Blue Marble from NASA GIBS
+// (npm run data:earth); the clouds are NASA's Blue Marble cloud map.
+const EARTH_TEXTURE = `${import.meta.env.BASE_URL}${dayImagePath(FIRST_IMAGE)}`;
+const CLOUD_TEXTURE = `${import.meta.env.BASE_URL}${cloudImagePath(FIRST_IMAGE)}`;
 
-// Earth and cloud textures are bundled with the app (public/textures) so the
-// globe never depends on a third-party CDN being reachable. The night lights are
-// NASA GIBS VIIRS Black Marble (npm run data:earth).
-const EARTH_TEXTURE = `${import.meta.env.BASE_URL}textures/earth_atmos_2048.jpg`;
-const CLOUD_TEXTURE = `${import.meta.env.BASE_URL}textures/earth_clouds_1024.png`;
-const NIGHT_TEXTURE = `${import.meta.env.BASE_URL}textures/earth_night_2048.jpg`;
+/** Towards the sun: up and to the left of the camera, so the planet has shape but no night side. */
+const SUN = new THREE.Vector3(-0.46, 0.44, 0.77).normalize();
+/** Degrees of longitude a second: slow enough to feel enormous. */
+const SPIN_SPEED = 2.2;
+const CLOUD_DRIFT = 0.00035;
+/** The planet's lean, once it is spinning freely. */
+const ROLL = -0.2;
+const ARRIVAL_SECONDS = 4.2;
+/** The arrival turn, in degrees. */
+const ARRIVAL_TURN = 62;
+const SPIN_RETURN_SECONDS = 4;
+/** After the visitor lets go, the planet rests for a moment before it starts spinning on its own again. */
+const REST_SECONDS = 2;
+const STAR_COUNT = 4200;
+/** How high the clouds float above the ground, in planet radii. Exaggerated: their shift against the ground as it turns helps it read as a solid ball. */
+const CLOUD_HEIGHT = 1.01;
 
-const SPIN_SECONDS_PER_TURN = 80;
-const STAR_COUNT = 1000;
-// Dim, warm city lights on the night side.
-const NIGHT_LIGHTS = 0.45;
-// The sun's brightness on the planet (dimmed a little from the original 1.2).
-const SUN_INTENSITY = 1.0;
-// On arrival the planet turns this far (radians) to bring the visitor's part of the world into view.
-const INTRO_TURN = 1.1;
-const INTRO_SECONDS = 3.4;
-// The planet holds still for a moment, then the spin eases back in.
-const HOLD_SECONDS = 2.5;
-const SPIN_RETURN_SECONDS = 3.6;
-// How far the planet may tip (radians). It tips further towards the viewer so southern places can face them.
-const TILT = { min: -0.85, max: 0.62 };
-// How far the camera leans towards the mouse (scene units).
-const PARALLAX = { x: 0.35, y: 0.2 };
-
-// ── Particle ring shaders (soft blue points, just like the deployed site) ──
-const PARTICLE_VERTEX = `
-  attribute float aSize;
-  attribute vec3 aColor;
-  varying vec3 vColor;
-  void main() {
-    vColor = aColor;
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * (80.0 / -mvPosition.z);
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-const PARTICLE_FRAGMENT = `
-  varying vec3 vColor;
-  void main() {
-    float dist = distance(gl_PointCoord, vec2(0.5));
-    if (dist > 0.5) discard;
-    float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-    gl_FragColor = vec4(vColor, alpha * 0.85);
-  }
-`;
-
-// ── Rim glow sphere shaders ──
-const GLOW_VERTEX = `
-  varying vec3 vNormal;
-  varying vec3 vPosition;
-  void main() {
-    vNormal = normalize(normalMatrix * normal);
-    vec4 worldPos = modelMatrix * vec4(position, 1.0);
-    vPosition = worldPos.xyz;
-    gl_Position = projectionMatrix * viewMatrix * worldPos;
-  }
-`;
-
-const GLOW_FRAGMENT = `
-  uniform vec3 glowColor;
-  uniform float time;
-  varying vec3 vNormal;
-  varying vec3 vPosition;
-  void main() {
-    vec3 viewDir = normalize(cameraPosition - vPosition);
-    float rim = 1.0 - max(0.0, dot(viewDir, vNormal));
-    rim = pow(rim, 3.0);
-    float pulse = sin(time * 1.5) * 0.3 + 0.7;
-    float alpha = rim * (0.3 + 0.5 * pulse);
-    gl_FragColor = vec4(glowColor * (1.0 + 0.5 * pulse), alpha * 0.28);
-  }
-`;
-
-// Adds the city lights to the Phong earth wherever the sun is down.
-const NIGHT_LIGHTS_FRAGMENT = `
-  #include <emissivemap_fragment>
-  float sunHeight = dot(normal, uSunView);
-  {
-    float night = 1.0 - smoothstep(-0.18, 0.24, sunHeight);
-    vec3 cityLights = pow(texture2D(uNightMap, vMapUv).rgb, vec3(1.4)) * vec3(1.0, 0.52, 0.15) * uNightStrength;
-    totalEmissiveRadiance += cityLights * night;
-  }
-`;
-
-// ── "You are here": a bright point with soft ripples, lying on the surface ──
-const HOME_VERTEX = `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const HOME_FRAGMENT = `
-  uniform float uTime;
-  uniform float uOpacity;
-  varying vec2 vUv;
-  void main() {
-    float r = length(vUv * 2.0 - 1.0);
-    float core = smoothstep(0.16, 0.0, r);
-    float glow = smoothstep(0.5, 0.0, r) * 0.3;
-    float ripples = 0.0;
-    for (int i = 0; i < 2; i++) {
-      float phase = fract(uTime / 3.2 + float(i) * 0.5);
-      float ring = 0.14 + phase * 0.82;
-      ripples += smoothstep(0.07, 0.0, abs(r - ring)) * (1.0 - phase) * 0.75;
-    }
-    float alpha = clamp(core + glow + ripples, 0.0, 1.0) * uOpacity;
-    gl_FragColor = vec4(vec3(0.62, 0.92, 1.0), alpha);
-  }
-`;
-
-// ── A rare, faint shooting star ──
-const METEOR_FRAGMENT = `
-  uniform float uAlpha;
-  varying vec2 vUv;
-  void main() {
-    float along = pow(vUv.x, 2.6);
-    float across = 1.0 - pow(abs(vUv.y * 2.0 - 1.0), 2.0);
-    gl_FragColor = vec4(vec3(0.86, 0.93, 1.0), along * across * uAlpha);
-  }
-`;
-
-interface InteractionState {
-  hovered: boolean;
+interface Controls {
   dragging: boolean;
-  pointerX: number;
-  pointerY: number;
-  baseRotationX: number;
-  baseRotationY: number;
+  /** The place at the middle of the free-spinning planet; the visitor's hand and the spin both act on this. */
+  lat: number;
+  lon: number;
+  /** How fast it is still turning after a flick or an arrow key, in radians a second. */
   velocityX: number;
   velocityY: number;
-  startX: number;
-  startY: number;
+  /** Where the pointer was last, on screen. */
   lastX: number;
   lastY: number;
-  moved: boolean;
+  /** The last moments of the drag, to work out a flick. */
+  samples: DragSample[];
+  /** When the visitor last let go of the planet (seconds, from performance.now). */
+  releasedAt: number;
+  /** Set while the planet is on the story, when it can't be dragged. */
+  free: number;
+  /** The planet on screen, kept up to date for the pointer: its size, its scale and its middle within the canvas. */
+  radius: number;
+  pixelsPerRadian: number;
+  centreX: number;
+  centreY: number;
 }
 
-interface SceneSettings {
-  mode: DayNightMode;
-  customHour: number;
+function prepareTexture(texture: THREE.Texture, colorSpace: THREE.ColorSpace) {
+  texture.colorSpace = colorSpace;
+  texture.anisotropy = 16;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.needsUpdate = true;
+}
+
+/** Loads a sharper image in the background and hands it over once ready. If that fails, the first stays. */
+function loadSharper(path: string, colorSpace: THREE.ColorSpace, use: (texture: THREE.Texture) => void) {
+  let active = true;
+  let loaded: THREE.Texture | null = null;
+  new TextureLoader().load(`${import.meta.env.BASE_URL}${path}`, (texture) => {
+    if (!active) return;
+    prepareTexture(texture, colorSpace);
+    loaded = texture;
+    use(texture);
+  });
+  return () => {
+    active = false;
+    loaded?.dispose();
+  };
+}
+
+interface SceneProps {
+  controls: MutableRefObject<Controls>;
   reducedMotion: boolean;
-  /** Mouse or trackpad (not touch): the scene may lean towards the pointer. */
-  finePointer: boolean;
-}
-
-/** The small label that follows the visitor's place on the globe. */
-interface HomeLabel {
-  root: MutableRefObject<HTMLDivElement | null>;
-  time: MutableRefObject<HTMLSpanElement | null>;
-  sun: MutableRefObject<HTMLSpanElement | null>;
-  moon: MutableRefObject<HTMLSpanElement | null>;
-}
-
-interface EarthSceneProps {
-  interaction: MutableRefObject<InteractionState>;
-  settings: MutableRefObject<SceneSettings>;
-  hourStore: HourStore;
   home: Home | null;
-  label: HomeLabel;
+  /** The page's stops, measured from its layout. */
+  centres: MutableRefObject<number[]>;
+  homeLabel: RefObject<HTMLDivElement>;
+  homeTime: RefObject<HTMLSpanElement>;
+  markers: RefObject<HTMLDivElement>;
+  /** Darkens the side of the screen with the story's words, only while they are there. */
+  storyShade: RefObject<HTMLDivElement>;
+  /** Reports whether the visitor can drag the planet right now. */
+  onFreeChange: (free: boolean) => void;
 }
 
-// The original site's framing.
-function getGithubTransform(viewport: { width: number; height: number }) {
-  const isPortrait = viewport.height > viewport.width * 1.08;
-  const radius = isPortrait
-    ? Math.max(viewport.height * 0.58, viewport.width * 0.96)
-    : Math.max(viewport.height * 0.68, viewport.width * 0.4);
-  const position: [number, number, number] = isPortrait
-    ? [viewport.width * 0.1, -viewport.height * 0.23, -2.4]
-    : [viewport.width * 0.16, -viewport.height * 0.19, -2.4];
-  return { isPortrait, radius, position };
-}
+function PlanetScene({ controls, reducedMotion, home, centres, homeLabel, homeTime, markers, storyShade, onFreeChange }: SceneProps) {
+  const { size, gl, setDpr, camera } = useThree();
+  const planetRef = useRef<THREE.Group>(null!);
 
-// The lower height tried in the previews (the planet sits 2.4 units behind the focus plane).
-function getLowerY(viewport: { width: number; height: number }, isPortrait: boolean) {
-  if (!isPortrait) return -viewport.height * 0.43;
-  const aspect = viewport.width / viewport.height;
-  const centreY = 0.5 + 0.15 * aspect + (1.2 - 0.5 * aspect) * aspect;
-  return ((0.5 - centreY) * viewport.height) / (10 / 12.4);
-}
-
-/**
- * The earth's tilt (x) and spin (y) that bring `home` to the point of the planet seen at `ndc`
- * (screen position, -1…1). The original tilt is kept unless another one shows the place much
- * better (southern places need the planet tipped towards the viewer).
- */
-function turnToFace(
-  home: Home,
-  camera: THREE.Camera,
-  ndc: [number, number],
-  centre: THREE.Vector3,
-  radius: number,
-  tilt: { x: number; z: number },
-) {
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(new THREE.Vector2(...ndc), camera);
-  const hit = new THREE.Vector3();
-  const target = raycaster.ray.intersectSphere(new THREE.Sphere(centre, radius), hit)
-    ? hit.sub(centre).normalize()
-    : camera.position.clone().sub(centre).normalize();
-  const place = new THREE.Vector3(...latLonToSphere(home.lat, home.lon));
-  const euler = new THREE.Euler();
-  const turned = new THREE.Vector3();
-  const best = { x: tilt.x, y: 0, score: -Infinity };
-  for (let x = TILT.min; x <= TILT.max; x += 0.02) {
-    for (let i = 0; i < 360; i++) {
-      const y = (i / 360) * Math.PI * 2;
-      euler.set(x, y, tilt.z);
-      const score = turned.copy(place).applyEuler(euler).dot(target) - 0.25 * Math.abs(x - tilt.x);
-      if (score > best.score) Object.assign(best, { x, y, score });
-    }
-  }
-  return { x: best.x, y: best.y };
-}
-
-/** The original framing, with the planet's height halfway between the original and the lower one. */
-function getEarthTransform(viewport: { width: number; height: number }) {
-  const { isPortrait, radius, position } = getGithubTransform(viewport);
-  const y = (position[1] + getLowerY(viewport, isPortrait)) / 2;
-  return { radius, position: [position[0], y, position[2]] as [number, number, number] };
-}
-
-function EarthScene({ interaction, settings, hourStore, home, label }: EarthSceneProps) {
-  const groupRef = useRef<THREE.Group>(null!);
-  const homeRef = useRef<THREE.Mesh>(null!);
-  const earthRef = useRef<THREE.Mesh>(null!);
-  const cloudRef = useRef<THREE.Mesh>(null!);
-  const glowRef = useRef<THREE.Mesh>(null!);
-  const ringLiftRef = useRef<THREE.Group>(null!);
-  const pointsRef = useRef<THREE.Points>(null!);
-  const sunLightRef = useRef<THREE.DirectionalLight>(null!);
-  const { viewport, camera, size } = useThree();
-  const timeRef = useRef(0);
-  const sceneTime = useRef(0);
-  const lastPublished = useRef(-1);
-  const clock = useRef({ shown: hourStore.get(), auto: hourStore.get() });
-
-  // Load textures
-  const earthTexture = useLoader(TextureLoader, EARTH_TEXTURE);
+  const dayTexture = useLoader(TextureLoader, EARTH_TEXTURE);
   const cloudTexture = useLoader(TextureLoader, CLOUD_TEXTURE);
-  const nightTexture = useLoader(TextureLoader, NIGHT_TEXTURE);
 
-  // Configure for crisp rendering
   useMemo(() => {
-    [earthTexture, cloudTexture, nightTexture].forEach((t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 16;
-      t.minFilter = THREE.LinearMipmapLinearFilter;
-      t.magFilter = THREE.LinearFilter;
-      t.generateMipmaps = true;
-    });
-  }, [earthTexture, cloudTexture, nightTexture]);
+    prepareTexture(dayTexture, THREE.SRGBColorSpace);
+    prepareTexture(cloudTexture, THREE.NoColorSpace);
+  }, [dayTexture, cloudTexture]);
 
-  // Where the sun is: in the earth's own frame, in the world, and as the camera sees it.
-  const sun = useMemo(
-    () => ({ local: new THREE.Vector3(1, 0, 0), world: new THREE.Vector3(1, 0, 0), view: new THREE.Vector3(1, 0, 0) }),
-    [],
-  );
-
-  // The original Phong earth, with city lights added on the night side.
-  const earthMaterial = useMemo(() => {
-    const material = new THREE.MeshPhongMaterial({
-      map: earthTexture,
-      emissive: new THREE.Color("#0a1a3a"),
-      emissiveIntensity: 0.08,
-      shininess: 20,
-      specular: new THREE.Color("#335577"),
-    });
-    material.onBeforeCompile = (shader) => {
-      shader.uniforms.uNightMap = { value: nightTexture };
-      shader.uniforms.uSunView = { value: sun.view };
-      shader.uniforms.uNightStrength = { value: NIGHT_LIGHTS };
-      shader.fragmentShader = shader.fragmentShader
-        .replace("#include <common>", "#include <common>\nuniform sampler2D uNightMap;\nuniform vec3 uSunView;\nuniform float uNightStrength;")
-        .replace("#include <emissivemap_fragment>", NIGHT_LIGHTS_FRAGMENT);
-    };
-    material.customProgramCacheKey = () => "terrascope-earth-night-lights";
-    return material;
-  }, [earthTexture, nightTexture, sun]);
-
-  useEffect(() => () => earthMaterial.dispose(), [earthMaterial]);
-
-  // ── Particle ring: 4000 soft blue points orbiting the planet ──
-  const [particlePositions, particleColors] = useMemo(() => {
-    const COUNT = 4000;
-    const positions = new Float32Array(COUNT * 3);
-    const colors = new Float32Array(COUNT * 3);
-
-    for (let i = 0; i < COUNT; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 1.25 + Math.random() * 0.8;
-      const spread = (Math.random() - 0.5) * 0.4;
-
-      positions[i * 3] = Math.cos(angle) * radius;
-      positions[i * 3 + 1] = spread;
-      positions[i * 3 + 2] = Math.sin(angle) * radius;
-
-      const t = Math.random();
-      colors[i * 3] = 0.3 + t * 0.7;
-      colors[i * 3 + 1] = 0.4 + (1 - t) * 0.4;
-      colors[i * 3 + 2] = 0.6 + t * 0.4;
-    }
-
-    return [
-      new THREE.BufferAttribute(positions, 3),
-      new THREE.BufferAttribute(colors, 3),
-    ];
+  const blank = useMemo(() => {
+    const texture = new THREE.DataTexture(new Uint8Array([127, 0, 0, 255]), 1, 1);
+    texture.needsUpdate = true;
+    return texture;
   }, []);
 
-  const smallSizes = useMemo(
-    () => new THREE.BufferAttribute(new Float32Array(4000).fill(0.5), 1),
-    [],
+  const planetUniforms = useMemo(
+    () => ({
+      uDay: { value: dayTexture as THREE.Texture },
+      uClouds: { value: cloudTexture as THREE.Texture },
+      uData: { value: blank as THREE.Texture },
+      uSun: { value: SUN.clone() },
+      uSunLocal: { value: SUN.clone() },
+      uExposure: { value: reducedMotion ? 1 : 0 },
+      uCloudAmount: { value: 1 },
+      uCloudSpin: { value: 0 },
+      uDataBox: { value: new THREE.Vector4(0, 0, 1, 1) },
+      uDataAmount: { value: 0 },
+      uDataRise: { value: new THREE.Color("#ffffff") },
+      uDataFall: { value: new THREE.Color("#ffffff") },
+      uHome: { value: new THREE.Vector3(0, 1, 0) },
+      uHomeAmount: { value: 0 },
+      uMarkerSize: { value: 0.05 },
+      uTime: { value: 0 },
+    }),
+    [dayTexture, cloudTexture, blank, reducedMotion],
+  );
+  const airUniforms = useMemo(() => ({ uSun: { value: SUN.clone() }, uBreath: { value: 0 }, uExposure: { value: reducedMotion ? 1 : 0 } }), [reducedMotion]);
+  const starUniforms = useMemo(
+    () => ({ uPixelRatio: { value: 1 }, uTime: { value: 0 }, uExposure: { value: reducedMotion ? 1 : 0 }, uScale: { value: new THREE.Vector2(1, 1) }, uShift: { value: new THREE.Vector2(0, 0) } }),
+    [reducedMotion],
   );
 
-  const { radius, position } = getEarthTransform(viewport);
+  // The first images are small so the planet appears quickly; sharper ones replace them once loaded.
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    const device = {
+      screenWidth: window.innerWidth,
+      touch: window.matchMedia?.("(pointer: coarse)").matches === true,
+      maxTextureSize: gl.capabilities.maxTextureSize,
+      saveData: connection?.saveData === true,
+    };
+    const daySize = sharpDayImageSize(device);
+    const cloudSize = sharpCloudImageSize(device);
+    const stopDay =
+      daySize === FIRST_IMAGE
+        ? undefined
+        : loadSharper(dayImagePath(daySize), THREE.SRGBColorSpace, (texture) => {
+            planetUniforms.uDay.value = texture;
+          });
+    const stopClouds =
+      cloudSize === FIRST_IMAGE
+        ? undefined
+        : loadSharper(cloudImagePath(cloudSize), THREE.NoColorSpace, (texture) => {
+            planetUniforms.uClouds.value = texture;
+          });
+    return () => {
+      stopDay?.();
+      stopClouds?.();
+    };
+  }, [gl, planetUniforms]);
 
-  const glowUniforms = useMemo(
-    () => ({ glowColor: { value: new THREE.Color("#4488ff") }, time: { value: 0 } }),
-    [],
-  );
+  // The measured maps: each pixel holds the rate, whether it is significant, and whether it was measured.
+  const dataTextures = useRef<Partial<Record<DataId, THREE.Texture>>>({});
+  useEffect(() => {
+    const loader = new TextureLoader();
+    const loaded = dataTextures.current;
+    (Object.keys(DATA_MAPS) as DataId[]).forEach((id) => {
+      loader.load(`${import.meta.env.BASE_URL}data/findings/${DATA_MAPS[id].file}`, (texture) => {
+        texture.colorSpace = THREE.NoColorSpace;
+        texture.generateMipmaps = false;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        loaded[id] = texture;
+      });
+    });
+    return () => {
+      (Object.keys(loaded) as DataId[]).forEach((id) => loaded[id]?.dispose());
+    };
+  }, []);
 
-  // The visitor's place: where it sits on the sphere and how the marker lies flat on the surface.
-  const homeSpot = useMemo(() => {
-    if (!home) return null;
-    const normal = new THREE.Vector3(...latLonToSphere(home.lat, home.lon));
-    const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-    return { normal, position: normal.clone().multiplyScalar(1.008), quaternion };
-  }, [home]);
-  const homeUniforms = useMemo(() => ({ uTime: { value: 0 }, uOpacity: { value: 0 } }), []);
-  const homeWorld = useMemo(
-    () => ({ position: new THREE.Vector3(), normal: new THREE.Vector3(), toCamera: new THREE.Vector3(), screen: new THREE.Vector3() }),
-    [],
-  );
-  const lastLabelTime = useRef("");
-  const lastLabelDay = useRef<boolean | null>(null);
-
-  // Arrival: the planet turns to bring the visitor's part of the world into view, then spins on.
-  const intro = useRef({ active: false, previousOffset: 0, fromTilt: 0, toTilt: 0 });
-  useLayoutEffect(() => {
-    const controls = interaction.current;
-    if (!home) return;
-    const portrait = size.height > size.width * 1.08;
-    // Aim at a clear part of the planet: upper right, or lower right for southern places.
-    const ndc: [number, number] = portrait ? [0.55, -0.2] : home.lat < 0 ? [0.62, -0.1] : [0.5, 0.25];
-    const centre = new THREE.Vector3(...position);
-    const facing = turnToFace(home, camera, ndc, centre, radius, { x: controls.baseRotationX, z: -0.16 });
-    let spin = facing.y;
-    // Stay close to the original starting angle so the arrival turn is short and natural.
-    while (spin - controls.baseRotationY > Math.PI) spin -= Math.PI * 2;
-    while (spin - controls.baseRotationY < -Math.PI) spin += Math.PI * 2;
-    const reduced = settings.current.reducedMotion;
-    const start = reduced ? spin : spin - INTRO_TURN;
-    const fromTilt = controls.baseRotationX;
-    controls.baseRotationY = start;
-    groupRef.current.rotation.y = start;
-    if (reduced) {
-      controls.baseRotationX = facing.x;
-      groupRef.current.rotation.x = facing.x;
+  // A few bright stars among many faint ones, thickest along a band like the Milky Way.
+  const stars = useMemo(() => {
+    const positions = new Float32Array(STAR_COUNT * 3);
+    const colours = new Float32Array(STAR_COUNT * 3);
+    const sizes = new Float32Array(STAR_COUNT);
+    const phases = new Float32Array(STAR_COUNT);
+    const gaussian = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+    const tints = [
+      [1, 0.86, 0.72],
+      [1, 0.95, 0.88],
+      [1, 1, 1],
+      [0.84, 0.91, 1],
+      [0.72, 0.83, 1],
+    ];
+    for (let i = 0; i < STAR_COUNT; i++) {
+      let x = Math.random() * 2 - 1;
+      let y = Math.random() * 2 - 1;
+      if (i % 5 < 3) {
+        const along = Math.random() * 2.4 - 1.2;
+        const across = gaussian() * 0.34;
+        x = along * 0.87 + across * 0.5;
+        y = along * 0.5 - across * 0.87 - 0.05;
+      }
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      const magnitude = Math.pow(Math.random(), 9);
+      const brightness = 0.1 + magnitude * 1.3 + Math.random() * 0.22;
+      const tint = tints[Math.floor(Math.random() * tints.length)];
+      colours[i * 3] = tint[0] * brightness;
+      colours[i * 3 + 1] = tint[1] * brightness;
+      colours[i * 3 + 2] = tint[2] * brightness;
+      sizes[i] = 1.25 + magnitude * 2.1 + Math.random() * 0.75;
+      phases[i] = Math.random() * Math.PI * 2;
     }
-    intro.current = { active: !reduced, previousOffset: -INTRO_TURN, fromTilt, toTilt: facing.x };
+    return { positions, colours, sizes, phases };
+  }, []);
+
+  const scratch = useMemo(
+    () => ({ quaternion: new THREE.Quaternion(), inverse: new THREE.Quaternion(), vector: new THREE.Vector3() }),
+    [],
+  );
+  const state = useRef({ place: 0, time: 0, age: 0, free: true, cloudSpin: 0.1, shownData: null as DataId | null, lastClock: "", slowFrames: 0, placed: false, offsetX: 0, offsetY: 0 });
+
+  // Arrival: the planet turns to bring the visitor's part of the world into view.
+  const arrival = useRef({ lat: 14, lon: 24, active: false });
+  useEffect(() => {
+    const c = controls.current;
+    const lat = home ? THREE.MathUtils.clamp(home.lat * 0.62, -32, 32) : 14;
+    const lon = home ? home.lon : 24;
+    if (home) planetUniforms.uHome.value.set(...latLonToSphere(home.lat, home.lon));
+    arrival.current = { lat, lon, active: !reducedMotion };
+    c.lat = lat;
+    c.lon = reducedMotion ? lon : lon + ARRIVAL_TURN;
     // Only on arrival; resizing later must not swing the planet around.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [home]);
 
   useFrame((_, rawDelta) => {
-    // A long pause (tab hidden, scrolled away) must not make everything jump.
     const delta = Math.min(rawDelta, 0.05);
-    const { mode, customHour, reducedMotion, finePointer } = settings.current;
-    const controls = interaction.current;
-    if (!reducedMotion) timeRef.current += delta;
-    sceneTime.current += delta;
-    const t = sceneTime.current;
+    const s = state.current;
+    const c = controls.current;
+    // The opening runs on real time, so it also completes on a slow device.
+    s.age += Math.min(rawDelta, 0.25);
+    if (!reducedMotion) s.time += delta;
 
-    // Arrival turn and tilt (ends early if the visitor grabs the planet).
-    if (intro.current.active) {
-      const arriving = intro.current;
-      if (controls.dragging || t >= INTRO_SECONDS) {
-        controls.baseRotationY -= arriving.previousOffset;
-        if (!controls.dragging) controls.baseRotationX = arriving.toTilt;
-        arriving.active = false;
-      } else {
-        const remaining = Math.pow(1 - t / INTRO_SECONDS, 3);
-        const offset = -INTRO_TURN * remaining;
-        controls.baseRotationY += offset - arriving.previousOffset;
-        controls.baseRotationX = arriving.toTilt + (arriving.fromTilt - arriving.toTilt) * remaining;
-        arriving.previousOffset = offset;
+    // The visitor's scrolling picks the place along the story; smoothing it keeps wheel steps silky.
+    const target = stopAt(window.scrollY, centres.current);
+    s.place = reducedMotion ? Math.round(target) : THREE.MathUtils.damp(s.place, target, 5.5, Math.min(rawDelta, 0.4));
+
+    // A slow graphics card draws fewer pixels rather than stutter. (A very long gap means the
+    // browser was only pausing a hidden page, so it doesn't count.)
+    if (rawDelta < 0.25 && s.age > 3) {
+      s.slowFrames = rawDelta > 0.03 ? s.slowFrames + 1 : Math.max(0, s.slowFrames - 0.25);
+      if (s.slowFrames > 45 && gl.getPixelRatio() > 1) {
+        setDpr(Math.max(1, gl.getPixelRatio() - 0.35));
+        s.slowFrames = 0;
       }
     }
-    // After facing the visitor the spin returns gently.
-    const spinScale = !home
-      ? 1
-      : intro.current.active
-        ? 0
-        : THREE.MathUtils.smoothstep(t, INTRO_SECONDS + HOLD_SECONDS, INTRO_SECONDS + HOLD_SECONDS + SPIN_RETURN_SECONDS);
 
-    if (!controls.dragging) {
-      if (!reducedMotion) controls.baseRotationY += (spinScale * delta * 2 * Math.PI) / SPIN_SECONDS_PER_TURN;
-      controls.baseRotationX = THREE.MathUtils.clamp(
-        controls.baseRotationX + controls.velocityX * delta, TILT.min, TILT.max
-      );
-      controls.baseRotationY += controls.velocityY * delta;
-      controls.velocityX = THREE.MathUtils.damp(controls.velocityX, 0, 5.2, delta);
-      controls.velocityY = THREE.MathUtils.damp(controls.velocityY, 0, 5.2, delta);
+    // Arrival.
+    const introT = reducedMotion ? 1 : Math.min(1, s.age / ARRIVAL_SECONDS);
+    if (arrival.current.active) {
+      if (c.dragging || introT >= 1) arrival.current.active = false;
+      else {
+        const left = Math.pow(1 - introT, 3.2);
+        c.lon = arrival.current.lon + ARRIVAL_TURN * left;
+      }
+    }
+    const fade = reducedMotion ? 1 : THREE.MathUtils.smoothstep(s.age, 0.1, 2.6);
+    planetUniforms.uExposure.value = fade;
+    airUniforms.uExposure.value = reducedMotion ? 1 : THREE.MathUtils.smoothstep(s.age, 0.7, 3.2);
+    starUniforms.uExposure.value = reducedMotion ? 1 : THREE.MathUtils.smoothstep(s.age, 0, 1.6);
+
+    // Free spin, plus any push from dragging. The spin eases back in after the arrival.
+    if (!c.dragging && !arrival.current.active) {
+      const afterArrival = THREE.MathUtils.smoothstep(s.age, ARRIVAL_SECONDS, ARRIVAL_SECONDS + SPIN_RETURN_SECONDS);
+      const afterRest = THREE.MathUtils.smoothstep(performance.now() / 1000 - c.releasedAt, REST_SECONDS, REST_SECONDS + SPIN_RETURN_SECONDS);
+      const spinIn = reducedMotion ? 0 : Math.min(afterArrival, afterRest);
+      c.lon -= SPIN_SPEED * spinIn * delta;
+      const turned = turnGlobe(c, c.velocityX * delta, c.velocityY * delta);
+      c.lat = turned.lat;
+      c.lon = turned.lon;
+      c.velocityX = THREE.MathUtils.damp(c.velocityX, 0, 2.6, delta);
+      c.velocityY = THREE.MathUtils.damp(c.velocityY, 0, 2.6, delta);
     }
 
-    const targetX = THREE.MathUtils.clamp(controls.baseRotationX, TILT.min - 0.06, TILT.max + 0.06);
-    const targetY = controls.baseRotationY;
-
-    groupRef.current.rotation.x = THREE.MathUtils.damp(groupRef.current.rotation.x, targetX, 6.5, delta);
-    groupRef.current.rotation.y = THREE.MathUtils.damp(groupRef.current.rotation.y, targetY, 6.5, delta);
-
-    if (cloudRef.current && !reducedMotion) cloudRef.current.rotation.y += delta * 0.006;
-
-    // The atmosphere's breath; the particle ring rises a little with it.
-    const breath = Math.sin(timeRef.current * 1.2);
-    if (glowRef.current) glowRef.current.scale.setScalar((breath * 0.05 + 1) * 1.08);
-    const lift = (breath + 1) / 2;
-    ringLiftRef.current.position.y = 0.03 * lift;
-    ringLiftRef.current.scale.setScalar(1 + 0.008 * lift);
-
-    if (pointsRef.current && !reducedMotion) pointsRef.current.rotation.y += delta * 0.15;
-
-    // Day and night: the sun sits over the place where it is noon at the time shown.
-    const now = new Date();
-    const c = clock.current;
-    if (mode === "auto") {
-      c.auto = advanceAuto(c.auto, delta);
-      c.shown = c.auto;
-    } else {
-      c.shown = easeHourTowards(c.shown, mode === "now" ? utcHours(now) : customHour, delta);
-      c.auto = c.shown;
+    const upright = size.height >= size.width;
+    const pose = poseAt(s.place, c, upright);
+    const radius = fitRadius(size.width, size.height) * pose.zoom;
+    const lens = lensFor(radius);
+    c.radius = radius;
+    c.pixelsPerRadian = lens.pixelsPerRadian;
+    c.free = pose.free;
+    if (storyShade.current) storyShade.current.style.opacity = (1 - pose.free).toFixed(3);
+    const free = pose.free > 0.6;
+    if (free !== s.free) {
+      s.free = free;
+      onFreeChange(free);
     }
-    // The clock label only needs a few updates a second.
-    if (now.getTime() - lastPublished.current >= 100) {
-      lastPublished.current = now.getTime();
-      hourStore.set(c.shown);
+
+    const offsetX = (pose.x - 0.5) * size.width;
+    const offsetY = (0.5 - pose.y) * size.height;
+    s.offsetX = s.placed ? THREE.MathUtils.damp(s.offsetX, offsetX, reducedMotion ? 1000 : 9, delta) : offsetX;
+    s.offsetY = s.placed ? THREE.MathUtils.damp(s.offsetY, offsetY, reducedMotion ? 1000 : 9, delta) : offsetY;
+    s.placed = true;
+    c.centreX = size.width / 2 + s.offsetX;
+    c.centreY = size.height / 2 - s.offsetY;
+
+    // A real camera, always aimed straight at the planet so it stays perfectly round: a longer lens
+    // brings it closer, and shifting the lens places it on the screen, so its shape never changes.
+    const lensCamera = camera as THREE.PerspectiveCamera;
+    lensCamera.fov = 2 * THREE.MathUtils.radToDeg(Math.atan(size.height / 2 / lens.focal));
+    lensCamera.aspect = size.width / size.height;
+    lensCamera.updateProjectionMatrix();
+    lensCamera.projectionMatrix.elements[8] = (-2 * s.offsetX) / size.width;
+    lensCamera.projectionMatrix.elements[9] = (-2 * s.offsetY) / size.height;
+
+    orientationFacing(pose.lat, pose.lon, ROLL * pose.free, scratch.quaternion);
+    planetRef.current.quaternion.copy(scratch.quaternion);
+
+    // The sun as the planet's own frame sees it (for cloud shadows).
+    scratch.inverse.copy(scratch.quaternion).invert();
+    planetUniforms.uSunLocal.value.copy(SUN).applyQuaternion(scratch.inverse).normalize();
+
+    // Clouds drift, and thin out so the measured maps can be read.
+    if (!reducedMotion) s.cloudSpin += CLOUD_DRIFT * delta;
+    planetUniforms.uCloudSpin.value = s.cloudSpin;
+    planetUniforms.uCloudAmount.value = pose.clouds;
+    planetUniforms.uTime.value = s.time;
+
+    // The measured map for this stop.
+    if (pose.data !== s.shownData && pose.data) {
+      const texture = dataTextures.current[pose.data];
+      if (texture) {
+        s.shownData = pose.data;
+        const map = DATA_MAPS[pose.data];
+        const [west, south, east, north] = map.bbox;
+        planetUniforms.uData.value = texture;
+        planetUniforms.uDataBox.value.set((west + 180) / 360, (south + 90) / 180, (east + 180) / 360, (north + 90) / 180);
+        planetUniforms.uDataRise.value.set(map.rise);
+        planetUniforms.uDataFall.value.set(map.fall);
+      }
     }
-    const { lat, lon } = subsolarPoint(dayOfYear(now), c.shown);
-    sun.local.set(...latLonToSphere(lat, lon));
+    planetUniforms.uDataAmount.value = s.shownData === pose.data ? pose.dataAmount : 0;
 
-    // The camera leans gently towards the mouse: stars, planet and ring move at different depths.
-    const lean = finePointer && !reducedMotion && controls.hovered;
-    camera.position.x = THREE.MathUtils.damp(camera.position.x, lean ? controls.pointerX * PARALLAX.x : 0, 1.8, delta);
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, lean ? controls.pointerY * PARALLAX.y : 0, 1.8, delta);
-    camera.lookAt(0, 0, 0);
-    camera.updateMatrixWorld();
+    // The atmosphere's breath: only the air outside the planet moves.
+    airUniforms.uBreath.value = Math.sin(s.time * 1.1);
 
-    earthRef.current.updateWorldMatrix(true, false);
-    sun.world.copy(sun.local).transformDirection(earthRef.current.matrixWorld);
-    sun.view.copy(sun.world).transformDirection(camera.matrixWorldInverse);
-    sunLightRef.current.position.copy(sun.world).multiplyScalar(10);
+    // Stars fill the screen, and shift a little as the story moves on.
+    starUniforms.uPixelRatio.value = gl.getPixelRatio();
+    starUniforms.uTime.value = s.time;
+    const stretch = Math.max(size.width, size.height) * 0.72;
+    starUniforms.uScale.value.set((stretch * 2) / size.width, (stretch * 2) / size.height);
+    starUniforms.uShift.value.set((-s.place * 26 * 2) / size.width, (s.place * 11 * 2) / size.height);
 
-    // "You are here": the marker fades in as the planet arrives, and fades on the far side.
-    if (homeSpot && homeRef.current) {
-      homeWorld.position.copy(homeSpot.position).applyMatrix4(earthRef.current.matrixWorld);
-      homeWorld.normal.copy(homeSpot.normal).transformDirection(earthRef.current.matrixWorld);
-      const facing = homeWorld.normal.dot(homeWorld.toCamera.copy(camera.position).sub(homeWorld.position).normalize());
-      const arrival = THREE.MathUtils.smoothstep(t, INTRO_SECONDS * 0.45, INTRO_SECONDS);
-      const visible = THREE.MathUtils.smoothstep(facing, 0.05, 0.3) * arrival;
-      homeUniforms.uOpacity.value = visible;
-      homeUniforms.uTime.value = reducedMotion ? 0.9 : t;
-
-      const chip = label.root.current;
+    // "You are here": fades away as the story begins.
+    const homeShown = home ? fade * THREE.MathUtils.smoothstep(s.age, ARRIVAL_SECONDS * 0.5, ARRIVAL_SECONDS) * Math.max(0, pose.free * 2 - 1) : 0;
+    planetUniforms.uMarkerSize.value = 26 / lens.pixelsPerRadian;
+    if (home) {
+      const place = scratch.vector.set(...latLonToSphere(home.lat, home.lon)).applyQuaternion(scratch.quaternion);
+      const facing = THREE.MathUtils.smoothstep(place.z, HORIZON_HEIGHT + 0.03, HORIZON_HEIGHT + 0.26);
+      planetUniforms.uHomeAmount.value = homeShown * facing;
+      const chip = homeLabel.current;
       if (chip) {
-        // Upright screens have no clear spot for the label; the marker speaks for itself there.
-        const upright = size.height > size.width * 1.08;
-        const chipVisible = upright ? 0 : visible * THREE.MathUtils.smoothstep(t, INTRO_SECONDS * 0.8, INTRO_SECONDS + 0.8);
-        homeWorld.screen.copy(homeWorld.position).project(camera);
-        const x = ((homeWorld.screen.x + 1) / 2) * size.width;
-        const y = ((1 - homeWorld.screen.y) / 2) * size.height;
-        // Sits to the right of the marker, or to the left when it would run off the screen.
+        const shown = onScreen(place, lens.focal);
+        const px = c.centreX + shown.x;
+        const py = c.centreY - shown.y;
         const width = chip.offsetWidth;
-        const left = x + 16 + width > size.width - 8 ? x - 16 - width : x + 16;
-        chip.style.transform = `translate(${left.toFixed(1)}px, ${(y - 13).toFixed(1)}px)`;
-        chip.style.opacity = chipVisible.toFixed(3);
-        const clockText = formatClock(c.shown + localOffsetHours(now));
-        if (clockText !== lastLabelTime.current && label.time.current) {
-          label.time.current.textContent = clockText;
-          lastLabelTime.current = clockText;
-        }
-        const day = homeSpot.normal.dot(sun.local) > 0;
-        if (day !== lastLabelDay.current && label.sun.current && label.moon.current) {
-          label.sun.current.style.display = day ? "inline-flex" : "none";
-          label.moon.current.style.display = day ? "none" : "inline-flex";
-          lastLabelDay.current = day;
+        const left = px + 18 + width > size.width - 10 ? px - 18 - width : px + 18;
+        chip.style.transform = `translate(${left.toFixed(1)}px, ${(py - 12).toFixed(1)}px)`;
+        chip.style.opacity = (upright ? 0 : homeShown * facing).toFixed(3);
+        const clock = formatLocalClock(new Date());
+        if (clock !== s.lastClock && homeTime.current) {
+          homeTime.current.textContent = clock;
+          s.lastClock = clock;
         }
       }
     }
-  });
 
-  useFrame(() => {
-    glowUniforms.time.value = timeRef.current;
+    // Labels on the story's places.
+    const labels = markers.current?.children;
+    if (labels) {
+      for (let i = 0; i < MARKERS.length; i++) {
+        const element = labels[i] as HTMLElement | undefined;
+        if (!element) continue;
+        const marker = MARKERS[i];
+        const closeness = 1 - Math.abs(s.place - marker.stop) / 0.3;
+        // On upright screens the card over the planet already names the place, and labels wouldn't fit.
+        if (closeness <= 0 || upright) {
+          element.style.opacity = "0";
+          continue;
+        }
+        const place = scratch.vector.set(...latLonToSphere(marker.lat, marker.lon)).applyQuaternion(scratch.quaternion);
+        const shown = onScreen(place, lens.focal);
+        const px = c.centreX + shown.x;
+        const py = c.centreY - shown.y;
+        element.style.transform = `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px)`;
+        element.style.opacity = (Math.min(1, closeness * 2) * (place.z > HORIZON_HEIGHT + 0.05 ? 1 : 0)).toFixed(3);
+      }
+    }
   });
 
   return (
     <>
-      {/* The sun: the original key light, placed where the real sun is. */}
-      <directionalLight ref={sunLightRef} position={[6, 3, 8]} intensity={SUN_INTENSITY} color="#fff5e8" />
+      <points frustumCulled={false} renderOrder={0}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={STAR_COUNT} array={stars.positions} itemSize={3} />
+          <bufferAttribute attach="attributes-aColour" count={STAR_COUNT} array={stars.colours} itemSize={3} />
+          <bufferAttribute attach="attributes-aSize" count={STAR_COUNT} array={stars.sizes} itemSize={1} />
+          <bufferAttribute attach="attributes-aPhase" count={STAR_COUNT} array={stars.phases} itemSize={1} />
+        </bufferGeometry>
+        <shaderMaterial uniforms={starUniforms} vertexShader={STAR_VERTEX} fragmentShader={STAR_FRAGMENT} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+      </points>
 
-      <group position={position} scale={radius}>
-        <group ref={groupRef} rotation={[0.08, -1.05, -0.16]}>
-          {/* === PERFECT SPHERE EARTH === */}
-          <mesh ref={earthRef} material={earthMaterial}>
-            <sphereGeometry args={[1, 84, 64]} />
-          </mesh>
+      {/* The air: a flat sheet behind the planet, so it only ever shows outside the planet's edge. */}
+      <mesh frustumCulled={false} scale={EDGE_ON_MIDDLE_PLANE} renderOrder={1}>
+        <planeGeometry args={[3.6, 3.6]} />
+        <shaderMaterial uniforms={airUniforms} vertexShader={AIR_VERTEX} fragmentShader={AIR_FRAGMENT} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+      </mesh>
 
-          {/* === CLOUDS === */}
-          <mesh ref={cloudRef} scale={1.006}>
-            <sphereGeometry args={[1, 48, 48]} />
-            <meshPhongMaterial
-              map={cloudTexture}
-              transparent
-              opacity={0.35}
-              depthWrite={false}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-
-          {/* === PULSING RIM GLOW === */}
-          <mesh ref={glowRef} scale={1.08}>
-            <sphereGeometry args={[1, 48, 48]} />
-            <shaderMaterial
-              uniforms={glowUniforms}
-              vertexShader={GLOW_VERTEX}
-              fragmentShader={GLOW_FRAGMENT}
-              transparent
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-
-          {/* === FAINT HALO === */}
-          <mesh scale={1.15}>
-            <sphereGeometry args={[1, 32, 32]} />
-            <meshBasicMaterial
-              color="#2255cc"
-              transparent
-              opacity={0.06}
-              side={THREE.BackSide}
-              depthWrite={false}
-            />
-          </mesh>
-
-          {/* === YOU ARE HERE === */}
-          {homeSpot && (
-            <mesh ref={homeRef} position={homeSpot.position} quaternion={homeSpot.quaternion} scale={0.1}>
-              <planeGeometry args={[1, 1]} />
-              <shaderMaterial
-                uniforms={homeUniforms}
-                vertexShader={HOME_VERTEX}
-                fragmentShader={HOME_FRAGMENT}
-                transparent
-                depthWrite={false}
-                blending={THREE.AdditiveBlending}
-              />
-            </mesh>
-          )}
-
-        </group>
-
-        {/* === BLUE PARTICLE RING (4000 soft points) === */}
-        <group ref={ringLiftRef}>
-          <points ref={pointsRef} rotation={[0, 0, 0.3]}>
-            <bufferGeometry>
-              <bufferAttribute
-                attach="attributes-position"
-                count={particlePositions.count}
-                array={particlePositions.array}
-                itemSize={3}
-              />
-              <bufferAttribute
-                attach="attributes-aColor"
-                count={particleColors.count}
-                array={particleColors.array}
-                itemSize={3}
-              />
-              <bufferAttribute
-                attach="attributes-aSize"
-                count={smallSizes.count}
-                array={smallSizes.array}
-                itemSize={1}
-              />
-            </bufferGeometry>
-            <shaderMaterial
-              uniforms={{}}
-              vertexShader={PARTICLE_VERTEX}
-              fragmentShader={PARTICLE_FRAGMENT}
-              transparent
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-            />
-          </points>
-        </group>
+      <group ref={planetRef}>
+        <mesh frustumCulled={false}>
+          <sphereGeometry args={[1, 192, 128]} />
+          <shaderMaterial uniforms={planetUniforms} vertexShader={PLANET_VERTEX} fragmentShader={PLANET_FRAGMENT} />
+        </mesh>
+        <mesh frustumCulled={false} scale={CLOUD_HEIGHT} renderOrder={2}>
+          <sphereGeometry args={[1, 128, 96]} />
+          <shaderMaterial uniforms={planetUniforms} vertexShader={PLANET_VERTEX} fragmentShader={CLOUD_FRAGMENT} transparent depthWrite={false} />
+        </mesh>
       </group>
     </>
   );
 }
 
-/** Every half a minute or so, a faint shooting star crosses the sky behind the planet. */
-function ShootingStar({ settings }: { settings: MutableRefObject<SceneSettings> }) {
-  const meshRef = useRef<THREE.Mesh>(null!);
-  const uniforms = useMemo(() => ({ uAlpha: { value: 0 } }), []);
-  const flight = useRef({ wait: 9 + Math.random() * 6, age: -1, from: new THREE.Vector3(), direction: new THREE.Vector3() });
-
-  useFrame((_, rawDelta) => {
-    const delta = Math.min(rawDelta, 0.05);
-    const mesh = meshRef.current;
-    const f = flight.current;
-    if (settings.current.reducedMotion) {
-      mesh.visible = false;
-      return;
-    }
-    if (f.age < 0) {
-      f.wait -= delta;
-      if (f.wait > 0) return;
-      // Start in the open sky on the left, away from the planet, and fall gently.
-      const leftwards = Math.random() < 0.6;
-      const angle = (leftwards ? Math.PI + 0.32 : -0.32) + (Math.random() - 0.5) * 0.3;
-      f.from.set(leftwards ? -6 + Math.random() * 6 : -14 + Math.random() * 5, 3 + Math.random() * 4, -14);
-      f.direction.set(Math.cos(angle), Math.sin(angle), 0);
-      f.age = 0;
-      f.wait = 22 + Math.random() * 30;
-      mesh.rotation.z = angle;
-    }
-    f.age += delta;
-    const p = f.age / 0.95;
-    if (p >= 1) {
-      f.age = -1;
-      mesh.visible = false;
-      return;
-    }
-    mesh.visible = true;
-    mesh.position.copy(f.from).addScaledVector(f.direction, p * 7);
-    uniforms.uAlpha.value = Math.sin(p * Math.PI) * 0.75;
-  });
-
-  return (
-    <mesh ref={meshRef} visible={false}>
-      <planeGeometry args={[1.8, 0.05]} />
-      <shaderMaterial
-        uniforms={uniforms}
-        vertexShader={HOME_VERTEX}
-        fragmentShader={METEOR_FRAGMENT}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </mesh>
-  );
-}
-
-function LoadingPlanet() {
-  const { viewport } = useThree();
-  const { radius, position } = getEarthTransform(viewport);
-  return (
-    <mesh position={position} scale={radius}>
-      <sphereGeometry args={[1, 48, 48]} />
-      <meshBasicMaterial color="#2255aa" wireframe transparent opacity={0.3} />
-    </mesh>
-  );
-}
-
-function StarField({ reducedMotion }: { reducedMotion: boolean }) {
-  const pointsRef = useRef<THREE.Points>(null!);
-  const positions = useMemo(() => {
-    const values = new Float32Array(STAR_COUNT * 3);
-    const colors = new Float32Array(STAR_COUNT * 3);
-    for (let i = 0; i < STAR_COUNT; i++) {
-      values[i * 3] = (Math.random() - 0.5) * 50;
-      values[i * 3 + 1] = (Math.random() - 0.5) * 30;
-      values[i * 3 + 2] = -3 - Math.random() * 18;
-      const b = 0.4 + Math.random() * 0.6;
-      if (Math.random() > 0.7) {
-        colors[i * 3] = b; colors[i * 3 + 1] = b * 0.8; colors[i * 3 + 2] = b;
-      } else {
-        colors[i * 3] = b; colors[i * 3 + 1] = b * 0.9; colors[i * 3 + 2] = b * 0.7;
-      }
-    }
-    return {
-      positions: new THREE.BufferAttribute(values, 3),
-      colors: new THREE.BufferAttribute(colors, 3),
-    };
-  }, []);
-
-  useFrame((_, delta) => {
-    if (!reducedMotion) pointsRef.current.rotation.y += Math.min(delta, 0.05) * 0.001;
-  });
-
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={positions.positions.count} array={positions.positions.array} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={positions.colors.count} array={positions.colors.array} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={0.035} vertexColors transparent opacity={0.8} sizeAttenuation depthWrite={false} />
-    </points>
-  );
-}
-
-// The original fill lights; the key light is the sun inside EarthScene.
-function Lighting() {
-  return (
-    <>
-      <ambientLight intensity={0.18} color="#224466" />
-      <directionalLight position={[-5, -1, 2]} intensity={0.15} color="#4488ff" />
-    </>
-  );
-}
-
 interface CinematicEarthProps {
-  mode: DayNightMode;
-  customHour: number;
-  hourStore: HourStore;
   reducedMotion: boolean;
+  /** The part of the page whose [data-stop] elements mark where the planet goes. */
+  story: RefObject<HTMLElement>;
 }
 
-export default function CinematicEarth({ mode, customHour, hourStore, reducedMotion }: CinematicEarthProps) {
-  const [dragging, setDragging] = useState(false);
+export default function CinematicEarth({ reducedMotion, story }: CinematicEarthProps) {
+  const [free, setFree] = useState(true);
   const [onScreen, setOnScreen] = useState(true);
   const container = useRef<HTMLDivElement>(null);
-  const finePointer = useMemo(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches === true, []);
-  const settings = useRef<SceneSettings>({ mode, customHour, reducedMotion, finePointer });
-  useEffect(() => {
-    settings.current = { mode, customHour, reducedMotion, finePointer };
-  }, [mode, customHour, reducedMotion, finePointer]);
+  const homeLabel = useRef<HTMLDivElement>(null);
+  const homeTime = useRef<HTMLSpanElement>(null);
+  const markers = useRef<HTMLDivElement>(null);
+  const storyShade = useRef<HTMLDivElement>(null);
+  const centres = useRef<number[]>([]);
 
   // The visitor's part of the world, from their time zone (nothing is asked or sent).
   const home = useMemo(() => findHome(browserTimeZone()), []);
-  const labelRoot = useRef<HTMLDivElement | null>(null);
-  const labelTime = useRef<HTMLSpanElement | null>(null);
-  const labelSun = useRef<HTMLSpanElement | null>(null);
-  const labelMoon = useRef<HTMLSpanElement | null>(null);
-  const label = useMemo<HomeLabel>(() => ({ root: labelRoot, time: labelTime, sun: labelSun, moon: labelMoon }), []);
-  const interaction = useRef<InteractionState>({
-    hovered: false, dragging: false,
-    pointerX: 0, pointerY: 0,
-    baseRotationX: 0.08, baseRotationY: -1.05,
-    velocityX: 0, velocityY: 0,
-    startX: 0, startY: 0, lastX: 0, lastY: 0, moved: false,
+  const controls = useRef<Controls>({
+    dragging: false,
+    lat: 14,
+    lon: 24,
+    velocityX: 0,
+    velocityY: 0,
+    lastX: 0,
+    lastY: 0,
+    samples: [],
+    releasedAt: -Infinity,
+    free: 1,
+    radius: 400,
+    pixelsPerRadian: 500,
+    centreX: 0,
+    centreY: 0,
   });
 
-  // Stop drawing while the hero is scrolled out of view.
+  // Where each stop's text is centred on screen, kept up to date as the layout changes.
+  useEffect(() => {
+    const root = story.current;
+    if (!root) return;
+    const measure = () => {
+      const stops = [...root.querySelectorAll<HTMLElement>("[data-stop]")];
+      const scroll = window.scrollY;
+      centres.current = stops.map((element, index) => {
+        if (index === 0) return 0;
+        const box = element.getBoundingClientRect();
+        return box.top + scroll + box.height / 2 - window.innerHeight / 2;
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [story]);
+
+  // Stop drawing while the planet is scrolled out of view.
   useEffect(() => {
     const element = container.current;
     if (!element || typeof IntersectionObserver === "undefined") return;
@@ -793,110 +513,137 @@ export default function CinematicEarth({ mode, customHour, hourStore, reducedMot
     return () => observer.disconnect();
   }, []);
 
-  const updatePointer = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+  /** Whether the pointer is over the planet (the empty sky around it can't be grabbed). */
+  const overPlanet = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const c = controls.current;
     const bounds = event.currentTarget.getBoundingClientRect();
-    interaction.current.pointerX = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
-    interaction.current.pointerY = -(((event.clientY - bounds.top) / bounds.height) * 2 - 1);
+    return c.free >= 0.6 && Math.hypot(event.clientX - bounds.left - c.centreX, event.clientY - bounds.top - c.centreY) <= c.radius;
   }, []);
 
-  const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    updatePointer(event);
-    const c = interaction.current;
-    if (!c.dragging) return;
-    const dx = event.clientX - c.lastX, dy = event.clientY - c.lastY;
-    c.moved ||= Math.hypot(event.clientX - c.startX, event.clientY - c.startY) > 4;
-    c.baseRotationY += dx * 0.0065;
-    c.baseRotationX = THREE.MathUtils.clamp(c.baseRotationX + dy * 0.0045, TILT.min, TILT.max);
-    c.velocityY = dx * 0.16;
-    c.velocityX = dy * 0.1;
-    c.lastX = event.clientX;
-    c.lastY = event.clientY;
-  }, [updatePointer]);
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const c = controls.current;
+      if (!c.dragging) {
+        event.currentTarget.style.cursor = overPlanet(event) ? "grab" : "";
+        return;
+      }
+      const view = turnGlobe(c, event.clientX - c.lastX, c.lastY - event.clientY, c.pixelsPerRadian);
+      c.lat = view.lat;
+      c.lon = view.lon;
+      c.lastX = event.clientX;
+      c.lastY = event.clientY;
+      c.samples.push({ time: performance.now(), x: event.clientX, y: -event.clientY });
+      if (c.samples.length > 8) c.samples.shift();
+    },
+    [overPlanet],
+  );
 
-  const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    updatePointer(event);
-    const c = interaction.current;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    c.dragging = true; c.moved = false;
-    c.startX = event.clientX; c.startY = event.clientY;
-    c.lastX = event.clientX; c.lastY = event.clientY;
-    c.velocityX = 0; c.velocityY = 0;
-    setDragging(true);
-  }, [updatePointer]);
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!overPlanet(event)) return;
+      const c = controls.current;
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // The drag still works over the planet without it.
+      }
+      c.dragging = true;
+      c.lastX = event.clientX;
+      c.lastY = event.clientY;
+      c.samples = [{ time: performance.now(), x: event.clientX, y: -event.clientY }];
+      c.velocityX = 0;
+      c.velocityY = 0;
+      event.currentTarget.style.cursor = "grabbing";
+    },
+    [overPlanet],
+  );
 
-  const finishPointer = useCallback((event: ReactPointerEvent<HTMLDivElement>, cancelled = false) => {
-    const c = interaction.current;
-    if (!cancelled && !c.moved) {
-      c.baseRotationY += (c.pointerX < 0 ? -1 : 1) * (Math.PI / 2);
-      c.baseRotationX = THREE.MathUtils.clamp(c.baseRotationX + c.pointerY * 0.055, TILT.min, TILT.max);
-      c.velocityX = 0; c.velocityY = 0;
-    }
-    c.dragging = false;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    setDragging(false);
-  }, []);
+  const finishPointer = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>, cancelled = false) => {
+      const c = controls.current;
+      if (!c.dragging) return;
+      c.dragging = false;
+      const now = performance.now();
+      const flick = cancelled || reducedMotion ? { x: 0, y: 0 } : flickSpeed(c.samples, now, c.pixelsPerRadian);
+      c.velocityX = flick.x;
+      c.velocityY = flick.y;
+      c.releasedAt = now / 1000;
+      c.samples = [];
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      event.currentTarget.style.cursor = "grab";
+    },
+    [reducedMotion],
+  );
 
-  const handleKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
-    const c = interaction.current;
-    if (event.key === "ArrowLeft") c.baseRotationY -= Math.PI / 4;
-    if (event.key === "ArrowRight" || event.key === "Enter" || event.key === " ") c.baseRotationY += Math.PI / 4;
-    if (event.key === "ArrowUp") c.baseRotationX = Math.max(TILT.min, c.baseRotationX - 0.12);
-    if (event.key === "ArrowDown") c.baseRotationX = Math.min(TILT.max, c.baseRotationX + 0.12);
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter", " "].includes(event.key)) event.preventDefault();
-  }, []);
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      const c = controls.current;
+      if (c.free < 0.6) return;
+      // The surface moves the way the arrow points.
+      const turns: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+      const turn = turns[event.key];
+      if (!turn) return;
+      event.preventDefault();
+      c.releasedAt = performance.now() / 1000;
+      if (reducedMotion) {
+        const view = turnGlobe(c, turn[0] * 0.3, turn[1] * 0.3);
+        c.lat = view.lat;
+        c.lon = view.lon;
+      } else {
+        c.velocityX += turn[0] * 0.9;
+        c.velocityY += turn[1] * 0.9;
+      }
+    },
+    [reducedMotion],
+  );
 
   return (
     <div
       ref={container}
-      className="relative h-full w-full touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60"
+      className={`relative h-full w-full select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foreground/60 ${free ? "" : "pointer-events-none"}`}
+      style={{ touchAction: "pan-y" }}
       role="application"
-      aria-label={`Interactive Earth. Drag to explore.${home ? ` Your time zone, ${home.city}, is marked.` : ""}`}
-      tabIndex={0}
+      aria-label={`Interactive Earth. Drag or use the arrow keys to turn it.${home ? ` Your time zone, ${home.city}, is marked.` : ""}`}
+      tabIndex={free ? 0 : -1}
       onKeyDown={handleKeyDown}
-      onPointerEnter={(event) => { interaction.current.hovered = true; updatePointer(event); }}
-      onPointerLeave={() => { interaction.current.hovered = false; interaction.current.pointerX = 0; interaction.current.pointerY = 0; }}
       onPointerMove={handlePointerMove}
       onPointerDown={handlePointerDown}
       onPointerUp={(event) => finishPointer(event)}
       onPointerCancel={(event) => finishPointer(event, true)}
-      style={{ cursor: dragging ? "grabbing" : "grab" }}
     >
       <Canvas
-        camera={{ position: [0, 0, 10], fov: 42, near: 0.1, far: 80 }}
+        camera={{ position: [0, 0, CAMERA_DISTANCE], fov: 30, near: 0.5, far: 20 }}
         dpr={[1, 1.75]}
         frameloop={onScreen ? "always" : "never"}
-        gl={{
-          alpha: true,
-          antialias: true,
-          powerPreference: "high-performance",
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.0,
-        }}
+        gl={{ alpha: true, antialias: true, powerPreference: "high-performance", toneMappingExposure: 1.0 }}
       >
-        <Lighting />
-        <StarField reducedMotion={reducedMotion} />
-        <ShootingStar settings={settings} />
-        <Suspense fallback={<LoadingPlanet />}>
-          <EarthScene interaction={interaction} settings={settings} hourStore={hourStore} home={home} label={label} />
+        <Suspense fallback={null}>
+          <PlanetScene controls={controls} reducedMotion={reducedMotion} home={home} centres={centres} homeLabel={homeLabel} homeTime={homeTime} markers={markers} storyShade={storyShade} onFreeChange={setFree} />
         </Suspense>
       </Canvas>
 
+      {/* Keeps the words readable where the planet comes near them: lightly at the opening, so its edge shows. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-[44%] bg-gradient-to-r from-space from-25% via-space/60 via-60% to-transparent portrait:hidden" />
+      <div ref={storyShade} aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-[58%] bg-gradient-to-r from-space from-45% via-space/85 via-72% to-transparent opacity-0 portrait:hidden" />
+      {/* The planet melts into the dark at the bottom edge instead of being cut off. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[16%] bg-gradient-to-t from-space to-transparent" />
+
       {home && (
-        <div
-          ref={labelRoot}
-          aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-0 hidden items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white/90 opacity-0 shadow-lg backdrop-blur-md will-change-transform sm:flex"
-        >
-          <span ref={labelSun} className="hidden text-amber-300">
-            <Sun className="h-3 w-3" />
-          </span>
-          <span ref={labelMoon} className="inline-flex text-sky-200">
-            <Moon className="h-3 w-3" />
-          </span>
+        <div ref={homeLabel} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 flex items-center gap-2 whitespace-nowrap rounded-sm bg-black/70 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-white opacity-0 will-change-transform">
           <span translate="no">{home.city}</span>
-          <span ref={labelTime} className="tabular-nums text-white/60" />
+          <span ref={homeTime} className="tabular-nums text-white/70" />
         </div>
       )}
+
+      <div ref={markers} aria-hidden="true">
+        {MARKERS.map((marker) => (
+          <div key={marker.text} className="pointer-events-none absolute left-0 top-0 opacity-0 will-change-transform">
+            <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full border border-white bg-white/30" />
+            <span className="absolute left-1 top-0 h-px w-7 bg-white/70" />
+            <span className="absolute left-8 top-0 -translate-y-1/2 whitespace-nowrap rounded-sm bg-black/70 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-white">{marker.text}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

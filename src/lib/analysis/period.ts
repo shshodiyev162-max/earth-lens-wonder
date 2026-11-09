@@ -23,7 +23,8 @@ export const PERIOD_PRESETS: { id: PresetId; label: string; years: number | null
   { id: "all", label: "All data", years: null },
 ];
 
-export const DEFAULT_PERIOD: PresetId = "10y";
+/** Twenty years: long enough for the trend tests to tell a real change from normal ups and downs. */
+export const DEFAULT_PERIOD: PresetId = "20y";
 
 export interface PeriodSelection {
   kind: PeriodKind;
@@ -62,7 +63,7 @@ export function defaultComparison(latest = defaultEndMonth()): { baseline: YearS
 }
 
 export function presetRange(preset: PresetId, latest = defaultEndMonth()): { start: string; end: string } {
-  const option = PERIOD_PRESETS.find((p) => p.id === preset) ?? PERIOD_PRESETS[2];
+  const option = PERIOD_PRESETS.find((p) => p.id === preset) ?? PERIOD_PRESETS[3];
   if (option.years === null) return { start: EARLIEST_MONTH, end: latest };
   const start = addMonthsToMonth(latest, -(option.years * 12 - 1));
   return { start: start < EARLIEST_MONTH ? EARLIEST_MONTH : start, end: latest };
@@ -96,7 +97,7 @@ function parseSeason(value: string | null): { season: SeasonChoice; customMonths
   return { season: "all", customMonths: null };
 }
 
-/** Reads the period from the page address; anything missing or invalid falls back to the last 10 years. */
+/** Reads the period from the page address; anything missing or invalid falls back to the default period. */
 export function readPeriod(params: URLSearchParams, latest = defaultEndMonth()): PeriodSelection {
   const notes: string[] = [];
   const { season, customMonths } = parseSeason(params.get("season"));

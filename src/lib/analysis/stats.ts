@@ -498,6 +498,8 @@ export interface TrendVerdict {
 }
 
 export const SIGNIFICANCE = 0.05;
+/** Below this but above SIGNIFICANCE: a lean worth mentioning, not a finding. */
+export const WEAK_EVIDENCE = 0.1;
 
 function verdictFrom(p: number, slope: SenSlopeResult, years: number, method: TrendVerdict["method"]): TrendVerdict {
   const significant = p < SIGNIFICANCE && slope.slope !== 0;
@@ -560,9 +562,12 @@ export function explainVerdict(verdict: TrendVerdict, subject: string, unit: str
   if (verdict.direction === "none") {
     // The range and the test agree almost always; only say "includes no change" when it does.
     const spansZero = verdict.lowerPerYear <= 0 && verdict.upperPerYear >= 0;
-    return `${subject} went up and down without a consistent direction over ${Math.round(verdict.years)} years (${formatP(verdict.p)}). The middle estimate is ${rate}${
-      spansZero ? `, but the ${range} includes no change at all` : ` (${range})`
-    }; a pattern this weak can easily come from natural year-to-year variation.`;
+    const estimate = `The middle estimate is ${rate}${spansZero ? `, but the ${range} includes no change at all` : ` (${range})`}`;
+    // Just short of the cut-off is weak evidence of a change, which isn't the same as no sign of one.
+    if (verdict.p < WEAK_EVIDENCE && verdict.slopePerYear !== 0) {
+      return `${subject} leaned ${verdict.slopePerYear > 0 ? "upward" : "downward"} over ${Math.round(verdict.years)} years, but not consistently enough to rule out chance (${formatP(verdict.p)}). ${estimate}; a few more years of data could settle it either way.`;
+    }
+    return `${subject} showed no consistent direction over ${Math.round(verdict.years)} years (${formatP(verdict.p)}). ${estimate}; a pattern this weak can easily come from natural year-to-year variation.`;
   }
   const chance = verdict.p < 0.001 ? "fewer than 1 in 1,000" : verdict.p < 0.01 ? "fewer than 1 in 100" : "fewer than 1 in 20";
   return `${subject} ${verdict.direction === "decline" ? "fell" : "rose"} by ${rate} (${range}). A run this consistent would appear by chance in ${chance} records without a real trend (${formatP(verdict.p)}).`;

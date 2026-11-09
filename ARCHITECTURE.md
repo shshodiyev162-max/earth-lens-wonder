@@ -6,7 +6,7 @@ TerraScope is a single-page React app (Vite, TypeScript, Tailwind, shadcn/ui, re
 
 | Path        | Page                     | What it does                                                         |
 | ----------- | ------------------------ | -------------------------------------------------------------------- |
-| `/`         | `Landing`                | Globe with real day and night (Now / Custom / Auto), entry points    |
+| `/`         | `Landing`                | A pinned NASA globe and a scroll story of three measured findings    |
 | `/map`      | `Explore`                | One map: layer, date, search, click-to-read values, drawing           |
 | `/split`    | `SplitView` ("Compare")  | One map, two layers or dates, draggable divider                       |
 | `/sync`     | `SyncView` ("Side by side") | Two maps locked together                                          |
@@ -38,7 +38,7 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 
 ### `lib/query` — measures and periods
 
-- `indicators.ts` lists the 13 measures: GIBS layer, unit, smallest change worth flagging, native resolution, usual season, the worrying direction, the surface it is read on (land, water or any) and its picker group.
+- `indicators.ts` lists the 29 measures: GIBS layer, unit, smallest change worth flagging, native resolution, usual season, the worrying direction, the surface it is read on (land, water or any), its picker group and, when the record isn't the whole satellite era, its first and last month.
 - `period.ts` turns a time choice into baseline and recent windows and the years to read, within a budget of monthly maps.
 
 ### `lib/trends` — the trend detective
@@ -58,14 +58,14 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 
 ### `lib/analysis` — the report
 
-- `run.ts` orchestrates a run. For each satellite dataset it takes the months that exist in the GIBS time domain, samples them through a shared, abortable cache with a concurrency limit of 6, and retries server errors. Climate comes from NASA POWER monthly and climatology requests at the sample points (limit 3). Progress is reported per step, and changing the target or period cancels the previous run.
+- `run.ts` orchestrates a run. For each satellite dataset it takes the months that exist in the GIBS time domain, samples them through a shared, abortable cache with a concurrency limit of 6, and retries server errors. Climate comes from NASA POWER monthly and climatology requests at the sample points (limit 3). Satellite datasets are read one after another (they share the limit, so this takes no longer) and each finished dataset is handed to `onPartial`, so the report fills in as data arrives. Progress is reported per step and per dataset, and changing the target or period cancels the previous run.
 - `power.ts` parses POWER responses (`-999` means no data; month `13` is the annual value and is dropped) and averages across sample points.
 - `stats.ts` provides means, extremes and year-over-year change. It also has the statistics behind every verdict, checked against textbook values:
   - the Mann–Kendall test (tie-corrected, plus a seasonal version)
   - Sen's slope with its confidence range (Gilbert 1987)
   - Welch's t-test and plain-language verdicts
 - `aggregate.ts` turns monthly values into one value per (season) year and compares two periods. `period.ts` reads periods, comparisons and months from the URL. `trend.ts` runs a trend test or comparison for every measure of a report and suggests testing the whole record when a short one shows no clear trend.
-- `insights.ts` turns the numbers into a headline, a summary, findings, indicators and caveats using fixed thresholds that are stated in the text. It has no randomness and no language model.
+- `insights.ts` writes the answer from the trend tests alone (one hot month or a dry spell can't change it), a note on how far to trust it, the latest months against the 2001–2020 normal, and caveats. It has no randomness and no language model.
 - `export.ts` produces the CSV: one row per month read, blank where there is no data, with the trend results as header lines.
 - `../analysisClient.ts` is optional: when `VITE_AI_ANALYSIS_ENDPOINT` is set, the measured findings are sent there for a short AI-written briefing shown next to the built-in summary.
 
@@ -75,7 +75,7 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 
 ### `lib/glossary.ts`
 
-Plain one- or two-sentence definitions of every measure and of the statistics words, shown in the measure picker, the result tabs, the Analysis cards and a "Words used here" panel. A test keeps them short and free of jargon.
+Plain one- or two-sentence definitions of every measure and of the statistics words, shown in the measure picker, the result tabs, the Analysis report and a "Words used here" panel. A test keeps them short and free of jargon.
 
 ### `lib/async.ts`
 
@@ -117,7 +117,7 @@ The design is the original TerraView design from the GitHub version, unchanged w
 ## Design decisions
 
 - **Say when it isn't significant.** Every rate comes with its 95% range and a test. "No clear trend" is a result, shown as plainly as a significant one, with a way to test a longer record.
-- **Measure, don't simulate.** Every number on the Analysis page is decoded from NASA imagery or read from NASA POWER, and gaps stay gaps. The thresholds behind each finding are written into the finding itself.
+- **Measure, don't simulate.** Every number on the Analysis page is decoded from NASA imagery or read from NASA POWER, and gaps stay gaps. A verdict comes from a stated test, never from a fixed threshold on one month's value.
 - **Ask GIBS what exists.** Dates come from the live time domain and zoom limits from the matrix set, so the maps never request tiles that cannot exist.
 - **Keyless and static.** The build is plain static files (Netlify config included). Optional services (accounts, AI briefing) are switched on with environment variables and never need secrets in the browser.
 - **Polite to free services.** Searches are debounced, Nominatim calls are queued at one per second, and analysis requests are de-duplicated, cancelled when no longer needed, and concurrency-limited.

@@ -171,6 +171,35 @@ export function resolveInDomain(domain: TimeDomain, requested: string): Resolved
   return { requested, date: previous ? lastStep(previous) : domain.latest, resolution: "latest" };
 }
 
+/** The last day of a month (YYYY-MM-DD). */
+function lastDayOf(month: string): string {
+  const [year, m] = month.split("-").map(Number);
+  return toIsoDate(new Date(Date.UTC(year, m, 0)));
+}
+
+/** Cuts off dates NASA still lists after a product's real data ends. */
+export function clipDomain(domain: TimeDomain | null, lastMonth?: string): TimeDomain | null {
+  if (!domain || !lastMonth) return domain;
+  const end = lastDayOf(lastMonth);
+  const intervals = domain.intervals.filter((i) => i.start <= end).map((i) => (i.end > end ? { ...i, end } : i));
+  if (!intervals.length) return null;
+  return { intervals, earliest: domain.earliest, latest: intervals.reduce((max, i) => (i.end > max ? i.end : max), intervals[0].end) };
+}
+
+/** The first date NASA lists within a month, or null when it has none there (a gap in the record). */
+export function firstDateInMonth(domain: TimeDomain, month: string): string | null {
+  const first = `${month}-01`;
+  const last = lastDayOf(month);
+  for (const interval of domain.intervals) {
+    if (interval.start > last || interval.end < first) continue;
+    const step = parsePeriod(interval.period);
+    for (let k = 0, date = interval.start; date <= interval.end && date <= last && k < 600; k++, date = stepDate(interval.start, step, k)) {
+      if (date >= first) return date;
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Fetching (cached per layer)
 
@@ -186,7 +215,7 @@ export function fetchTimeDomain(layer: GibsLayer): Promise<TimeDomain | null> {
   if (cached) return cached;
   const request = fetch(domainUrl(layer))
     .then((response) => (response.ok ? response.text() : Promise.reject(new Error(`Domain request failed (${response.status})`))))
-    .then((xml) => parseDomainXml(xml))
+    .then((xml) => clipDomain(parseDomainXml(xml), layer.recordEnd))
     .catch((error) => {
       domainCache.delete(layer.id); // allow a retry later
       throw error;
@@ -273,10 +302,18 @@ export function availableMonths(domain: TimeDomain | null, start: string, end: s
 
 /** Months a layer can serve within [start, end], honouring layers whose domain is one continuous range. */
 export function monthsInDomain(layer: GibsLayer, domain: TimeDomain | null, start: string, end: string): string[] {
+  if (domain && layer.irregularDates) return monthRange(start, end).filter((month) => firstDateInMonth(domain, month) !== null);
   if (!domain || !layer.continuousDomain) return availableMonths(domain, start, end);
   const first = domain.earliest.slice(0, 7);
   const last = domain.latest.slice(0, 7);
   return monthRange(start < first ? first : start, end > last ? last : end).filter((m) => m >= first && m <= last);
+}
+
+/** The date to ask NASA for a month's map: the 1st, or the date NASA lists that month for layers with uneven dates. */
+export async function dateForMonth(layer: GibsLayer, month: string): Promise<string> {
+  if (!layer.irregularDates) return `${month}-01`;
+  const domain = await fetchTimeDomain(layer);
+  return (domain && firstDateInMonth(domain, month)) ?? `${month}-01`;
 }
 
 /** First and last month a layer has published. */

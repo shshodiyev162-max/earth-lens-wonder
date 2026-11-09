@@ -3,7 +3,7 @@ import { demoAttr } from "@/lib/demo/scripts";
 import { BarChart3, Columns2, History, Maximize2 } from "lucide-react";
 import { explainVerdict, formatP, signed } from "@/lib/analysis/stats";
 import { formatArea } from "@/lib/geo/geometry";
-import type { Indicator } from "@/lib/query/indicators";
+import { percentChangeMeansSomething, type Indicator } from "@/lib/query/indicators";
 import type { PeriodPlan } from "@/lib/query/period";
 import type { ResultFilter } from "@/lib/trends/query";
 import type { AreaSummary, YearValue } from "@/lib/trends/scan";
@@ -48,7 +48,7 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
   const { name, kind, summary, verdict, series, indicator, plan, filter, seasonSubject, hotspotCount, hotspotKm2, analysisHref, compareHref, onZoom, hint, onTryAllYears } = props;
   const surface = props.surface ?? indicator.surface;
   const value = (v: number) => `${v.toFixed(indicator.decimals)} ${indicator.unit}`;
-  const percent = summary.change !== null && summary.baselineMean && indicator.unit !== "°C" && Math.abs(summary.baselineMean) > 1e-6 ? (summary.change / Math.abs(summary.baselineMean)) * 100 : null;
+  const percent = summary.change !== null && summary.baselineMean && percentChangeMeansSomething(indicator) && Math.abs(summary.baselineMean) > 1e-6 ? (summary.change / Math.abs(summary.baselineMean)) * 100 : null;
   const threshold = `${(indicator.minChange * filter.minFactor).toFixed(Math.max(indicator.decimals, 2)).replace(/\.?0+$/, "")} ${indicator.unit}`;
   const windows = plan.kind === "comparison" ? [`${plan.baseline[0]}`, `${plan.recent[0]}`] : [`${plan.baseline[0]}–${plan.baseline[1]}`, `${plan.recent[0]}–${plan.recent[1]}`];
   const tone =

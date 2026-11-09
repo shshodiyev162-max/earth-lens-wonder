@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import {
   Area,
   Bar,
@@ -15,7 +14,6 @@ import {
 } from "recharts";
 import { formatMonth } from "@/lib/gibs/time";
 import type { ClimatePoint, SatelliteSeries } from "@/lib/analysis/types";
-import { cn } from "@/lib/utils";
 import { useTheme, type Theme } from "@/context/theme";
 
 interface ChartColors {
@@ -75,40 +73,6 @@ function ChartTooltip({ active, payload, label, formats }: TooltipProps<number, 
         );
       })}
     </div>
-  );
-}
-
-export function ChartCard({
-  title,
-  subtitle,
-  definition,
-  aside,
-  children,
-  footer,
-  className,
-}: {
-  title: string;
-  subtitle?: string;
-  /** What the measure is, in plain words. */
-  definition?: string;
-  aside?: ReactNode;
-  children: ReactNode;
-  footer?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section className={cn("glass rounded-2xl p-6", className)}>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium text-foreground">{title}</p>
-          {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-          {definition && <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">{definition}</p>}
-        </div>
-        {aside}
-      </div>
-      <div className="h-56 sm:h-64">{children}</div>
-      {footer && <div className="mt-3 text-xs leading-relaxed text-muted-foreground">{footer}</div>}
-    </section>
   );
 }
 
@@ -225,51 +189,40 @@ export function SoilChart({ climate }: { climate: ClimatePoint[] }) {
 }
 
 export function SingleSeriesChart({
-  series,
+  points,
+  label,
+  unit,
+  decimals,
   color,
   kind = "line",
   reference,
 }: {
-  series: SatelliteSeries;
+  points: { month: string; value: number | null }[];
+  label: string;
+  unit: string;
+  decimals: number;
   color: string;
   kind?: "line" | "area";
   reference?: { y: number; label: string };
 }) {
   const c = useChartColors();
-  const data: Row[] = series.points.map((p) => ({ month: p.month, value: p.value }));
-  const formats = { value: { label: series.label, unit: series.unit === "AOD" ? "" : series.unit, decimals: series.decimals } };
+  const data: Row[] = points.map((p) => ({ month: p.month, value: p.value }));
+  const formats = { value: { label, unit, decimals } };
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
         <CartesianGrid stroke={c.grid} strokeDasharray="3 3" vertical={false} />
         <XAxis {...commonX(data.length, c)} />
-        <YAxis tick={c.axis} tickLine={false} axisLine={false} width={44} />
+        {/* Lines keep to their own range: methane near 1,900 ppb would be flat on an axis from zero. */}
+        <YAxis tick={c.axis} tickLine={false} axisLine={false} width={44} domain={kind === "area" ? undefined : ["auto", "auto"]} />
         <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} />
         {reference && <ReferenceLine y={reference.y} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: reference.label, fill: "#f59e0b", fontSize: 10, position: "insideTopRight" }} />}
         {kind === "area" ? (
           <Area dataKey="value" stroke={color} fill={color} fillOpacity={0.25} strokeWidth={2} connectNulls={false} isAnimationActive={false} />
         ) : (
-          <Line dataKey="value" stroke={color} strokeWidth={2.2} dot={{ r: 2.5, fill: color, strokeWidth: 0 }} connectNulls={false} isAnimationActive={false} />
+          <Line dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 2, fill: color, strokeWidth: 0 }} connectNulls={false} isAnimationActive={false} />
         )}
       </ComposedChart>
     </ResponsiveContainer>
-  );
-}
-
-/** Tiny inline trend line for KPI cards. */
-export function Sparkline({ values, color = "#2dd4bf", className }: { values: (number | null)[]; color?: string; className?: string }) {
-  const points = values.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v !== null && Number.isFinite(p.v));
-  if (points.length < 2) return <div className={cn("h-8", className)} />;
-  const min = Math.min(...points.map((p) => p.v));
-  const max = Math.max(...points.map((p) => p.v));
-  const span = max - min || 1;
-  const w = 120;
-  const h = 32;
-  const n = Math.max(values.length - 1, 1);
-  const path = points.map((p, k) => `${k === 0 ? "M" : "L"}${((p.i / n) * w).toFixed(1)},${(h - 3 - ((p.v - min) / span) * (h - 6)).toFixed(1)}`).join(" ");
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className={cn("h-8 w-full", className)} aria-hidden>
-      <path d={path} fill="none" stroke={color} strokeWidth={1.8} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
   );
 }

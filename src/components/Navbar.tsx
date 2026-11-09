@@ -28,6 +28,27 @@ export default function Navbar() {
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
   const signedIn = !isDemoMode() && Boolean(user);
 
+  // Over the home page's planet the bar uses the dark colours whatever the theme, and is clear at the very top.
+  const [overPlanet, setOverPlanet] = useState<"top" | "scrolled" | null>(() => (location.pathname === "/" ? "top" : null));
+  useEffect(() => {
+    if (location.pathname !== "/") {
+      setOverPlanet(null);
+      return;
+    }
+    const update = () => {
+      const story = document.getElementById("planet-story");
+      const over = story ? story.getBoundingClientRect().bottom > 64 : true;
+      setOverPlanet(over ? (window.scrollY < 24 ? "top" : "scrolled") : null);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [location.pathname]);
+
   useEffect(() => setMobileOpen(false), [location.pathname]);
 
   // Ctrl/⌘K and "/" jump to the search bar at the top (or open the search window on small screens).
@@ -63,13 +84,24 @@ export default function Navbar() {
   };
 
   return (
-    <nav aria-label="Main" className="fixed top-0 left-0 right-0 z-[2000] glass-strong">
+    <nav
+      aria-label="Main"
+      className={`fixed top-0 left-0 right-0 z-[2000] transition-colors duration-300 ${
+        overPlanet === "top" && !mobileOpen
+          ? "dark border-b border-transparent bg-transparent"
+          : overPlanet
+            ? "dark border-b border-white/10 bg-black/55 backdrop-blur-xl"
+            : "glass-strong"
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="TerraScope home">
-          <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-            <Globe className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="font-display font-bold text-lg text-foreground">TerraScope</span>
+        <Link to="/" className="flex items-center gap-2.5 shrink-0" aria-label="TerraScope home">
+          <svg viewBox="0 0 32 32" aria-hidden="true" className="h-7 w-7 text-foreground">
+            <circle cx="16" cy="16" r="12.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            <path d="M3.5 16c4.2 3.4 8.4 5 12.5 5s8.3-1.6 12.5-5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity="0.55" />
+            <circle cx="21.5" cy="10.5" r="2.2" fill="currentColor" />
+          </svg>
+          <span className="font-display font-semibold text-[17px] tracking-tight text-foreground">TerraScope</span>
         </Link>
 
         {/* Desktop nav */}

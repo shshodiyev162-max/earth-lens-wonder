@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 const LOOKS = {
   panel: { box: "rounded-xl border border-panel-line bg-panel-tint p-3", summary: "text-panel-soft", term: "text-panel-foreground", meaning: "text-panel-muted" },
   page: { box: "glass rounded-2xl p-6", summary: "text-muted-foreground", term: "text-foreground", meaning: "text-muted-foreground" },
+  line: { box: "rounded-lg border border-border p-4", summary: "text-muted-foreground", term: "text-foreground", meaning: "text-muted-foreground" },
 };
 
 /** "Words used here": the statistics terms in plain language, folded away until asked for. */

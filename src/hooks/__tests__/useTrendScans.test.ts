@@ -67,8 +67,8 @@ describe("useTrendScans", () => {
     expect(everything.everything).toBe(true);
     const { result } = renderHook(() => useTrendScans(everything, null));
     await waitFor(() => expect(result.current.status).toBe("done"));
-    expect(result.current.indicators).toEqual(["dust", "vegetation", "heat", "rainfall", "soil"]);
-    expect(calls).toEqual(["dust", "vegetation", "heat", "rainfall", "soil"]);
+    expect(result.current.indicators).toEqual(["dust", "vegetation", "heat", "rainfall", "soil", "fineDust"]);
+    expect(calls).toEqual(["dust", "vegetation", "heat", "rainfall", "soil", "fineDust"]);
     expect(result.current.cover?.shares.barren).toBe(0.7);
   });
 

@@ -27,13 +27,14 @@ const STYLES = {
 /** Yearly values with the Sen's slope trend line, its 95% range and the chosen windows shaded. */
 export default function YearTrendChart({ series, baseline, recent, color, unit, decimals, compact = false, showRange = false, variant = "panel", label }: YearTrendChartProps) {
   const clipId = `range-${useId().replace(/:/g, "")}`;
-  const valid = series.filter((p): p is { year: number; value: number } => p.value !== null);
+  const valid = useMemo(() => series.filter((p): p is { year: number; value: number } => p.value !== null), [series]);
   const geometry = useMemo(() => {
     if (valid.length < 2) return null;
     const width = compact ? 120 : 300;
     const height = compact ? 32 : 120;
     const pad = compact ? { l: 2, r: 2, t: 3, b: 3 } : { l: 36, r: 8, t: 10, b: 20 };
-    const years = series.map((p) => p.year);
+    // Only years with a value: a year cut short by the period has none, and shouldn't widen the axis.
+    const years = valid.map((p) => p.year);
     const x0 = Math.min(...years);
     const x1 = Math.max(...years);
     const values = valid.map((p) => p.value);
@@ -66,7 +67,7 @@ export default function YearTrendChart({ series, baseline, recent, color, unit, 
     const path = valid.map((p, i) => `${i ? "L" : "M"}${sx(p.year).toFixed(1)},${sy(p.value).toFixed(1)}`).join(" ");
     const conePath = cone ? `${cone.map(([x, y], i) => `${i ? "L" : "M"}${sx(x).toFixed(1)},${sy(y).toFixed(1)}`).join(" ")} Z` : null;
     return { width, height, pad, sx, sy, path, sen, at, x0, x1, y0, y1, conePath };
-  }, [series, valid, compact, showRange]);
+  }, [valid, compact, showRange]);
 
   const style = STYLES[variant];
   if (!geometry) return <p className={variant === "panel" ? "text-xs text-panel-muted" : "text-xs text-muted-foreground"}>Not enough years with data for a chart.</p>;

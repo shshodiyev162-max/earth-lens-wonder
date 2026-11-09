@@ -3,7 +3,7 @@
 // going on — exactly what a person would do by hand. Every number shown comes from a real scan;
 // the captions describe what to look at, not the values.
 
-import type { Direction } from "../query/indicators";
+import { INDICATOR_ORDER, numberInWords, type Direction } from "../query/indicators";
 import type { QueryEdit } from "../trends/query";
 
 /** Parts of the Trends page a step can point at (each carries a matching data-demo attribute). */
@@ -113,7 +113,7 @@ export const DEMOS: DemoScript[] = [
       {
         target: "form",
         action: { kind: "edit", edit: { indicators: ["sst"], filters: { sst: { direction: "increase", ...ANY } }, time: { kind: "since", start: 2003 }, season: null, months: null } },
-        caption: "Choose sea temperature — one of thirteen NASA measures — since 2003, every month of the year. The results will show where the water warmed.",
+        caption: `Choose sea temperature — one of ${numberInWords(INDICATOR_ORDER.length)} NASA measures — since 2003, every month of the year. The results will show where the water warmed.`,
       },
       {
         target: "find",

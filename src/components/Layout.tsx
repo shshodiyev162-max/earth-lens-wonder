@@ -3,7 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 
 const TITLES: Record<string, string> = {
-  "/": "TerraScope — Explore and analyze Earth with NASA data",
+  "/": "TerraScope — What is changing on Earth, and is it real?",
   "/map": "Explore · TerraScope",
   "/split": "Compare · TerraScope",
   "/sync": "Side by side · TerraScope",
@@ -28,7 +28,8 @@ export default function Layout() {
         Skip to content
       </a>
       <Navbar />
-      <main id="main" tabIndex={-1} className="relative min-h-screen bg-background pt-16 outline-none">
+      {/* On the home page the planet runs up behind the navigation bar. */}
+      <main id="main" tabIndex={-1} className={`relative min-h-screen bg-background outline-none ${pathname === "/" ? "" : "pt-16"}`}>
         <div key={pathname} className="animate-page-in">
           <Outlet />
         </div>

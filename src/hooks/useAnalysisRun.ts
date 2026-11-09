@@ -10,6 +10,8 @@ export interface AnalysisRunState {
   report: InsightReport | null;
   progress: AnalysisProgress | null;
   error: string | null;
+  /** While running: the result shown is from this run so far, not the one before it. */
+  current: boolean;
   rerun: () => void;
 }
 
@@ -30,6 +32,7 @@ export function useAnalysisRun(target: AnalysisTarget | null, window: AnalysisWi
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [current, setCurrent] = useState(false);
   const [nonce, setNonce] = useState(0);
   const controller = useRef<AbortController | null>(null);
 
@@ -54,16 +57,27 @@ export function useAnalysisRun(target: AnalysisTarget | null, window: AnalysisWi
     controller.current?.abort();
     controller.current = ac;
     setStatus("running");
+    setCurrent(false);
     setError(null);
     setProgress({ done: 0, total: 1, label: "Starting" });
     const timer = globalThis.setTimeout(() => {
       runAnalysis(
         { target: current, start, end, months: chosen.months, period: chosen.period, datasets: datasetKey.split(",") as DatasetId[] },
-        { signal: ac.signal, onProgress: (p) => !ac.signal.aborted && setProgress(p) },
+        {
+          signal: ac.signal,
+          onProgress: (p) => !ac.signal.aborted && setProgress(p),
+          // Finished datasets show straight away; the report fills in as the rest arrive.
+          onPartial: (partial) => {
+            if (ac.signal.aborted) return;
+            setResult(partial);
+            setCurrent(true);
+          },
+        },
       )
         .then((next) => {
           if (ac.signal.aborted) return;
           setResult(next);
+          setCurrent(true);
           setStatus("done");
         })
         .catch((err) => {
@@ -83,5 +97,5 @@ export function useAnalysisRun(target: AnalysisTarget | null, window: AnalysisWi
   const report = useMemo(() => (result ? buildInsights(displayName ? { ...result, target: { ...result.target, name: displayName } } : result) : null), [result, displayName]);
   const rerun = useCallback(() => setNonce((n) => n + 1), []);
 
-  return { status, result, report, progress, error, rerun };
+  return { status, result, report, progress, error, current, rerun };
 }

@@ -28,7 +28,17 @@ export function browserTimeZone(): string | undefined {
   }
 }
 
-/** Hours the visitor's clock is ahead of UTC right now (e.g. 5 in Tashkent). */
-export function localOffsetHours(date: Date): number {
-  return -date.getTimezoneOffset() / 60;
+/** The visitor's own time, e.g. "14:05". */
+export function formatLocalClock(date: Date): string {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * Unit vector for a latitude/longitude on three.js's SphereGeometry, in the sphere's own frame,
+ * so it lines up with an equirectangular texture (left edge = 180° W).
+ */
+export function latLonToSphere(lat: number, lon: number): [number, number, number] {
+  const phi = ((lon + 180) / 360) * 2 * Math.PI;
+  const theta = ((90 - lat) * Math.PI) / 180;
+  return [-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta)];
 }

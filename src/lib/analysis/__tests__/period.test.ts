@@ -7,8 +7,9 @@ const latest = "2026-08";
 const read = (query: string) => readPeriod(new URLSearchParams(query), latest);
 
 describe("analysis period", () => {
-  it("defaults to the last 10 years and keeps old links working", () => {
-    expect(read("")).toMatchObject({ kind: "10y", start: "2016-09", end: "2026-08" });
+  it("defaults to the last 20 years and keeps old links working", () => {
+    expect(read("")).toMatchObject({ kind: "20y", start: "2006-09", end: "2026-08" });
+    expect(read("period=10y")).toMatchObject({ kind: "10y", start: "2016-09" });
     expect(read("period=12")).toMatchObject({ kind: "1y", start: "2025-09" });
     expect(read("period=all")).toMatchObject({ start: "2000-03", end: latest });
   });

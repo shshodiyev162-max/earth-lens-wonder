@@ -36,18 +36,31 @@ export function buildCsv(result: AnalysisResult): string {
     if (!series) return;
     const byMonth = new Map(series.points.map((p) => [p.month, p]));
     columns.push({ header, value: (m) => fmt(byMonth.get(m)?.value, decimals) });
-    if (key !== "snow") columns.push({ header: `${header}_coverage`, value: (m) => fmt(byMonth.get(m)?.coverage, 2) });
+    if (key !== "snow" && key !== "snowWater") columns.push({ header: `${header}_coverage`, value: (m) => fmt(byMonth.get(m)?.coverage, 2) });
   };
   satColumn("vegetation", "ndvi_mean", 3);
+  satColumn("evi", "evi_mean", 3);
   satColumn("surfaceHeat", "land_surface_temp_c", 2);
+  satColumn("nightHeat", "land_surface_temp_night_c", 2);
   satColumn("air", "aerosol_optical_depth", 3);
+  satColumn("dust", "dust_surface_ug_m3", 2);
+  satColumn("fineDust", "dust_pm25_surface_ug_m3", 2);
   satColumn("snow", "snow_cover_pct", 1);
+  satColumn("snowWater", "snow_water_mm", 1);
+  satColumn("snowfall", "snowfall_mm_month", 1);
   satColumn("evaporation", "evaporation_mm_month", 1);
+  satColumn("topsoil", "topsoil_moisture_pct_vol", 1);
+  satColumn("waterStorage", "water_storage_cm", 2);
+  satColumn("waterVapour", "water_vapour_mm", 1);
   satColumn("sst", "sea_surface_temp_night_c", 2);
+  satColumn("salinity", "sea_surface_salinity_psu", 2);
   satColumn("so2", "so2_column_mg_m2", 3);
   satColumn("co", "co_500hpa_ppb", 1);
+  satColumn("coGround", "co_surface_ppb", 1);
+  satColumn("methane", "methane_400hpa_ppb", 0);
   satColumn("upperAir", "air_temp_250hpa_c", 2);
   satColumn("ozone", "ozone_50hpa_ppm", 3);
+  satColumn("heatLeaving", "outgoing_longwave_w_m2", 1);
 
   if (result.climate?.points.length) {
     columns.push(
@@ -67,7 +80,7 @@ export function buildCsv(result: AnalysisResult): string {
   const header = [
     `# ${result.target.name} — ${result.start} to ${result.end}`,
     `# Area ${result.target.areaKm2.toFixed(1)} km², centre ${result.target.center[0].toFixed(4)}, ${result.target.center[1].toFixed(4)}`,
-    "# Sources: NASA GIBS (MODIS, MERRA-2, AIRS) decoded from official colormaps; NASA POWER monthly + 2001-2020 climatology",
+    "# Sources: NASA GIBS (MODIS, MERRA-2, AIRS, MOPITT, GLDAS, GRACE, AMSR2, SMAP) decoded from official colormaps; NASA POWER monthly + 2001-2020 climatology",
     ...trendLines(result),
   ];
   const lines = [columns.map((c) => c.header).join(",")];
