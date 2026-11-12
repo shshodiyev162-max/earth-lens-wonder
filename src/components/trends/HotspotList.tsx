@@ -19,33 +19,31 @@ interface HotspotListProps {
 /** The ranked hotspots: biggest area × strongest change first. */
 export default function HotspotList({ hotspots, labels, indicator, plan, selectedId, onSelect }: HotspotListProps) {
   return (
-    <ol className="space-y-1.5" aria-label="Hotspots, largest change first">
+    <ol className="border-t border-panel-line" aria-label="Hotspots, largest change first">
       {hotspots.map((hotspot) => {
         const selected = hotspot.id === selectedId;
         const title = hotspotTitle({ ...hotspot, label: labels[hotspot.id] });
-        const color = hotspot.sign < 0 ? indicator.colors.decline : indicator.colors.increase;
         return (
-          <li key={hotspot.id}>
+          <li key={hotspot.id} className="border-b border-panel-line">
             <button
               type="button"
               onClick={() => onSelect(hotspot.id)}
               aria-pressed={selected}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition",
-                selected ? "border-yellow-300/70 bg-yellow-300/10" : "border-panel-line bg-panel-tint hover:border-cyan-400/40",
-              )}
+              className={cn("grid w-full grid-cols-[1.4rem_minmax(0,1fr)_auto] items-center gap-2 py-2.5 text-left transition-colors hover:bg-panel-tint", selected && "bg-panel-tint-strong")}
             >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white ring-1 ring-white/70">{hotspot.rank}</span>
-              <span className="min-w-0 flex-1">
-                <span translate="no" className="block truncate text-sm font-medium text-panel-foreground">
+              <span className={cn("font-mono text-[11px] tabular-nums", selected ? "text-panel-foreground" : "text-panel-muted")}>{String(hotspot.rank).padStart(2, "0")}</span>
+              <span className="min-w-0">
+                <span translate="no" className="block truncate text-[13px] text-panel-foreground">
                   {title}
                 </span>
-                <span className="block text-[11px] leading-relaxed text-panel-muted">
+                <span className="mt-0.5 block font-mono text-[10.5px] leading-snug tabular-nums text-panel-muted">
                   {formatArea(hotspot.areaKm2)} · {signed(hotspot.meanChange, indicator.decimals)} {indicator.unit}
-                  {plan.kind === "trend" && hotspot.significantShare > 0 ? ` · ${Math.round(hotspot.significantShare * 100)}% significant` : ""}
+                  {plan.kind === "trend" && hotspot.significantShare > 0 ? ` · ${Math.round(hotspot.significantShare * 100)}% sig.` : ""}
                 </span>
               </span>
-              <YearTrendChart series={hotspot.series} baseline={plan.baseline} recent={plan.recent} color={color} unit={indicator.unit} decimals={indicator.decimals} compact label={`${title} over time`} />
+              <span className="text-panel-soft">
+                <YearTrendChart series={hotspot.series} unit={indicator.unit} decimals={indicator.decimals} compact label={`${title} over time`} />
+              </span>
             </button>
           </li>
         );

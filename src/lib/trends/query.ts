@@ -6,6 +6,10 @@
 import { hasBoundary, type PlaceResult } from "../geo/geocode";
 import { formatArea } from "../geo/geometry";
 import { encodeGeometryForLink } from "../geo/polyline";
+import { bboxPolygon, circlePolygon } from "../geo/geometry";
+import { combinedName } from "../geo/combine";
+import { findNamedRegion } from "../geo/regions";
+import { decodePart, encodePart, partKey, partLabel, writeAnalysisParts, type AreaPart } from "../areas/parts";
 import { formatMonth } from "../gibs/time";
 import { CORE_INDICATORS, INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type Direction, type IndicatorId, type SeasonId } from "../query/indicators";
 import { seasonYearMonths, type PeriodPlan, type TimeSpec } from "../query/period";
@@ -39,6 +43,8 @@ export interface TrendQuery {
   months: number[] | null;
   /** An exact area: a country or a drawn or saved outline picked on the map, or one from another page. */
   area: { country?: string; osm?: string; poly?: string; name?: string } | null;
+  /** Places added to the place or area, scanned with it as one area ("Uzbekistan + Kazakhstan"). */
+  extra: AreaPart[];
   /** The measure whose results are shown. */
   tab: IndicatorId | null;
 }
@@ -172,10 +178,24 @@ export function queryFromParams(params: URLSearchParams): TrendQuery {
   for (const id of indicators) filters[id] = { direction: directions[id] ?? "any", ...DEFAULT_FILTER, ...extra[id] };
 
   const seasonChoice = decodeSeason(params.get("season")) ?? { season: null, months: null };
-  const area =
+  let area: TrendQuery["area"] =
     params.get("country") || params.get("osm") || params.get("poly")
       ? { country: params.get("country") ?? undefined, osm: params.get("osm") ?? undefined, poly: params.get("poly") ?? undefined, name: params.get("name") ?? undefined }
       : null;
+  // An exact area from the map wins over a place chosen by name.
+  let place = area ? null : params.get("place") || null;
+  // Saved areas live on one device, so a link can't carry them here.
+  let added = params
+    .getAll("add")
+    .map(decodePart)
+    .filter((part): part is AreaPart => part !== null && part.kind !== "area");
+  if (!area && !place && added.length) {
+    // Added places with nothing to add them to: the first one leads.
+    const first = firstPlaceEdit(added[0]);
+    area = first.area;
+    place = first.place;
+    added = added.slice(1);
+  }
   const tab = params.get("tab");
   const query: TrendQuery = {
     text: "",
@@ -183,13 +203,13 @@ export function queryFromParams(params: URLSearchParams): TrendQuery {
     indicators,
     everything,
     filters,
-    // An exact area from the map wins over a place chosen by name.
-    place: area ? null : params.get("place") || null,
-    near: area ? false : params.get("near") === "1",
+    place,
+    near: area || added.length ? false : params.get("near") === "1",
     time: decodeTime(params.get("t")) ?? { kind: "default" },
     season: seasonChoice.season,
     months: seasonChoice.months,
     area,
+    extra: added,
     // With measures picked for the place, any measure can be the open tab.
     tab: tab && (everything ? isIndicator(tab) : indicators.includes(tab as IndicatorId)) ? (tab as IndicatorId) : (indicators[0] ?? null),
   };
@@ -197,10 +217,58 @@ export function queryFromParams(params: URLSearchParams): TrendQuery {
   return query;
 }
 
-export type QueryEdit = Partial<Pick<TrendQuery, "indicators" | "everything" | "place" | "near" | "area" | "time" | "season" | "months" | "filters" | "tab">>;
+export type QueryEdit = Partial<Pick<TrendQuery, "indicators" | "everything" | "place" | "near" | "area" | "extra" | "time" | "season" | "months" | "filters" | "tab">>;
 
 /** An exact area chosen on the map: a country, a drawn or saved outline, or a hotspot. */
 export type ExactArea = NonNullable<TrendQuery["area"]>;
+
+/** A part as the search's own place or area (the first of several). */
+function firstPlaceEdit(part: AreaPart): { place: string | null; area: ExactArea | null } {
+  switch (part.kind) {
+    case "region":
+      return { place: part.label, area: null };
+    case "place":
+      return { place: part.text, area: null };
+    case "country":
+      return { place: null, area: { country: part.id, name: part.name } };
+    case "osm":
+      return { place: null, area: { osm: part.osm, name: part.name } };
+    case "poly":
+      return { place: null, area: { poly: part.poly, name: part.name } };
+    case "point":
+      return { place: null, area: { poly: encodeGeometryForLink(circlePolygon([part.lat, part.lon], part.radiusKm)), name: partLabel(part) } };
+    case "bbox":
+      return { place: null, area: { poly: encodeGeometryForLink(bboxPolygon(part.bbox)), name: partLabel(part) } };
+    case "area":
+      return { place: null, area: null };
+  }
+}
+
+/** The search's own place or area as a part. */
+function firstPart(query: Pick<TrendQuery, "place" | "area">): AreaPart | null {
+  const { area, place } = query;
+  if (area?.country) return { kind: "country", id: area.country.toUpperCase(), name: area.name };
+  if (area?.osm) return { kind: "osm", osm: area.osm, name: area.name };
+  if (area?.poly) return { kind: "poly", poly: area.poly, name: area.name };
+  if (place) {
+    const region = findNamedRegion(place);
+    return region ? { kind: "region", label: region.label } : { kind: "place", text: place };
+  }
+  return null;
+}
+
+/** Every place the search reads, the first one first (none for the map view). */
+export function trendParts(query: Pick<TrendQuery, "place" | "area" | "extra">): AreaPart[] {
+  const first = firstPart(query);
+  return first ? [first, ...query.extra] : [...query.extra];
+}
+
+/** The change that makes these parts the search's area (none: the map view). */
+export function editForParts(parts: AreaPart[]): QueryEdit {
+  const usable = parts.filter((part) => part.kind !== "area");
+  if (!usable.length) return { place: null, area: null, near: false, extra: [] };
+  return { ...firstPlaceEdit(usable[0]), near: false, extra: usable.slice(1) };
+}
 
 /** Applies a change; the sentence is rewritten to match. */
 export function applyEdit(query: TrendQuery, edit: QueryEdit): TrendQuery {
@@ -222,6 +290,9 @@ export function applyEdit(query: TrendQuery, edit: QueryEdit): TrendQuery {
   }
   if ("place" in edit && !("near" in edit)) next.near = false;
   if ("place" in edit && !("area" in edit)) next.area = null;
+  // A new place or area replaces the places added to the old one.
+  if (("place" in edit || "area" in edit) && !("extra" in edit)) next.extra = [];
+  if (next.extra.length) next.near = false;
   // An outline picked on the map replaces any typed place.
   if (edit.area) {
     next.place = null;
@@ -247,6 +318,7 @@ export function paramsFor(query: TrendQuery): URLSearchParams {
     next.set("place", query.place ?? "");
     if (query.near) next.set("near", "1");
   }
+  for (const part of query.extra) next.append("add", encodePart(part));
   next.set("t", encodeTime(query.time));
   next.set("season", encodeSeason(query.season, query.months) ?? "usual");
   if (query.tab && query.tab !== query.indicators[0]) next.set("tab", query.tab);
@@ -259,7 +331,7 @@ export function paramsFor(query: TrendQuery): URLSearchParams {
  */
 export function paramsWithPlace(params: URLSearchParams, place: PlaceResult): URLSearchParams {
   const next = new URLSearchParams(params);
-  for (const key of ["place", "near", "country", "osm", "poly", "name"]) next.delete(key);
+  for (const key of ["place", "near", "country", "osm", "poly", "name", "add"]) next.delete(key);
   if (place.region) next.set("place", place.region);
   else if (place.osm && hasBoundary(place)) {
     next.set("osm", `${place.osm.type}${place.osm.id}`);
@@ -270,7 +342,7 @@ export function paramsWithPlace(params: URLSearchParams, place: PlaceResult): UR
 
 /** Everything that decides what is scanned (not how results are filtered). */
 export function scanKey(query: TrendQuery): string {
-  return JSON.stringify([query.everything ? "all" : query.indicators, query.place, query.near, query.area, encodeTime(query.time), encodeSeason(query.season, query.months)]);
+  return JSON.stringify([query.everything ? "all" : query.indicators, query.place, query.near, query.area, query.extra.map(partKey), encodeTime(query.time), encodeSeason(query.season, query.months)]);
 }
 
 // ---------------------------------------------------------------------------
@@ -356,7 +428,7 @@ function monthsPhrase(season: SeasonChoice | null, months: number[] | null): str
 }
 
 /** The search in words, e.g. "Vegetation and rainfall decline in Uzbekistan since 2015, April to September". */
-export function sentenceFor(query: Pick<TrendQuery, "indicators" | "filters" | "place" | "near" | "area" | "time" | "season" | "months"> & { everything?: boolean }): string {
+export function sentenceFor(query: Pick<TrendQuery, "indicators" | "filters" | "place" | "near" | "area" | "time" | "season" | "months"> & { everything?: boolean; extra?: AreaPart[] }): string {
   const ids = INDICATOR_ORDER.filter((id) => query.indicators.includes(id));
   if (!ids.length) return "";
   const directions = ids.map((id) => query.filters[id]?.direction ?? "any");
@@ -369,8 +441,9 @@ export function sentenceFor(query: Pick<TrendQuery, "indicators" | "filters" | "
   } else {
     what = joinWords(ids.map((id, i) => `${NOUN[id]} ${DIRECTION_WORD[directions[i]]}`));
   }
-  const placeName = query.area?.name ?? query.place;
-  const where = placeName ? `${query.near && !query.area ? "near" : "in"} ${placeName}` : "in the map view";
+  const names = [query.area?.name ?? query.place, ...(query.extra ?? []).map(partLabel)].filter((name): name is string => Boolean(name));
+  const placeName = names.length ? combinedName(names) : null;
+  const where = placeName ? `${query.near && !query.area && names.length === 1 ? "near" : "in"} ${placeName}` : "in the map view";
   let when = timePhrase(query.time);
   let months = monthsPhrase(query.season, query.months);
   // "summer 2003 vs summer 2023", "July 2003 vs July 2023"
@@ -456,8 +529,12 @@ export function analysisHref(hotspot: Hotspot, indicator: IndicatorId, area: Sca
   return analysisPeriod(params, indicator, plan, latestMonth);
 }
 
-/** Opens the full analysis for the whole scanned area: the same country or boundary when there is one. */
-export function areaAnalysisHref(area: ScanArea, exact: TrendQuery["area"], indicator: IndicatorId, plan: PeriodPlan, latestMonth: string): string {
+/**
+ * Opens the full analysis for the whole scanned area: the same country or boundary when there is one,
+ * and the same places when several were added together (`parts`, the first one first).
+ */
+export function areaAnalysisHref(area: ScanArea, exact: TrendQuery["area"], indicator: IndicatorId, plan: PeriodPlan, latestMonth: string, parts: AreaPart[] = []): string {
+  if (parts.length > 1) return analysisPeriod(writeAnalysisParts(new URLSearchParams(), parts), indicator, plan, latestMonth);
   const params = new URLSearchParams();
   const countryId = exact?.country ?? area.countryId;
   if (countryId) params.set("country", countryId);

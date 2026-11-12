@@ -21,14 +21,13 @@ import SelectedPlaceCard from "@/components/map/SelectedPlaceCard";
 import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
 import QuickRegions, { type QuickRegion } from "@/components/map/QuickRegions";
 import LayerLegend from "@/components/map/LayerLegend";
-import { CoordsPill, CursorTracker } from "@/components/map/CursorCoords";
 import { useWorkspace, type AreaKind, type SavedArea } from "@/context/WorkspaceContext";
 import { useLayerDate } from "@/hooks/useLayerDate";
 import { usePlaceSelection } from "@/hooks/usePlaceSelection";
 import { useRouteFocusPlace } from "@/hooks/useRouteFocusPlace";
 import { DEFAULT_COMPARE_LAYER_ID, DEFAULT_LAYER_ID, getLayerOrDefault, isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { formatDate, isIsoDate } from "@/lib/gibs/time";
-import { formatArea, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
+import { formatArea, type PolygonGeometry } from "@/lib/geo/geometry";
 import { analysisHrefForArea } from "@/lib/links";
 import { initialViewFrom } from "@/lib/mapView";
 
@@ -50,7 +49,6 @@ export default function SplitView() {
   const [finishSignal, setFinishSignal] = useState(0);
   const [undoSignal, setUndoSignal] = useState(0);
   const [regionId, setRegionId] = useState<string | null>(null);
-  const [cursor, setCursor] = useState<LatLng>(() => workspace.view.center);
   const { selection, select, clear, flyTarget, flyTo } = usePlaceSelection();
   const stageRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -80,7 +78,7 @@ export default function SplitView() {
 
   const onAreaComplete = (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => {
     setDrawMode(null);
-    const area = workspace.addArea({ geometry, kind, name: country?.name, region: country?.region });
+    const area = workspace.addArea({ geometry, kind, name: country?.name, region: country?.region, countryId: country?.countryId });
     toast.success(`${area.name} saved`, {
       description: formatArea(area.areaKm2),
       action: { label: "Analyze", onClick: () => navigate(analysisHrefForArea(area.id)) },
@@ -132,14 +130,12 @@ export default function SplitView() {
         <DateControl layer={leftLayer} state={leftDate} requested={leftRequested} onChange={(date) => update({ leftDate: date })} label="Left date" />
       </SidebarSection>
       {isScienceLayer(leftLayer) && (
-        <SidebarSection title="Left legend" icon={<Info className="h-4 w-4 text-accent-cyan" />}>
-          <div className="rounded-xl border border-panel-line bg-panel-tint p-4">
-            <LayerLegend layer={leftLayer} compact />
-          </div>
+        <SidebarSection title="Left legend">
+                      <LayerLegend layer={leftLayer} compact />
         </SidebarSection>
       )}
 
-      <div className="mb-5 border-t border-panel-line" />
+      <div className="mb-6 border-t border-panel-line" />
 
       <SidebarSection>
         <LayerPickerLabel>Right layer</LayerPickerLabel>
@@ -149,53 +145,50 @@ export default function SplitView() {
         <DateControl layer={rightLayer} state={rightDate} requested={rightRequested} onChange={(date) => update({ rightDate: date })} label="Right date" />
       </SidebarSection>
       {isScienceLayer(rightLayer) && (
-        <SidebarSection title="Right legend" icon={<Info className="h-4 w-4 text-accent-cyan" />}>
-          <div className="rounded-xl border border-panel-line bg-panel-tint p-4">
-            <LayerLegend layer={rightLayer} compact />
-          </div>
+        <SidebarSection title="Right legend">
+                      <LayerLegend layer={rightLayer} compact />
         </SidebarSection>
       )}
 
       <button
         type="button"
         onClick={swap}
-        className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-panel-line bg-panel-tint px-4 py-3 text-sm font-medium text-panel-soft transition hover:border-cyan-400/40 hover:text-panel-foreground"
+        className="btn-line mb-6 w-full"
       >
-        <ArrowLeftRight className="h-4 w-4 text-accent-cyan" /> Swap sides
+        <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden /> Swap sides
       </button>
 
       <QuickRegions activeId={regionId} onSelect={jumpToRegion} />
       <AreasPanel layer={rightLayer} date={rightDate.date} dateReady={!rightDate.loading} onZoomTo={(area: SavedArea) => flyTo({ bbox: area.bbox })} />
 
-      <section className="mt-auto rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
-        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-panel-foreground">
-          <Info className="h-4 w-4 shrink-0 text-accent-cyan" /> {leftLayer.name} vs {rightLayer.name}
+      <section className="mt-auto border-t border-panel-line pt-4">
+        <div className="mb-1.5 text-[13px] font-medium text-panel-foreground">
+          {leftLayer.name} vs {rightLayer.name}
         </div>
-        <p className="text-xs leading-relaxed text-panel-muted">
+        <p className="text-[13px] leading-relaxed text-panel-muted">
           Drag the slider to compare the two layers. Tip: pick the same layer on both sides with two different dates to see change over time — floods, fires, harvests or snow melt.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded bg-panel-tint-strong px-2 py-1 text-panel-soft">{leftLayer.source}</span>
-          <span className="rounded bg-panel-tint-strong px-2 py-1 text-panel-soft">{rightLayer.source}</span>
-        </div>
+        <p className="mt-3 font-mono text-[10.5px] leading-relaxed text-panel-muted">
+          {leftLayer.source} · {rightLayer.source}
+        </p>
       </section>
     </>
   );
 
   const overlay = (
     <>
-      <div className="pointer-events-auto absolute left-1/2 top-[3.75rem] flex -translate-x-1/2 items-center gap-3 rounded-full border border-panel-line bg-panel/90 px-4 py-2 shadow-xl backdrop-blur">
-        <span className="text-xs text-panel-muted">Compare</span>
+      <div className="float-surface pointer-events-auto absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-3 rounded-full px-4 py-1.5">
+        <span className="field-label">Compare</span>
         <input
           type="range"
           min={2}
           max={98}
           value={Math.round(ratio * 100)}
           onChange={(event) => setRatio(Number(event.target.value) / 100)}
-          className="w-24 accent-cyan-400 sm:w-32"
+          className="w-24 accent-panel-foreground sm:w-32"
           aria-label="Comparison position"
         />
-        <span className="w-10 text-xs font-medium text-panel-foreground">{Math.round(ratio * 100)}%</span>
+        <span className="w-9 text-right font-mono text-[11px] tabular-nums text-panel-foreground">{Math.round(ratio * 100)}%</span>
       </div>
       <div className="absolute right-3 top-[3.75rem] lg:right-5">
         <DrawToolbar
@@ -226,7 +219,6 @@ export default function SplitView() {
           <LayerLegend layer={rightLayer} />
         </div>
       )}
-      <CoordsPill point={cursor} />
     </>
   );
 
@@ -234,8 +226,9 @@ export default function SplitView() {
 
   return (
     <MapPageShell
-      title="Split comparison"
-      description="Compare two NASA layers — or one layer on two dates — on a single map with a draggable slider. Draw areas to measure and analyze them."
+      eyebrow="Split"
+      title="Slide between two views."
+      description="Two NASA layers, or one layer on two dates, on a single map. Drag the divider to compare, or draw an area to measure it."
       sidebar={sidebar}
       topRight={
         <div className="hidden max-w-[22rem] truncate rounded-lg border border-panel-line bg-panel/85 px-3 py-2 text-[11px] text-panel-muted backdrop-blur md:block">
@@ -274,11 +267,10 @@ export default function SplitView() {
             disabled={Boolean(drawMode)}
           />
           <FlyTo target={flyTarget} />
-          <CursorTracker onChange={setCursor} />
           <ZoomLimit layers={[leftLayer, rightLayer]} />
         </BaseMap>
         <div className="pointer-events-none absolute inset-y-0 z-[900]" style={{ left: `${ratio * 100}%` }}>
-          <div className="absolute inset-y-0 -left-0.5 w-1 bg-cyan-400/70 shadow-lg shadow-cyan-500/40" />
+          <div className="absolute inset-y-0 -left-px w-0.5 bg-white shadow-[0_0_12px_rgb(0_0_0/0.6)]" />
           <div
             role="slider"
             tabIndex={0}
@@ -291,9 +283,9 @@ export default function SplitView() {
             onPointerUp={onHandleUp}
             onPointerCancel={onHandleUp}
             onKeyDown={onHandleKey}
-            className="pointer-events-auto absolute top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-col-resize touch-none items-center justify-center rounded-full border-2 border-cyan-400 bg-panel/90 backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+            className="pointer-events-auto absolute top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-col-resize touch-none items-center justify-center rounded-full bg-white text-black shadow-2xl outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
-            <span className="text-lg text-accent-cyan-soft" aria-hidden="true">
+            <span className="text-lg" aria-hidden="true">
               ⟷
             </span>
           </div>

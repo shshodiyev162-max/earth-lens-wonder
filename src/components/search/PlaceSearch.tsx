@@ -85,10 +85,10 @@ export default function PlaceSearch({
     <div ref={containerRef} className={cn("relative", className)}>
       <div
         className={cn(
-          "flex items-center gap-2 border transition-colors focus-within:border-primary/60",
-          variant === "map" && "rounded-xl border-panel-line bg-panel/90 px-3 shadow-xl backdrop-blur",
-          variant === "panel" && "rounded-xl border-transparent bg-secondary px-4",
-          variant === "hero" && "rounded-2xl border-panel-line-strong bg-panel/80 px-5 shadow-2xl shadow-black/40 backdrop-blur-xl",
+          "flex items-center gap-2 border transition-colors focus-within:border-foreground/60",
+          variant === "map" && "rounded-lg border-panel-line bg-panel/90 px-3 shadow-xl backdrop-blur",
+          variant === "panel" && "rounded-md border-panel-line-strong px-3",
+          variant === "hero" && "rounded-lg border-panel-line-strong bg-panel/80 px-5 shadow-2xl shadow-black/40 backdrop-blur-xl",
         )}
       >
         <Search className={cn("shrink-0 text-muted-foreground", big ? "h-5 w-5" : "h-4 w-4")} aria-hidden />
@@ -111,9 +111,9 @@ export default function PlaceSearch({
           aria-autocomplete="list"
           autoComplete="off"
           spellCheck={false}
-          className={cn("min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground", big ? "py-4 text-base" : "py-3 text-sm")}
+          className={cn("min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground", big ? "py-4 text-base" : "py-2.5 text-sm")}
         />
-        {loading && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" aria-label="Searching" />}
+        {loading && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label="Searching" />}
         {query && !loading && (
           <button
             type="button"
@@ -130,7 +130,7 @@ export default function PlaceSearch({
       </div>
 
       {showDropdown && (
-        <div tabIndex={0} aria-label="Search results" className="absolute left-0 right-0 top-full z-[1500] mt-2 max-h-80 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-lg">
+        <div tabIndex={0} aria-label="Search results" className="absolute left-0 right-0 top-full z-[1500] mt-2 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover p-1.5 shadow-2xl">
           <div id={listId} role="listbox" aria-label="Places">
             {results.length > 0 &&
               results.map((place, index) => {
@@ -150,7 +150,7 @@ export default function PlaceSearch({
                       index === highlight ? "bg-primary/10" : "hover:bg-primary/10",
                     )}
                   >
-                    <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", index === highlight ? "text-primary" : "text-muted-foreground")} aria-hidden />
+                    <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", "text-muted-foreground")} aria-hidden />
                     <span className="min-w-0 flex-1">
                       <span translate="no" className="block truncate text-sm font-medium text-foreground">{place.name}</span>
                       <span className="block truncate text-xs text-muted-foreground">

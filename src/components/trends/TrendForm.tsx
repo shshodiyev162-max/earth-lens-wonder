@@ -1,26 +1,22 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { demoAttr } from "@/lib/demo/scripts";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
+import StepLabel from "@/components/common/StepLabel";
 import { MEASURE_DEFINITIONS } from "@/lib/glossary";
 import { CORE_INDICATORS, INDICATOR_ORDER, INDICATORS, MEASURE_GROUPS, monthsLabel, recordTag, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
 import type { TimeSpec } from "@/lib/query/period";
 import { DEFAULT_FILTER, filterFor, type QueryEdit, type SeasonChoice, type TrendQuery } from "@/lib/trends/query";
 import { cn } from "@/lib/utils";
 
-const field = "w-full rounded-lg border border-panel-line bg-panel-tint px-3 py-2 text-sm text-panel-foreground outline-none focus:border-cyan-400/60 pointer-coarse:min-h-11";
-const yearInput = "w-20 rounded-md border border-panel-line bg-panel-tint px-2 py-1.5 text-sm text-panel-foreground outline-none focus:border-cyan-400/60 pointer-coarse:min-h-11";
+const yearInput = "w-20 rounded-md border border-panel-line-strong bg-transparent px-2 py-1.5 font-mono text-sm tabular-nums text-panel-foreground outline-none focus:border-panel-foreground/70 pointer-coarse:min-h-11";
 
-function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
+function Field({ number, label, htmlFor, children }: { number: number; label: string; htmlFor?: string; children: ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      {htmlFor ? (
-        <label htmlFor={htmlFor} className="block text-[11px] font-semibold uppercase tracking-wider text-panel-muted">
-          {label}
-        </label>
-      ) : (
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-panel-muted">{label}</p>
-      )}
+    <div className="space-y-2.5 border-t border-panel-line pt-4">
+      <StepLabel number={number} htmlFor={htmlFor}>
+        {label}
+      </StepLabel>
       {children}
     </div>
   );
@@ -43,70 +39,49 @@ function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Qu
   const toggle = (id: IndicatorId) =>
     onEdit(withFilters(suggested ? [id] : selected.has(id) ? query.indicators.filter((x) => x !== id) : [...query.indicators, id]));
   return (
-    <div className="space-y-2">
+    <div className="space-y-3.5">
       <button
         type="button"
         aria-pressed={suggested}
         onClick={() => onEdit(suggested ? withFilters([]) : { everything: true })}
-        className={cn(
-          "flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition pointer-coarse:min-h-11",
-          suggested ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-panel-line bg-panel-tint text-panel-soft hover:text-panel-foreground",
-        )}
+        className={cn("flex w-full items-start gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors pointer-coarse:min-h-11", suggested ? "border-panel-foreground" : "border-panel-line-strong hover:border-panel-foreground/50")}
       >
-        <Check className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", suggested ? "opacity-100" : "opacity-0")} aria-hidden />
+        <Check className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 text-panel-foreground", suggested ? "opacity-100" : "opacity-0")} aria-hidden />
         <span>
-          <span className="block font-medium">Suggested for this place</span>
-          <span className="block text-[11px] text-panel-muted">Up to six measures picked from NASA land cover once the place is found.</span>
+          <span className="block text-[13px] font-medium text-panel-foreground">Suggested for this place</span>
+          <span className="mt-0.5 block text-xs leading-snug text-panel-muted">Up to six measures picked from NASA land cover once the place is found.</span>
         </span>
       </button>
       {MEASURE_GROUPS.map((group) => (
-        <div key={group.id} className="space-y-1">
-          <p id={`measure-group-${group.id}`} className="text-[10px] font-medium uppercase tracking-wide text-panel-muted">
+        <div key={group.id} className="space-y-1.5">
+          <p id={`measure-group-${group.id}`} className="text-xs text-panel-muted">
             {group.label}
           </p>
-          <div className="grid grid-cols-2 gap-1.5" role="group" aria-labelledby={`measure-group-${group.id}`}>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby={`measure-group-${group.id}`}>
             {INDICATOR_ORDER.filter((id) => INDICATORS[id].group === group.id).map((id) => {
               const on = selected.has(id);
+              const tag = recordTag(id);
               return (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => toggle(id)}
-                  title={INDICATORS[id].product}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition pointer-coarse:min-h-11",
-                    on ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-panel-line bg-panel-tint text-panel-soft hover:text-panel-foreground",
-                  )}
-                >
-                  <Check className={cn("h-3.5 w-3.5 shrink-0", on ? "opacity-100" : "opacity-0")} aria-hidden />
-                  <span className="min-w-0">
-                    {INDICATORS[id].label}
-                    {recordTag(id) && <span className="block text-[10px] font-normal text-panel-muted">{recordTag(id)}</span>}
-                  </span>
+                <button key={id} type="button" aria-pressed={on} onClick={() => toggle(id)} title={INDICATORS[id].product} className={on ? "chip-on" : "chip"}>
+                  {INDICATORS[id].label}
+                  {tag && <span className="ml-0.5 font-mono text-[10px] font-normal opacity-75">{tag}</span>}
                 </button>
               );
             })}
           </div>
         </div>
       ))}
-      <button
-        type="button"
-        aria-pressed={main}
-        onClick={() => onEdit(withFilters(main ? [] : [...CORE_INDICATORS]))}
-        className={cn(
-          "flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition pointer-coarse:min-h-11",
-          main ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-dashed border-panel-line text-panel-muted hover:text-panel-foreground",
-        )}
-      >
-        {main ? "The six main measures · clear" : "The six main measures"}
-      </button>
-      <details className="rounded-lg border border-panel-line bg-panel-tint px-2.5 py-1.5">
-        <summary className="flex cursor-pointer items-center text-[11px] font-medium text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11">What does each one measure?</summary>
-        <dl className="mt-2 space-y-1.5 text-[11px] leading-relaxed">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs">
+        <button type="button" aria-pressed={main} onClick={() => onEdit(withFilters(main ? [] : [...CORE_INDICATORS]))} className="link-quiet py-1 pointer-coarse:min-h-11">
+          {main ? "Clear the six main measures" : "The six main measures"}
+        </button>
+      </div>
+      <details className="group border-t border-panel-line pt-2.5">
+        <summary className="flex cursor-pointer items-center text-xs text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11">What does each one measure?</summary>
+        <dl className="mt-2.5 space-y-2 text-xs leading-relaxed">
           {INDICATOR_ORDER.map((id) => (
             <div key={id}>
-              <dt className="font-semibold text-panel-foreground">{INDICATORS[id].label}</dt>
+              <dt className="font-medium text-panel-foreground">{INDICATORS[id].label}</dt>
               <dd className="text-panel-muted">{MEASURE_DEFINITIONS[id]}</dd>
             </div>
           ))}
@@ -155,8 +130,8 @@ function PeriodField({ time, first, last, onEdit }: { time: TimeSpec; first: num
     </label>
   );
   return (
-    <Field label="When" htmlFor={id}>
-      <select id={id} value={choice} onChange={(event) => choose(event.target.value as PeriodChoice)} className={cn(field, "bg-panel")}>
+    <Field number={3} label="When" htmlFor={id}>
+      <select id={id} value={choice} onChange={(event) => choose(event.target.value as PeriodChoice)} className="field">
         <option value="default">Last 10 years</option>
         <option value="last5">Last 5 years</option>
         <option value="last20">Last 20 years</option>
@@ -207,7 +182,7 @@ function MonthsField({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Quer
     ? query.indicators.map((i) => `${INDICATORS[i].label} ${monthsLabel(SEASONS[INDICATORS[i].season].months)}`).join(", ")
     : "each measure's own season";
   return (
-    <Field label="Months compared" htmlFor={id}>
+    <Field number={4} label="Months compared" htmlFor={id}>
       <select
         id={id}
         value={value}
@@ -216,7 +191,7 @@ function MonthsField({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Quer
           if (next === "custom") onEdit({ months: picking.length ? picking : [6, 7, 8] });
           else onEdit({ season: next === "usual" ? null : next });
         }}
-        className={cn(field, "bg-panel")}
+        className="field"
       >
         {SEASON_CHOICES.map((choice) => (
           <option key={choice} value={choice}>
@@ -224,7 +199,7 @@ function MonthsField({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Quer
           </option>
         ))}
       </select>
-      {value === "usual" && <p className="text-[11px] leading-relaxed text-panel-muted">{usual}. Seasons flip south of the equator.</p>}
+      {value === "usual" && <p className="text-xs leading-relaxed text-panel-muted">{usual}. Seasons flip south of the equator.</p>}
       {value === "custom" && (
         <MonthToggles
           value={picking}
@@ -260,25 +235,24 @@ interface TrendFormProps {
 export default function TrendForm({ query, where, years, onEdit, onRun, dirty, current, busy, estimate }: TrendFormProps) {
   const ready = query.indicators.length > 0;
   return (
-    <div {...demoAttr("form")} className="space-y-4">
-      <Field label="What to measure">
-        <MeasurePicker query={query} onEdit={onEdit} />
-      </Field>
-      {where}
-      <PeriodField time={query.time} first={years.first} last={years.last} onEdit={onEdit} />
-      <MonthsField query={query} onEdit={onEdit} />
-      <div {...demoAttr("find")} className="space-y-1.5">
-        <button
-          type="button"
-          onClick={onRun}
-          disabled={!ready || (!dirty && current)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50 pointer-coarse:min-h-11"
-        >
-          {busy && !dirty ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
+    <div className="contents">
+      <div {...demoAttr("form")} className="space-y-4">
+        <Field number={1} label="What to measure">
+          <MeasurePicker query={query} onEdit={onEdit} />
+        </Field>
+        <div className="border-t border-panel-line pt-4">{where}</div>
+        <PeriodField time={query.time} first={years.first} last={years.last} onEdit={onEdit} />
+        <MonthsField query={query} onEdit={onEdit} />
+      </div>
+      {/* Always in reach, however long the list of measures. */}
+      <div {...demoAttr("find")} className="sticky bottom-0 z-10 -mx-6 mt-5 border-t border-panel-line bg-panel px-6 pb-4 pt-3.5">
+        <button type="button" onClick={onRun} disabled={!ready || (!dirty && current)} className="btn-solid group w-full">
+          {busy && !dirty && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
           Find changes
+          {!(busy && !dirty) && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />}
         </button>
-        <p className="text-[11px] leading-relaxed text-panel-muted" aria-live="polite">
-          {!ready ? "Pick at least one measure." : dirty ? (estimate ?? "Your choices have changed — find changes to update the results.") : busy ? "Scanning…" : "The results below match these choices."}
+        <p className="mt-2 text-center text-[11px] leading-snug text-panel-muted" aria-live="polite">
+          {!ready ? "Pick at least one measure." : dirty ? (estimate ?? "Your choices have changed: find changes to update the results.") : busy ? "Scanning…" : "The results match these choices."}
         </p>
       </div>
     </div>

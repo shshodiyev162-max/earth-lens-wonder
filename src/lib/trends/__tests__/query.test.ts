@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analysisHref, applyEdit, areaAnalysisHref, compareHref, decodeTime, encodeTime, filterFor, paramsFor, paramsWithPlace, queryFromParams, representativeMonth, resultsHeading, scanKey, sentenceFor, type TrendQuery } from "../query";
+import { analysisHref, applyEdit, areaAnalysisHref, compareHref, decodeTime, editForParts, encodeTime, filterFor, paramsFor, paramsWithPlace, queryFromParams, representativeMonth, resultsHeading, scanKey, sentenceFor, trendParts, type TrendQuery } from "../query";
 import { decodeGeometry } from "../../geo/polyline";
 import { INDICATOR_ORDER, type Direction, type IndicatorId } from "../../query/indicators";
 import { bboxPolygon } from "../../geo/geometry";
@@ -201,5 +201,59 @@ describe("labels and links", () => {
     expect(representativeMonth([12, 1, 2])).toBe(1);
     const params = new URL(compareHref(hotspot, "vegetation", plan, plan.months), "https://x.test").searchParams;
     expect([params.get("leftDate"), params.get("rightDate")]).toEqual(["2016-06-01", "2024-06-01"]);
+  });
+});
+
+describe("places added together", () => {
+  const both = () => applyEdit(choices({ ind: "vegetation", dir: "decline", place: "Uzbekistan", t: "since-2015" }), { extra: [{ kind: "country", id: "TKM", name: "Turkmenistan" }] });
+
+  it("are part of the search, its sentence and its link", () => {
+    const q = both();
+    expect(q.text).toBe("Vegetation decline in Uzbekistan + Turkmenistan since 2015");
+    const back = queryFromParams(paramsFor(q));
+    expect(back.extra).toEqual([{ kind: "country", id: "TKM", name: "Turkmenistan" }]);
+    expect(scanKey(back)).toBe(scanKey(q));
+    expect(scanKey(q)).not.toBe(scanKey(applyEdit(q, { extra: [] })));
+  });
+
+  it("go when a new place is chosen, and stay when only the years change", () => {
+    const q = both();
+    expect(applyEdit(q, { place: "Kazakhstan" }).extra).toEqual([]);
+    expect(applyEdit(q, { area: { country: "KAZ", name: "Kazakhstan" } }).extra).toEqual([]);
+    expect(applyEdit(q, { time: { kind: "since", start: 2005 } }).extra).toHaveLength(1);
+  });
+
+  it("are listed in order, and any one can be taken out", () => {
+    const q = applyEdit(both(), { extra: [{ kind: "country", id: "TKM", name: "Turkmenistan" }, { kind: "region", label: "Aral Sea" }] });
+    expect(trendParts(q)).toEqual([{ kind: "place", text: "Uzbekistan" }, { kind: "country", id: "TKM", name: "Turkmenistan" }, { kind: "region", label: "Aral Sea" }]);
+    // Taking out the first place: the next one leads.
+    const rest = applyEdit(q, editForParts(trendParts(q).slice(1)));
+    expect(rest).toMatchObject({ place: null, area: { country: "TKM", name: "Turkmenistan" }, extra: [{ kind: "region", label: "Aral Sea" }] });
+    expect(rest.text).toBe("Vegetation decline in Turkmenistan + Aral Sea since 2015");
+    expect(applyEdit(q, editForParts([]))).toMatchObject({ place: null, area: null, extra: [] });
+  });
+
+  it("never search 'near' a place, which only makes sense for one", () => {
+    const near = applyEdit(choices({ ind: "dust", place: "Aral Sea", near: "1" }), {});
+    expect(near.near).toBe(true);
+    expect(applyEdit(near, { extra: [{ kind: "region", label: "Caspian Sea" }] }).near).toBe(false);
+  });
+
+  it("lead the search when a link only has added places", () => {
+    const q = queryFromParams(new URLSearchParams([["ind", "sst"], ["add", "region:Black Sea"], ["add", "region:Caspian Sea"], ["add", "area:only-on-this-device"]]));
+    expect(q).toMatchObject({ place: "Black Sea", area: null, extra: [{ kind: "region", label: "Caspian Sea" }] });
+  });
+
+  it("open together on the Analysis page", () => {
+    const parts = trendParts(both()).map((p) => (p.kind === "place" ? { kind: "country" as const, id: "UZB", name: "Uzbekistan" } : p));
+    const link = new URL(areaAnalysisHref({ ...area, name: "Uzbekistan + Turkmenistan" }, null, "vegetation", plan, "2026-08", parts), "https://x.test").searchParams;
+    expect([link.get("country"), link.get("name"), link.getAll("add"), link.get("poly")]).toEqual(["UZB", "Uzbekistan", ["country:TKM!Turkmenistan"], null]);
+    expect(link.get("ds")).toBe("vegetation,climate");
+  });
+
+  it("are cleared by a place picked from search", () => {
+    const params = paramsFor(both());
+    const next = paramsWithPlace(params, { id: "r", name: "Aral Sea", context: "Kazakhstan / Uzbekistan", kind: "water", center: [45, 60], region: "Aral Sea", source: "terrascope" });
+    expect(next.getAll("add")).toEqual([]);
   });
 });

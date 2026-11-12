@@ -14,10 +14,10 @@ interface MeasureTabsProps {
 }
 
 function badge(measure: MeasureScan | undefined, count: number | undefined) {
-  if (!measure || measure.status === "waiting") return <span className="text-panel-muted">waiting</span>;
+  if (!measure || measure.status === "waiting") return <span className="opacity-75">waiting</span>;
   if (measure.status === "scanning") return <Loader2 className="h-3 w-3 animate-spin" aria-label="scanning" />;
   if (measure.status === "error") return <AlertTriangle className="h-3 w-3 text-tone-warn" aria-label="couldn't scan" />;
-  if (measure.status === "stopped") return <span className="text-panel-muted">stopped</span>;
+  if (measure.status === "stopped") return <span className="opacity-75">stopped</span>;
   return <span className="font-mono">{count ?? 0}</span>;
 }
 
@@ -32,7 +32,7 @@ export default function MeasureTabs({ indicators, measures, counts, active, onCh
     <div
       role="tablist"
       aria-label="Results by measure"
-      className="flex flex-wrap gap-1"
+      className="flex flex-wrap gap-1.5"
       onKeyDown={(event) => {
         if (event.key === "ArrowRight") move(1);
         if (event.key === "ArrowLeft") move(-1);
@@ -50,13 +50,10 @@ export default function MeasureTabs({ indicators, measures, counts, active, onCh
             aria-controls={panelId}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(id)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition pointer-coarse:min-h-11",
-              selected ? "border-cyan-400/60 bg-cyan-400/15 text-accent-cyan-soft" : "border-panel-line bg-panel-tint text-panel-soft hover:text-panel-foreground",
-            )}
+            className={cn(selected ? "chip-on" : "chip", "gap-1.5")}
           >
             {INDICATORS[id].label}
-            <span className="text-[10px]">{badge(measures[id], counts[id])}</span>
+            <span className="font-mono text-[10px] opacity-75">{badge(measures[id], counts[id])}</span>
           </button>
         );
       })}

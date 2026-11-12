@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import { useResolvedParts, type ResolvedPartsState } from "@/hooks/useResolvedParts";
+import { addedParts, partKey, primaryAnalysisPart, type AreaPart } from "@/lib/areas/parts";
+import { togetherLabel, type ResolvedPart } from "@/lib/areas/resolve";
 import { isAbortError } from "@/lib/async";
+import { combineGeometries, combinedAreaKm2, combinedName } from "@/lib/geo/combine";
 import { findCountry, loadCountries } from "@/lib/geo/countries";
 import { findNamedRegion, regionGeometry } from "@/lib/geo/regions";
 import { decodeGeometry } from "@/lib/geo/polyline";
 import { lookupOsm, reverseGeocode } from "@/lib/geo/geocode";
 import { areaKm2, bboxOf, bboxPolygon, centroidOf, circlePolygon, formatLatLng, interiorPoint, type BBox } from "@/lib/geo/geometry";
-import type { AnalysisTarget } from "@/lib/analysis/types";
+import type { AnalysisTarget, TargetPart, TargetRef } from "@/lib/analysis/types";
 
 export interface TargetState {
   target: AnalysisTarget | null;
@@ -16,8 +20,102 @@ export interface TargetState {
 
 const num = (value: string | null) => (value === null || value.trim() === "" ? NaN : Number(value));
 
-/** Resolves the URL (?area=, ?osm=, ?country=, ?region=, ?poly=, ?lat&lon&r=, ?bbox=) into an analysis target. */
+/**
+ * Resolves the URL into an analysis target: the first place from ?area=, ?osm=, ?country=, ?region=,
+ * ?poly=, ?lat&lon&r= or ?bbox=, and any places added to it from ?add= (read as one area).
+ */
 export function useAnalysisTarget(params: URLSearchParams): TargetState {
+  const primary = usePrimaryTarget(params);
+  const added = useResolvedParts(addedParts(params));
+  const first = primaryAnalysisPart(params);
+  const state = withAddedParts(primary, added, first);
+  // While a place being added loads, the area so far stays on screen (and nothing is read again).
+  const shown = useRef<AnalysisTarget | null>(null);
+  if (state.target || !state.loading) shown.current = state.target;
+  if (!state.target && state.loading && !primary.loading && shown.current) return { target: shown.current, loading: true, error: null };
+  return state;
+}
+
+/** How the page refers to a part when it is the only one. */
+export function refForPart(part: AreaPart): TargetRef {
+  switch (part.kind) {
+    case "country":
+      return { type: "country", id: part.id };
+    case "region":
+      return { type: "region", label: part.label };
+    case "place":
+      return { type: "place", text: part.text };
+    case "osm":
+      return { type: "osm", osm: part.osm };
+    case "poly":
+      return { type: "poly", poly: part.poly };
+    case "point":
+      return { type: "point", lat: part.lat, lon: part.lon, radiusKm: part.radiusKm };
+    case "bbox":
+      return { type: "bbox", bbox: part.bbox };
+    case "area":
+      return { type: "area", id: part.id };
+  }
+}
+
+function targetFromPart(part: ResolvedPart): AnalysisTarget {
+  return {
+    name: part.name,
+    context: part.context,
+    geometry: part.geometry,
+    bbox: bboxOf(part.geometry),
+    center: interiorPoint(part.geometry),
+    areaKm2: part.areaKm2,
+    kind: part.part.kind === "poly" || part.part.kind === "bbox" ? "drawn" : "place",
+    ref: refForPart(part.part),
+  };
+}
+
+/** The first place and the ones added to it, as one target. Nothing runs until every part is loaded. */
+export function withAddedParts(primary: TargetState, added: ResolvedPartsState, first: AreaPart | null): TargetState {
+  if (!added.parts.length) return primary;
+  if (primary.loading || added.loading) return { target: null, loading: true, error: null };
+  const error = [primary.error, ...added.errors].filter(Boolean).join(" ") || null;
+
+  const pieces: TargetPart[] = [];
+  const seen = new Set<string>();
+  const keep = (piece: TargetPart) => {
+    if (seen.has(piece.key)) return;
+    seen.add(piece.key);
+    pieces.push(piece);
+  };
+  if (primary.target) {
+    const { name, context, geometry, areaKm2 } = primary.target;
+    keep({ key: first ? partKey(first) : "first", name, context, geometry, areaKm2 });
+  }
+  for (const part of added.parts) if (part) keep({ key: part.key, name: part.name, context: part.context, geometry: part.geometry, areaKm2: part.areaKm2 });
+
+  if (!pieces.length) return { target: null, loading: false, error };
+  if (pieces.length === 1) {
+    const only = primary.target ?? targetFromPart(added.parts.find((p): p is ResolvedPart => p !== null) as ResolvedPart);
+    return { target: only, loading: false, error };
+  }
+  const geometry = combineGeometries(pieces.map((p) => p.geometry));
+  const firstAdded = added.parts.find((p): p is ResolvedPart => p !== null);
+  return {
+    target: {
+      name: combinedName(pieces.map((p) => p.name)),
+      context: togetherLabel(pieces.length),
+      geometry,
+      bbox: bboxOf(geometry),
+      center: centroidOf(geometry),
+      areaKm2: combinedAreaKm2(pieces.map((p) => p.geometry)),
+      kind: "place",
+      ref: primary.target?.ref ?? refForPart((firstAdded as ResolvedPart).part),
+      parts: pieces,
+    },
+    loading: false,
+    error,
+  };
+}
+
+/** The first place, from the page's usual keys. */
+function usePrimaryTarget(params: URLSearchParams): TargetState {
   const { getArea } = useWorkspace();
   const areaId = params.get("area");
   const osm = params.get("osm");

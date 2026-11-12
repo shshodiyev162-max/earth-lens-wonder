@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { countMaps, runAnalysis } from "../run";
+import { climatePointCount, climatePoints, countClimateRequests, countMaps, runAnalysis } from "../run";
 import { bboxOf, circlePolygon } from "../../geo/geometry";
 import type { AnalysisRequest, AnalysisResult } from "../types";
 
@@ -98,5 +98,32 @@ describe("reading an analysis", () => {
   it("sizes a request by its maps", () => {
     expect(countMaps({ start: "2020-01", end: "2020-12", datasets: ["climate", "vegetation", "dust"] })).toBe(24);
     expect(geometry).toBeTruthy();
+  });
+});
+
+describe("where climate is read for places added together", () => {
+  const part = (key: string, lat: number, lon: number, km: number) => {
+    const shape = circlePolygon([lat, lon], km);
+    return { key, name: key, geometry: shape, areaKm2: Math.PI * km * km };
+  };
+
+  it("puts at least one point in every place, and the rest where the land is", () => {
+    const big = part("big", 45, 60, 400);
+    const small = part("small", 10, 20, 20);
+    const shape = { type: "MultiPolygon" as const, coordinates: [big.geometry, small.geometry].map((g) => (g.type === "Polygon" ? g.coordinates : [])) };
+    const target = { geometry: shape, areaKm2: big.areaKm2 + small.areaKm2, parts: [big, small] };
+    expect(climatePointCount(target)).toBe(5);
+    const points = climatePoints(target);
+    expect(points).toHaveLength(5);
+    expect(points.filter(([lat]) => lat < 20)).toHaveLength(1);
+  });
+
+  it("reads one point per place for many small places, up to eight", () => {
+    const parts = Array.from({ length: 10 }, (_, i) => part(`p${i}`, 30, i * 5, 5 + i));
+    const target = { geometry: parts[0].geometry, areaKm2: parts.reduce((s, p) => s + p.areaKm2, 0), parts };
+    expect(climatePointCount(target)).toBe(8);
+    // The eight largest places get one each.
+    expect(climatePoints(target).map(([, lon]) => Math.round(lon / 5))).toEqual([9, 8, 7, 6, 5, 4, 3, 2]);
+    expect(countClimateRequests({ datasets: ["climate"], target: { ...target, name: "", bbox: [0, 0, 1, 1], center: [0, 0], kind: "place", ref: { type: "bbox", bbox: [0, 0, 1, 1] } } })).toBe(16);
   });
 });

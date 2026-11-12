@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const LOOKS = {
-  panel: { on: "bg-cyan-400/20 text-accent-cyan-soft", off: "bg-panel-tint text-panel-muted hover:text-panel-foreground" },
-  page: { on: "bg-primary text-primary-foreground", off: "glass text-muted-foreground hover:text-foreground" },
+  panel: { on: "border-panel-foreground bg-panel-foreground text-panel", off: "border-panel-line-strong text-panel-soft hover:border-panel-foreground/50 hover:text-panel-foreground" },
+  page: { on: "border-panel-foreground bg-panel-foreground text-panel", off: "border-panel-line-strong text-panel-soft hover:border-panel-foreground/50 hover:text-panel-foreground" },
 };
 
 interface MonthTogglesProps {
@@ -33,7 +33,7 @@ export default function MonthToggles({ value, onChange, look = "panel", label = 
               const next = on ? value.filter((m) => m !== month) : [...value, month].sort((a, b) => a - b);
               if (next.length) onChange(next);
             }}
-            className={cn("rounded-md px-1 py-1.5 text-[11px] font-medium transition-colors pointer-coarse:min-h-11", on ? style.on : style.off)}
+            className={cn("rounded-full border px-1 py-1 text-[11px] transition-colors pointer-coarse:min-h-11", on ? style.on : style.off)}
           >
             {name}
           </button>

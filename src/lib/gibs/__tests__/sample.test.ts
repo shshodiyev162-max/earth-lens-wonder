@@ -80,6 +80,13 @@ describe("rasterizeMask", () => {
     expect(rasterizeMask(donut, grid).reduce((s, v) => s + v, 0)).toBe(100 - 36);
   });
 
+  it("reads overlapping places added together once, with no hole where they meet", () => {
+    const together: PolygonGeometry = { type: "MultiPolygon", coordinates: [bboxPolygon([0, 0, 6, 6]), bboxPolygon([4, 4, 10, 10])].map((g) => (g.type === "Polygon" ? g.coordinates : [])) };
+    const mask = rasterizeMask(together, grid);
+    expect(mask.reduce((s, v) => s + v, 0)).toBe(36 + 36 - 4);
+    expect(mask[5 * 10 + 5]).toBe(1);
+  });
+
   it("always includes at least one pixel for tiny areas", () => {
     const mask = rasterizeMask(bboxPolygon([4.1, 4.1, 4.2, 4.2]), grid);
     expect(mask.reduce((s, v) => s + v, 0)).toBe(1);

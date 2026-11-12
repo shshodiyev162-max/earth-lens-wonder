@@ -84,7 +84,7 @@ export default function Explore() {
 
   const onAreaComplete = (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => {
     setDrawMode(null);
-    const area = workspace.addArea({ geometry, kind, name: country?.name, region: country?.region });
+    const area = workspace.addArea({ geometry, kind, name: country?.name, region: country?.region, countryId: country?.countryId });
     toast.success(`${area.name} saved`, {
       description: `${formatArea(area.areaKm2)} · measuring ${isScienceLayer(layer) ? layer.name.toLowerCase() : "available data"}`,
       action: { label: "Analyze", onClick: () => navigate(analysisHrefForArea(area.id)) },
@@ -152,8 +152,9 @@ export default function Explore() {
 
   return (
     <MapPageShell
-      title="Explore NASA imagery"
-      description="Choose a NASA layer, a date and a region. Search any place from the bar at the top, click the map to read real values, or draw an area to measure it."
+      eyebrow="Explore"
+      title="Any layer, any day."
+      description="Choose a NASA layer and a date. Search any place from the bar at the top, click the map to read real values, or draw an area to measure it."
       sidebar={sidebar}
       topRight={<MapStatusPill layer={layer} date={dateState.date} status={tileStatus} />}
       overlay={overlay}

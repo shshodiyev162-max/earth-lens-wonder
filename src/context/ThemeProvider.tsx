@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ThemeContext, type Theme } from "./theme";
 
-const BROWSER_BAR_COLOR: Record<Theme, string> = { dark: "#0e1117", light: "#f8fafc" };
+const BROWSER_BAR_COLOR: Record<Theme, string> = { dark: "#08090d", light: "#f9f8f6" };
 
 /**
- * Light / dark mode. Every visit starts in dark mode (the original design); the choice
+ * Light / dark mode. Every visit starts in dark mode, like the planet on the home page; the choice
  * is intentionally not saved, so a reload goes back to dark.
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {

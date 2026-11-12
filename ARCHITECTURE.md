@@ -26,7 +26,7 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 - `catalog.ts` lists every layer with its WMTS matrix set. The matrix set also gives the deepest zoom GIBS serves; Leaflet scales tiles up past it instead of requesting tiles that would fail. Each entry also records the period (daily, 8-day, 16-day, monthly, yearly or static), the colormap name and the unit conversion (Kelvin to °C). The visible layers make up the picker; four hidden monthly products feed the analysis.
 - `time.ts` fetches each layer's `DescribeDomains` document and resolves a requested date to one that exists: exact, snapped to the 8- or 16-day composite, nearest across a gap, or clamped to the earliest or latest. The default date for daily layers is yesterday, or two days back for the night band.
 - `colormap.ts` parses NASA's colormap XML (v1.3) into a lookup from exact RGB to value, plus a legend. `decodePixel` turns a pixel back into a number. Transparent and no-data entries become `null`, and a nearest-color fallback covers anti-aliased edges.
-- `sample.ts` builds WMS GetMap requests (EPSG:4326, so 1.3.0 axis order is latitude first) sized to the layer's native resolution. It rasterizes polygon outlines (scanline, even-odd, so holes and multipolygons work) and reduces the decoded pixels to mean, median, p10, p90, standard deviation and coverage. `probePoint` reads one value for click-to-read.
+- `sample.ts` builds WMS GetMap requests (EPSG:4326, so 1.3.0 axis order is latitude first) sized to the layer's native resolution. It rasterizes outlines through `coverCells` in `lib/geo/combine.ts` (scanline, even-odd within each polygon, so holes work; a pixel inside any polygon counts once, so the overlapping parts of a combined area never cancel out) and reduces the decoded pixels to mean, median, p10, p90, standard deviation and coverage. `probePoint` reads one value for click-to-read.
 
 ### `lib/geo` — places and shapes
 
@@ -34,7 +34,15 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 - `geometry.ts` covers geodesic area (spherical excess), point-in-polygon with holes, centroids and a guaranteed interior point, geodesic circles, and well-spread sample points for climate averaging.
 
 - `regions.ts` lists named regions (Aral Sea, Pamirs, Central Asia…) and, from `waters.ts`, the seas and oceans. `regionGeometry` gives a region's shape: a sea's water, a box, or its countries together. Search, the Trends form, the Analysis page (`?region=`) and saved areas all refer to them by name.
+- `combine.ts` reads several places as one area: their outlines side by side in one shape (`combineGeometries`), their names joined ("Uzbekistan + Kazakhstan", `combinedName`) and their size with shared land counted once (`combinedAreaKm2`: each part's exact size, minus any overlap measured on a fine grid; neighbouring countries only touch, so their sizes simply add up).
 - `waters.ts` keeps rough outlines of seas and oceans. Neighbouring waters share edges drawn through the land between them (the Americas between the Atlantic and the Pacific), so `waterAt` finds the right one under a click. Their water areas — outline minus Natural Earth land, and for oceans minus the enclosed seas — are built by `scripts/build-waters.ts` (`npm run data:waters`, no download) into `public/data/waters.json` (0.2 MB) and loaded when needed. The Pacific comes in two halves because a scan can't wrap around the 180° line.
+
+### `lib/areas` — places added together
+
+- `parts.ts` describes each place of a combined area (a country, a sea or region, a place typed by name, an OpenStreetMap boundary, a drawn outline, a circle, a box, or a saved area) and how it is written in a page address: the first in the page's usual keys (`?country=`, `?region=`, `?osm=`, `?poly=`…), every other one as an `?add=` entry such as `add=country:KAZ!Kazakhstan` or `add=region:Black Sea`. Picking a place that is already in takes it out again. Saved areas go into links by name or outline when they can, so a link works on any device.
+- `resolve.ts` loads each part's outline (bundled countries and seas need no network; OpenStreetMap is asked once, then cached) and joins the parts (`combineParts`). An area is water only when every part is a sea or ocean.
+- `hooks/useResolvedParts.ts` loads the added parts on a page; `useAnalysisTarget` joins them with the first place (`withAddedParts`), and the Trends scan does the same (`areaFor` in `useTrendScans`).
+- On Analysis and Trends, "Add another place" turns on adding: search results, map clicks, drawn shapes, countries and seas picked one after another, known regions and saved areas then join the area instead of replacing it. Each place is listed with its size and a button to take it out. On Explore, Split and Sync, "Combine" in Your areas saves ticked areas as one new area (the originals stay). Climate on Analysis is read at one point or more in every place (`climatePoints` in `run.ts`, up to eight).
 
 ### `lib/query` — measures and periods
 
@@ -43,7 +51,7 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 
 ### `lib/trends` — the trend detective
 
-- `query.ts` is the search as URL state: the form ⇄ the address (every combination round-trips; tested), and the sentence written from the choices.
+- `query.ts` is the search as URL state: the form ⇄ the address (every combination round-trips; tested), and the sentence written from the choices. Places added to the chosen one are `extra` (`?add=`); `trendParts` lists every place and `editForParts` makes a list of places the search's area.
 - `grid.ts` fetches one month of a layer as a decoded grid (cached on the device) and the land/water mask (OSM land/water map).
 - `pixels.ts` gives each pixel a seasonal mean per year, its change, and a Mann–Kendall p-value and Sen's slope.
 - `hotspots.ts` flags pixels, groups them into 8-connected patches, ranks them and traces outlines.
@@ -86,33 +94,39 @@ Plain one- or two-sentence definitions of every measure and of the statistics wo
 - `components/map`:
   - `BaseMap` is the shared Leaflet setup.
   - `GibsTileLayer` and `LayerStack` show a science layer over a dimmed Blue Marble so gaps still show context.
-  - `ReferenceOverlays` draws the bundled Natural Earth 1:50m country outlines (borders and coastlines, `public/data/countries-50m.json`, built by `scripts/build-borders.mjs`) on one canvas, cyan over a soft dark edge so they stay visible over clouds. Each outline carries its name and 3-letter code; `lib/geo/countries.ts` loads them once and answers "which country is here?" (`countryAt`) and "which outline is this code?" (`findCountry`). There are no label tiles: CARTO's need a key and NASA's `Reference_Labels_15m` come back as solid black tiles.
+  - `ReferenceOverlays` draws the bundled Natural Earth 1:50m country outlines (borders and coastlines, `public/data/countries-50m.json`, built by `scripts/build-borders.mjs`) on one canvas, cyan over a soft dark edge so they stay visible over clouds, snow and desert. Each outline carries its name and 3-letter code; `lib/geo/countries.ts` loads them once and answers "which country is here?" (`countryAt`) and "which outline is this code?" (`findCountry`). There are no label tiles: CARTO's need a key and NASA's `Reference_Labels_15m` come back as solid black tiles.
   - `DrawTools` and `DrawToolbar` provide pointer-based rectangle, circle and polygon drawing, with no plugin, and a "Pick a country" mode (`CountryPickTool`: hover highlight with the name, click to select). On Trends the same tool also picks the sea or ocean under the pointer (`onPickWater`), which is the same as naming it. On Explore/Split/Sync a picked country is saved as a named area; on Analysis it becomes `?country=UZB` (a shareable link resolved from the bundled outlines).
+  - `MapDetails` (inside `ReferenceOverlays`) adds what a map shows besides imagery: country and sea names, a latitude and longitude grid with degrees along the edges, a scale bar, and a readout of the coordinates and place under the cursor. It uses only bundled data, and the choices it makes (`lib/map/details.ts`) keep names whole and apart. A map too small for it can turn it off (`details={false}`).
   - `ValueProbe` handles click-to-read.
   - `SwipeClip` clips Leaflet panes for the comparison divider.
   - Also here: the legend, date control, layer picker and the shared page shell.
 - `components/search`: `PlaceSearch` (an ARIA combobox used on the landing page, map sidebars and the analysis picker) and `GlobalSearch` (the <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> palette for places and layers).
-- `components/analysis`: location picker (search, location, mini map with click-to-pick and drawing, radius, saved areas), period and dataset controls, Recharts charts, the report panels, and `PlaceThumbnail` (a GIBS Blue Marble image of the place with its outline, used in the report header).
+- `components/analysis`:
+  - `AnalysisMap`, the page's big map, where a place is chosen: click for a circle around a point, draw a shape, or pick countries and seas. With no place yet the page shows only this map, with a "Pick a place to start" card. Once there is a place, a Map / Report switch at the top moves between it and the report. Picking a place opens its report; while places are being added the map holds still and nothing is read until "Done adding".
+  - `LocationPicker`, the sidebar's choices without the map: search, your location, radius, saved areas, and the places of a combined area with "Add another place".
+  - Period and dataset controls, Recharts charts, the report panels, and `PlaceCover` (the report's cover: a GIBS Blue Marble image of the place with its outline).
 
 ### State
 
-- `WorkspaceContext` holds saved areas and the last map view, persisted to `localStorage` behind safe wrappers (`lib/storage.ts`), so the app still works in private windows.
+- `WorkspaceContext` holds saved areas (drawn, picked, found or combined; `combineAreas` saves several as one) and the last map view, persisted to `localStorage` behind safe wrappers (`lib/storage.ts`), so the app still works in private windows.
 - `AuthContext` uses a local "Explorer" profile in demo mode. With `VITE_API_BASE_URL` set, it calls `/auth/*` through `lib/apiClient.ts`.
 
 ### Look and feel
 
-The design is the original TerraView design from the GitHub version, unchanged where it existed:
+Every page uses the home page's design, built from a few parts in `src/index.css`:
 
-- The theme colours in `src/index.css` are the original ones: a dark "space" theme, `gradient-hero`, `glass` and `glass-strong` cards, `gradient-primary` + `glow-primary` buttons and `font-display` (Space Grotesk) headings.
-- The landing, sign-in, 404 and Analysis pages use these theme classes, exactly as the GitHub pages did.
-- The map pages (Explore, Split, Sync) use the original navy-and-cyan sidebar (`bg-[#07111d]`, `border-white/10`, `text-slate-*`, `text-cyan-400`), with the floating top row, Quick regions, the info card, Selected areas, the bottom Explore/Split/Sync ribbon, vertical draw tools and bright cyan country borders.
-- Search lives in the top navigation bar (`components/search/NavSearch.tsx`), where the old "World" picker was. Ctrl/⌘K and "/" focus it; on phones the search icon opens `GlobalSearch`. Both share `useUniversalSearch`.
-- Additions that don't change the look: a keyboard-only focus ring, `prefers-reduced-motion` support, a `skeleton` shimmer for loading placeholders and a fade between pages.
+- **Colour means something.** The interface is near-black or warm paper, with hairlines and neutral ink. Colour is kept for tested results: amber for a change that worries, green for a welcome one, plain ink for a neutral one, grey for no clear change (`components/analysis/tone.ts`).
+- **Three typefaces.** Instrument Serif for headlines (`font-editorial`), JetBrains Mono for small labels and numbers (`.eyebrow`, `.field-label`), Inter for everything else.
+- **One main action.** The white pill (`.btn-solid`) marks the one thing to do next; quieter actions use `.btn-line` and `.link-quiet`. A selected choice is inverted (`.chip-on`, `.segment-on`).
+- **One layout.** A 24rem panel on the left and a map or report beside it. Map pages share `components/map/MapPageShell.tsx`, which also fades the map's edges into the dark. On a map, cyan is a country border and white is always your own chosen area. Trends' panel shows either the search form or its results, never both.
+- **The report opens on the planet.** `components/analysis/PlaceCover.tsx` shows NASA's Blue Marble of the place with its real outline. The 404 and error pages use the planet's edge (`components/common/PlanetLimb.tsx`).
+- **Touch.** Controls grow to 44 px on touch screens through the `pointer-coarse:` variant, defined in `tailwind.config.ts`.
+- **Motion.** Keyboard-only focus ring, `prefers-reduced-motion` support, a `skeleton` shimmer for loading placeholders and a fade between pages.
+- **Search** lives in the top navigation bar (`components/search/NavSearch.tsx`). Ctrl/⌘K and "/" focus it; on phones the search icon opens `GlobalSearch`. Both share `useUniversalSearch`.
 - **Light and dark mode.** Every visit starts in dark mode (`class="dark"` on `<html>`); the sun/moon button in the navbar switches, and the choice is not saved. `src/context/ThemeProvider.tsx` holds the state; `useTheme()` comes from `src/context/theme.ts`.
-  - Colours are CSS variables: light values in `:root`, the original dark values in `.dark` (`src/index.css`). The map-page chrome uses `panel-*`, `accent-cyan` and `tone-*` tokens (navy/cyan in dark, white/teal in light); map controls use `--lf-*`.
-  - The landing hero keeps the `dark` class in both modes, because it shows Earth in space.
-  - Chart greys come from `useChartColors()` in `components/analysis/Charts.tsx` (SVG attributes can't read CSS variables).
-  - Both modes pass axe WCAG 2.1 AA on every page.
+  - Colours are CSS variables: light values in `:root`, dark in `.dark` (`src/index.css`).
+  - The planet, the report cover and the home hero keep the `dark` class in both modes, because they show Earth in space.
+  - Chart colours come from `useChartColors()` in `components/analysis/Charts.tsx` (SVG attributes can't read CSS variables).
 
 ## Design decisions
 

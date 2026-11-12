@@ -552,6 +552,21 @@ export function formatP(p: number): string {
 }
 
 /**
+ * The verdict as the answer to "is it changing?", graded by the evidence, in the voice of the home
+ * page's findings: "Yes, clearly." for a very strong result, "Probably" for one that only just passes.
+ */
+export function answerInWords(verdict: Pick<TrendVerdict, "direction" | "p" | "slopePerYear">): string {
+  if (verdict.direction === "none") {
+    if (verdict.p < WEAK_EVIDENCE && verdict.slopePerYear !== 0) return `Not clearly. It leans ${verdict.slopePerYear > 0 ? "upward" : "downward"}.`;
+    return "No clear trend.";
+  }
+  const word = verdict.direction === "increase" ? "rising" : "falling";
+  if (verdict.p < 0.001) return `Yes, clearly. It is ${word}.`;
+  if (verdict.p < 0.01) return `Yes. It is ${word}.`;
+  return `Probably. It is ${word}, but only just.`;
+}
+
+/**
  * Plain-language explanation of a verdict, e.g. "Plant greenness fell by −0.012 NDVI per year…
  * A run this consistent would appear by chance in fewer than 1 in 100 records without a real trend (p = 0.004)."
  */

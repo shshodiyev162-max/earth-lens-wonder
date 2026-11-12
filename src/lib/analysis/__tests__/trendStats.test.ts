@@ -1,3 +1,4 @@
+import { answerInWords } from "../stats";
 import { describe, expect, it } from "vitest";
 import {
   annualTrendVerdict,
@@ -227,5 +228,16 @@ describe("explaining a result just short of the cut-off", () => {
   it("leans the right way for a fall", () => {
     const verdict = annualTrendVerdict(years, leaning.map((v) => -v));
     expect(explainVerdict(verdict!, "Rainfall", "mm", 1)).toContain("leaned downward");
+  });
+});
+
+describe("the verdict as an answer", () => {
+  const up = (p: number) => ({ direction: "increase" as const, p, slopePerYear: 1 });
+  it("grades the answer by the evidence", () => {
+    expect(answerInWords(up(0.0005))).toBe("Yes, clearly. It is rising.");
+    expect(answerInWords(up(0.005))).toBe("Yes. It is rising.");
+    expect(answerInWords({ direction: "decline", p: 0.04, slopePerYear: -1 })).toBe("Probably. It is falling, but only just.");
+    expect(answerInWords({ direction: "none", p: 0.08, slopePerYear: 1 })).toBe("Not clearly. It leans upward.");
+    expect(answerInWords({ direction: "none", p: 0.6, slopePerYear: 1 })).toBe("No clear trend.");
   });
 });

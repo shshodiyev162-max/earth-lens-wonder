@@ -7,10 +7,11 @@ interface YearTrendChartProps {
   /** Year windows to shade (e.g. the two periods compared). */
   baseline?: [number, number];
   recent?: [number, number];
-  color: string;
+  /** The colour of the trend and its range. The yearly values take the text colour around the chart. */
+  color?: string;
   unit: string;
   decimals: number;
-  /** Compact sparkline (no axes or labels). */
+  /** Compact sparkline (no labels). */
   compact?: boolean;
   /** Shade the 95% range of the trend (lower and upper Sen slopes through the middle year). */
   showRange?: boolean;
@@ -19,30 +20,28 @@ interface YearTrendChartProps {
   label: string;
 }
 
-const STYLES = {
-  panel: { text: "fill-panel-muted", band: "fill-panel-tint-strong" },
-  page: { text: "fill-muted-foreground", band: "fill-muted" },
-};
+const WIDTH = { full: 300, compact: 120 };
+const HEIGHT = { full: 84, compact: 32 };
 
-/** Yearly values with the Sen's slope trend line, its 95% range and the chosen windows shaded. */
-export default function YearTrendChart({ series, baseline, recent, color, unit, decimals, compact = false, showRange = false, variant = "panel", label }: YearTrendChartProps) {
+/** One measured value a year, the Sen's slope trend through them, its 95% range and the chosen windows shaded. */
+export default function YearTrendChart({ series, baseline, recent, color = "currentColor", unit, decimals, compact = false, showRange = false, variant = "panel", label }: YearTrendChartProps) {
   const clipId = `range-${useId().replace(/:/g, "")}`;
   const valid = useMemo(() => series.filter((p): p is { year: number; value: number } => p.value !== null), [series]);
   const geometry = useMemo(() => {
     if (valid.length < 2) return null;
-    const width = compact ? 120 : 300;
-    const height = compact ? 32 : 120;
-    const pad = compact ? { l: 2, r: 2, t: 3, b: 3 } : { l: 36, r: 8, t: 10, b: 20 };
+    const width = compact ? WIDTH.compact : WIDTH.full;
+    const height = compact ? HEIGHT.compact : HEIGHT.full;
+    const pad = compact ? { l: 2, r: 2, t: 3, b: 3 } : { l: 3, r: 3, t: 6, b: 4 };
     // Only years with a value: a year cut short by the period has none, and shouldn't widen the axis.
     const years = valid.map((p) => p.year);
     const x0 = Math.min(...years);
     const x1 = Math.max(...years);
     const values = valid.map((p) => p.value);
-    const sen = valid.length >= 3 ? senSlope(valid.map((p) => p.year), values) : null;
+    const sen = valid.length >= 3 ? senSlope(years, values) : null;
     const at = (x: number) => (sen ? sen.intercept + sen.slope * x : 0);
     const lineValues = sen ? [at(x0), at(x1)] : [];
     // The 95% range pivots on the middle year of the measured record.
-    const xm = valid.length ? (valid[0].year + valid[valid.length - 1].year) / 2 : x0;
+    const xm = (x0 + x1) / 2;
     const cone =
       sen && showRange && !compact
         ? [
@@ -66,59 +65,62 @@ export default function YearTrendChart({ series, baseline, recent, color, unit, 
     const sy = (y: number) => pad.t + (1 - (y - y0) / (y1 - y0)) * (height - pad.t - pad.b);
     const path = valid.map((p, i) => `${i ? "L" : "M"}${sx(p.year).toFixed(1)},${sy(p.value).toFixed(1)}`).join(" ");
     const conePath = cone ? `${cone.map(([x, y], i) => `${i ? "L" : "M"}${sx(x).toFixed(1)},${sy(y).toFixed(1)}`).join(" ")} Z` : null;
-    return { width, height, pad, sx, sy, path, sen, at, x0, x1, y0, y1, conePath };
+    return { width, height, pad, sx, sy, path, sen, at, x0, x1, conePath };
   }, [valid, compact, showRange]);
 
-  const style = STYLES[variant];
-  if (!geometry) return <p className={variant === "panel" ? "text-xs text-panel-muted" : "text-xs text-muted-foreground"}>Not enough years with data for a chart.</p>;
-  const { width, height, pad, sx, sy, path, sen, at, x0, x1, y0, y1, conePath } = geometry;
+  const muted = variant === "panel" ? "text-panel-muted" : "text-muted-foreground";
+  if (!geometry) return <p className={`text-xs ${muted}`}>Not enough years with data for a chart.</p>;
+  const { width, height, pad, sx, sy, path, sen, at, x0, x1, conePath } = geometry;
+
+  if (compact) {
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-8 w-[7.5rem]" role="img" aria-label={label}>
+        {sen && <line x1={sx(x0)} y1={sy(at(x0))} x2={sx(x1)} y2={sy(at(x1))} style={{ stroke: color }} strokeWidth={1} strokeDasharray="3 3" opacity={0.55} vectorEffect="non-scaling-stroke" />}
+        <path d={path} fill="none" stroke="currentColor" strokeWidth={1.25} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+    );
+  }
+
   // Shade each window half a year either side of its years, kept inside the chart.
   const band = (range: [number, number]) => {
     const x = sx(Math.max(x0, range[0] - 0.5));
     return { x, w: sx(Math.min(x1, range[1] + 0.5)) - x };
   };
-  const windows = [
-    baseline ? { ...band(baseline), name: "baseline" } : null,
-    recent ? { ...band(recent), name: "recent" } : null,
-  ].filter((w): w is { x: number; w: number; name: string } => w !== null);
+  const windows = [baseline ? { ...band(baseline), name: "then" } : null, recent ? { ...band(recent), name: "now" } : null].filter((w): w is { x: number; w: number; name: string } => w !== null && w.w > 0);
+  const first = valid[0];
+  const last = valid[valid.length - 1];
+  const print = (value: number) => `${value.toFixed(decimals)}${unit ? ` ${unit}` : ""}`;
+
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className={compact ? "h-8 w-[7.5rem]" : "h-32 w-full"} role="img" aria-label={label}>
-      {!compact && (
-        <>
-          {windows.map((w) => (
-            <rect key={w.name} x={w.x} y={pad.t} width={Math.max(0, w.w)} height={height - pad.t - pad.b} className={style.band} />
-          ))}
-          <text x={pad.l - 4} y={pad.t + 4} textAnchor="end" className={`${style.text} text-[9px]`}>
-            {y1.toFixed(decimals)}
-          </text>
-          <text x={pad.l - 4} y={height - pad.b} textAnchor="end" className={`${style.text} text-[9px]`}>
-            {y0.toFixed(decimals)}
-          </text>
-          <text x={sx(x0)} y={height - 5} textAnchor="start" className={`${style.text} text-[9px]`}>
-            {x0}
-          </text>
-          <text x={sx(x1)} y={height - 5} textAnchor="end" className={`${style.text} text-[9px]`}>
-            {x1}
-          </text>
-          {windows.map((w) => (
-            <text key={`${w.name}-label`} x={w.x + w.w / 2} y={pad.t + 9} textAnchor="middle" className={`${style.text} text-[8px]`}>
+    <figure className="m-0">
+      <svg viewBox={`0 0 ${width} ${height}`} className="block h-auto w-full overflow-visible" role="img" aria-label={label}>
+        <clipPath id={clipId}>
+          <rect x={0} y={0} width={width} height={height} />
+        </clipPath>
+        {windows.map((w) => (
+          <g key={w.name}>
+            <rect x={w.x} y={0} width={w.w} height={height} fill="currentColor" opacity={0.055} />
+            <text x={w.x + w.w / 2} y={7} textAnchor="middle" fill="currentColor" opacity={0.6} style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 6.5 }}>
               {w.name}
             </text>
-          ))}
-        </>
-      )}
-      {conePath && (
-        <>
-          <clipPath id={clipId}>
-            <rect x={pad.l} y={pad.t} width={width - pad.l - pad.r} height={height - pad.t - pad.b} />
-          </clipPath>
-          <path d={conePath} fill={color} opacity={0.13} clipPath={`url(#${clipId})`} />
-        </>
-      )}
-      {sen && <line x1={sx(x0)} y1={sy(at(x0))} x2={sx(x1)} y2={sy(at(x1))} stroke={color} strokeWidth={compact ? 1 : 1.5} strokeDasharray="4 3" opacity={0.85} />}
-      <path d={path} fill="none" stroke={color} strokeWidth={compact ? 1.5 : 2} strokeLinejoin="round" />
-      {!compact && valid.map((p) => <circle key={p.year} cx={sx(p.year)} cy={sy(p.value)} r={2.2} fill={color} />)}
-      {!compact && <title>{`${label} (${unit})`}</title>}
-    </svg>
+          </g>
+        ))}
+        {conePath && <path d={conePath} style={{ fill: color }} opacity={0.15} clipPath={`url(#${clipId})`} />}
+        {sen && <line x1={sx(x0)} y1={sy(at(x0))} x2={sx(x1)} y2={sy(at(x1))} style={{ stroke: color }} strokeWidth={1.25} strokeDasharray="5 4" opacity={0.95} vectorEffect="non-scaling-stroke" />}
+        <path d={path} fill="none" stroke="currentColor" strokeWidth={1.25} strokeLinejoin="round" strokeLinecap="round" opacity={0.85} vectorEffect="non-scaling-stroke" />
+        {valid.map((p) => (
+          <circle key={p.year} cx={sx(p.year)} cy={sy(p.value)} r={1.5} fill="currentColor" />
+        ))}
+        <rect x={pad.l} y={height - 0.5} width={width - pad.l - pad.r} height={0.5} fill="currentColor" opacity={0.15} />
+      </svg>
+      <figcaption className={`mt-1.5 flex justify-between gap-3 font-mono text-[10.5px] tabular-nums ${muted}`}>
+        <span>
+          {first.year} · {print(first.value)}
+        </span>
+        <span>
+          {last.year} · {print(last.value)}
+        </span>
+      </figcaption>
+    </figure>
   );
 }

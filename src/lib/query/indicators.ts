@@ -338,7 +338,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
   ozone: {
     id: "ozone",
     label: "Ozone layer",
-    noun: "ozone layer",
+    noun: "the ozone layer",
     subject: "Ozone about 20 km up",
     layerId: "MERRA2_Ozone_Mixing_Ratio_50hPa_Monthly",
     product: "MERRA-2 monthly ozone at 50 hPa (about 20 km up), ~50 km",
@@ -553,7 +553,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
   heatLeaving: {
     id: "heatLeaving",
     label: "Heat leaving for space",
-    noun: "heat leaving for space",
+    noun: "the heat leaving for space",
     subject: "Heat radiated out to space",
     layerId: "AIRS_L3_All_Sky_Outgoing_Longwave_Radiation_Monthly_Day",
     product: "AIRS (Aqua) monthly daytime outgoing longwave radiation, ~100 km",

@@ -60,3 +60,70 @@ describe("usePlaceArea", () => {
     expect(result.current).toMatchObject({ status: "idle", area: null });
   });
 });
+
+describe("AreaPicker with places added together", () => {
+  const rows = [
+    { key: "country:UZB", label: "Uzbekistan", areaKm2: 447_000 },
+    { key: "country:TKM", label: "Turkmenistan", areaKm2: 471_000 },
+  ];
+
+  function adding(params: string, on: boolean, parts = rows) {
+    const handlers = { onEdit: vi.fn(), onDraw: vi.fn(), onAdd: vi.fn(), onAddingChange: vi.fn(), onRemovePart: vi.fn() };
+    render(
+      <AreaPicker
+        query={query(params)}
+        foundName={null}
+        savedAreas={[]}
+        drawMode={null}
+        placeError={null}
+        parts={parts}
+        togetherKm2={918_000}
+        adding={on}
+        {...handlers}
+      />,
+    );
+    return handlers;
+  }
+
+  it("names the places together and lists each with its size", () => {
+    const { onRemovePart } = adding("ind=vegetation&place=Uzbekistan&add=country:TKM!Turkmenistan", false);
+    expect(screen.getByText("Uzbekistan + Turkmenistan")).toBeInTheDocument();
+    expect(screen.getByText("2 places together")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Places in this area" });
+    expect(list).toHaveTextContent("447k km²");
+    expect(list).toHaveTextContent("918k km²");
+    fireEvent.click(screen.getByRole("button", { name: "Take Turkmenistan out of the area" }));
+    expect(onRemovePart).toHaveBeenCalledWith(1);
+  });
+
+  it("offers to add another place once one is chosen", () => {
+    const { onAddingChange } = adding("ind=vegetation&place=Uzbekistan", false, rows.slice(0, 1));
+    expect(screen.queryByRole("list", { name: "Places in this area" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add another place" }));
+    expect(onAddingChange).toHaveBeenCalledWith(true);
+  });
+
+  it("doesn't offer it for the map view", () => {
+    adding("ind=vegetation&place=", false, []);
+    expect(screen.queryByRole("button", { name: "Add another place" })).not.toBeInTheDocument();
+  });
+
+  it("adds a listed sea or a typed place instead of replacing the area", () => {
+    const { onAdd, onEdit } = adding("ind=vegetation&place=Uzbekistan", true, rows.slice(0, 1));
+    expect(screen.getByRole("status")).toHaveTextContent("Adding places.");
+    fireEvent.change(screen.getByLabelText("Or add a known region, sea or ocean"), { target: { value: "Aral Sea" } });
+    expect(onAdd).toHaveBeenCalledWith({ kind: "region", label: "Aral Sea" });
+    const typed = screen.getByPlaceholderText("Or type a place to add");
+    fireEvent.change(typed, { target: { value: "Bukhara Region" } });
+    fireEvent.keyDown(typed, { key: "Enter" });
+    expect(onAdd).toHaveBeenLastCalledWith({ kind: "place", text: "Bukhara Region" });
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Map view" })).not.toBeInTheDocument();
+  });
+
+  it("stops adding when done", () => {
+    const { onAddingChange } = adding("ind=vegetation&place=Uzbekistan", true, rows.slice(0, 1));
+    fireEvent.click(screen.getByRole("button", { name: "Done adding" }));
+    expect(onAddingChange).toHaveBeenCalledWith(false);
+  });
+});

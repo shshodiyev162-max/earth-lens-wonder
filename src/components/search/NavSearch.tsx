@@ -66,8 +66,8 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 transition-colors focus-within:border-primary/50 hover:border-primary/30">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <div className="flex items-center gap-2 rounded-full border border-border px-3.5 transition-colors focus-within:border-foreground/50 hover:border-foreground/30">
+        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.5} aria-hidden />
         <input
           ref={inputRef}
           value={query}
@@ -86,10 +86,10 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
           aria-autocomplete="list"
           autoComplete="off"
           spellCheck={false}
-          className="min-w-0 flex-1 bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 bg-transparent py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
         />
         {loading ? (
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" aria-label="Searching" />
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" aria-label="Searching" />
         ) : query ? (
           <button
             type="button"
@@ -103,12 +103,12 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
             <X className="h-3.5 w-3.5" />
           </button>
         ) : (
-          <kbd className="hidden shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground lg:inline">{shortcut}</kbd>
+          <kbd className="hidden shrink-0 font-mono text-[10px] text-muted-foreground lg:inline">{shortcut}</kbd>
         )}
       </div>
 
       {showDropdown && (
-        <div tabIndex={0} aria-label="Search results" className="absolute right-0 top-full z-[2100] mt-2 max-h-[min(26rem,70vh)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-lg">
+        <div tabIndex={0} aria-label="Search results" className="absolute right-0 top-full z-[2100] mt-2 max-h-[min(26rem,70vh)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-border bg-card p-1.5 shadow-lg">
           <div id={listId} role="listbox" aria-label="Places and NASA layers">
             {items.map((item, index) => {
               const view = searchItemView(item);
@@ -116,7 +116,7 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
               const active = index === highlight;
               return (
                 <div key={view.key}>
-                  {startsSection(items, index) && <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{view.section}</div>}
+                  {startsSection(items, index) && <div className="px-3 pb-1 pt-2.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{view.section}</div>}
                   <button
                     type="button"
                     id={`${listId}-option-${index}`}
@@ -125,9 +125,9 @@ const NavSearch = forwardRef<NavSearchHandle, { className?: string; shortcut: st
                     tabIndex={-1}
                     onMouseEnter={() => setHighlight(index)}
                     onClick={() => choose(item)}
-                    className={cn("flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors", active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-primary/10")}
+                    className={cn("flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors", active ? "bg-foreground/[0.07] text-foreground" : "text-foreground")}
                   >
-                    <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} aria-hidden />
                     <span className="min-w-0 flex-1">
                       <span translate="no" className="block truncate font-medium">
                         {view.title}

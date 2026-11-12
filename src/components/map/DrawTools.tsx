@@ -51,9 +51,9 @@ function swallowTrailingClicks() {
 }
 
 const SHAPE_STYLE: L.PathOptions = {
-  color: "#22d3ee",
+  color: "#ffffff",
   weight: 2,
-  fillColor: "#22d3ee",
+  fillColor: "#ffffff",
   fillOpacity: 0.14,
   dashArray: "6 5",
   interactive: false,
@@ -137,9 +137,9 @@ export default function DrawTools({ mode, onComplete, onCancel, finishSignal = 0
       if (!outline) outline = L.polyline(vertices, { ...SHAPE_STYLE, dashArray: undefined }).addTo(group);
       else outline.setLatLngs(vertices);
       if (vertices.length === 1) {
-        firstMarker = L.circleMarker(point, { radius: 6, color: "#22d3ee", weight: 2, fillColor: "#07111d", fillOpacity: 1, interactive: false }).addTo(group);
+        firstMarker = L.circleMarker(point, { radius: 6, color: "#ffffff", weight: 2, fillColor: "#03040a", fillOpacity: 1, interactive: false }).addTo(group);
       } else {
-        L.circleMarker(point, { radius: 3.5, color: "#22d3ee", weight: 2, fillColor: "#22d3ee", fillOpacity: 1, interactive: false }).addTo(group);
+        L.circleMarker(point, { radius: 3.5, color: "#ffffff", weight: 2, fillColor: "#ffffff", fillOpacity: 1, interactive: false }).addTo(group);
       }
       report();
     };

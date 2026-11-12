@@ -21,7 +21,7 @@ export default function HotspotLayer({ hotspots, selectedId, onSelect, area }: H
             key={JSON.stringify(area).length}
             data={{ type: "Feature", properties: {}, geometry: area } as Feature}
             interactive={false}
-            style={{ color: "#e2e8f0", weight: 1.5, opacity: 0.8, dashArray: "5 6", fill: false }}
+            style={{ color: "#ffffff", weight: 1, opacity: 0.7, dashArray: "4 5", fill: false }}
           />
         </Pane>
       )}
@@ -33,11 +33,11 @@ export default function HotspotLayer({ hotspots, selectedId, onSelect, area }: H
               key={`${hotspot.id}-${selected ? "on" : "off"}-${hotspot.refined ? "r" : "c"}`}
               data={{ type: "Feature", properties: {}, geometry: hotspot.geometry } as Feature}
               style={{
-                color: selected ? "#fde047" : "#ffffff",
-                weight: selected ? 3 : 1.8,
-                opacity: 1,
-                fillColor: selected ? "#fde047" : "#ffffff",
-                fillOpacity: selected ? 0.12 : 0.04,
+                color: "#ffffff",
+                weight: selected ? 2.5 : 1.1,
+                opacity: selected ? 1 : 0.85,
+                fillColor: "#ffffff",
+                fillOpacity: selected ? 0.14 : 0.03,
               }}
               eventHandlers={{ click: () => onSelect(hotspot.id) }}
             >

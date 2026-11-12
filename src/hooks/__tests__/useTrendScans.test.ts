@@ -89,6 +89,29 @@ describe("useTrendScans", () => {
     expect(result.current.indicators).toEqual(["vegetation", "heat", "rainfall", "soil", "dust", "snow"]);
   });
 
+  it("scans places added together as one area", async () => {
+    const both = applyEdit(query, { extra: [{ kind: "bbox", bbox: [52, 35, 66, 43], name: "South box" }] });
+    const { result } = renderHook(() => useTrendScans(both, null));
+    await waitFor(() => expect(result.current.status).toBe("done"));
+    expect(result.current.area).toMatchObject({ name: "Uzbekistan + South box", context: "2 places together", kind: "place", bbox: [52, 35, 73, 46] });
+    expect(result.current.area?.geometry.type).toBe("MultiPolygon");
+  });
+
+  it("reads two seas added together as water", async () => {
+    const seas = queryFromParams(new URLSearchParams([["ind", "vegetation,sst"], ["place", "North Atlantic"], ["add", "region:Caspian Sea"], ["t", "default"]]));
+    const { result } = renderHook(() => useTrendScans(seas, null));
+    await waitFor(() => expect(result.current.status).toBe("done"));
+    expect(result.current.area?.water).toBe("ocean");
+    expect(result.current.measures.vegetation?.error).toMatch(/North Atlantic \+ Caspian Sea is water/);
+  });
+
+  it("explains a place added that can't be found", async () => {
+    const lost = applyEdit(query, { extra: [{ kind: "region", label: "Sea of Nowhere" }] });
+    const { result } = renderHook(() => useTrendScans(lost, null));
+    await waitFor(() => expect(result.current.status).toBe("error"));
+    expect(result.current.error).toBe("Sea of Nowhere isn't in TerraScope's list of known places.");
+  });
+
   it("scans each measure in turn and fills in their results", async () => {
     const { result } = renderHook(() => useTrendScans(query, null));
     await waitFor(() => expect(result.current.status).toBe("done"));

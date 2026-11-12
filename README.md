@@ -11,7 +11,7 @@ Everything runs in the browser against public NASA and OpenStreetMap services: n
 | Feature | In TerraScope |
 | --- | --- |
 | **Measures** | 29 measures of the land, water and snow, the air, gases and dust, and the sea (table below), grouped in the picker and each with a one-line plain definition. **"Suggested for this place"** picks the measures that suit the place from NASA's land cover map: dust and heat for deserts, surface heat and SO₂ for cities, sea temperature and the air above it for seas. |
-| **Places** | Any country or sea clicked on the map (“Country or sea”, on every map page), any place found by search, a known region, sea or ocean from a list (Aral Sea, Pamirs, Central Asia, Mediterranean, the Atlantic and Pacific halves…), a rectangle, polygon or circle drawn on the map, a saved area, or the map view. Searching for a sea gives its whole water area, not a point. A place is outlined, and its land cover described, as soon as it is chosen. Land measures leave out lakes and seas, sea measures leave out land, and air measures cover both, except over a named sea, where only its water is read. A measure that can't be read in a place (vegetation over a sea, sea temperature over a landlocked country) is explained before any map is read. |
+| **Places** | Any country or sea clicked on the map (“Country or sea”, on every map page), any place found by search, a known region, sea or ocean from a list (Aral Sea, Pamirs, Central Asia, Mediterranean, the Atlantic and Pacific halves…), a rectangle, polygon or circle drawn on the map, a saved area, or the map view. Several can be added together and read as one area (“Uzbekistan + Kazakhstan”): “Add another place” on Trends and Analysis, or “Combine” in Your areas on the map pages. Land two places share is counted once, and a link keeps every place. Searching for a sea gives its whole water area, not a point. A place is outlined, and its land cover described, as soon as it is chosen. Land measures leave out lakes and seas, sea measures leave out land, and air measures cover both, except over a named sea, where only its water is read. A measure that can't be read in a place (vegetation over a sea, sea temperature over a landlocked country) is explained before any map is read. |
 | **Time series** | Monthly NASA maps from 2000 (MERRA-2 records reach back to 1980; the scan starts at the MODIS era). Each pixel and each area become one value per year for the chosen months, so the seasonal cycle can't fake a trend. Year-by-year charts for the whole area and every hotspot, a monthly animation on the map, a yearly and a monthly chart for every measure on the Analysis page, and a CSV download. |
 | **Rate of change and significance** | **Mann–Kendall** trend test (tie-corrected; seasonal version for monthly data) and **Sen's slope** with its **95% confidence range**, per year and per decade, for the whole area, every hotspot and every pixel. **Welch's t-test** when comparing two periods (e.g. 2001–2010 vs 2016–2025). When a trend isn't significant, TerraScope says so and offers to test the whole record. |
 
@@ -134,14 +134,16 @@ src/
 │   ├── analysis/     # Location picker, period/months/dataset controls, charts, the line-per-measure scoreboard, report panels
 │   ├── demo/         # The guided demo player
 │   ├── common/       # Month picker, glossary
-│   ├── map/          # Base map, GIBS layers, drawing, legends
+│   ├── map/          # Base map, GIBS layers, drawing, legends, place names, grid and readout
 │   └── search/       # Navbar search and the Ctrl/⌘K palette
 ├── lib/
 │   ├── query/        # Measures and period planning
 │   ├── trends/       # Monthly grids, land/sea masks, per-pixel trends, hotspots, scans, land cover, URL state
 │   ├── analysis/     # Analysis engine, statistics (Mann–Kendall, Sen, Welch), trend tests, insights, CSV
 │   ├── gibs/         # Layer catalog, time domains, colour-scale decoding, area sampling
-│   ├── geo/          # Geometry, geocoding, country outlines, seas and named regions, link-safe outlines
+│   ├── geo/          # Geometry, geocoding, country outlines, seas and named regions, link-safe outlines, combined shapes
+│   ├── areas/        # Places added together: how links carry them, loading their outlines
+│   ├── map/          # Which names and grid lines a map shows at each zoom
 │   ├── demo/         # Demo scripts
 │   └── glossary.ts   # Plain definitions of measures and statistics words
 └── hooks/            # Trend scans, land cover, analysis runs, frames
@@ -159,6 +161,7 @@ The Vitest suite covers:
 - choices ⇄ page address round trips
 - seas and oceans: 54 clicks land in the right water, all open water is covered, the bundled water areas leave out land and enclosed seas
 - place search and named regions
+- places added together: links that keep every place, shared land counted once, overlapping parts read once, climate read in every place
 - statistics against textbook values (Mann–Kendall, Sen's slope and its range, Welch's t-test)
 - yearly aggregation and period comparison
 - per-pixel trends, hotspot clustering and whole-area summaries on synthetic grids

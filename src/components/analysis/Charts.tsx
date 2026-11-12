@@ -13,21 +13,26 @@ import {
   type TooltipProps,
 } from "recharts";
 import { formatMonth } from "@/lib/gibs/time";
+import { yearTicks } from "@/lib/analysis/chartTicks";
 import type { ClimatePoint, SatelliteSeries } from "@/lib/analysis/types";
 import { useTheme, type Theme } from "@/context/theme";
 
 interface ChartColors {
-  axis: { fill: string; fontSize: number };
+  axis: { fill: string; fontSize: number; fontFamily: string };
   grid: string;
   legend: string;
+  /** The measured values. */
+  line: string;
   normal: string;
   normalRain: string;
 }
 
+const MONO = "JetBrains Mono, ui-monospace, monospace";
+
 // SVG attributes can't read CSS variables, so chart greys are picked per theme here.
 const CHART_COLORS: Record<Theme, ChartColors> = {
-  dark: { axis: { fill: "#94a3b8", fontSize: 11 }, grid: "#334155", legend: "#94a3b8", normal: "#64748b", normalRain: "#cbd5e1" },
-  light: { axis: { fill: "#475569", fontSize: 11 }, grid: "#e2e8f0", legend: "#475569", normal: "#64748b", normalRain: "#64748b" },
+  dark: { axis: { fill: "#a0a2ad", fontSize: 10, fontFamily: MONO }, grid: "rgba(255,255,255,0.08)", legend: "#a0a2ad", line: "#fafafa", normal: "#8b8d98", normalRain: "#c9cad2" },
+  light: { axis: { fill: "#55575f", fontSize: 10, fontFamily: MONO }, grid: "rgba(15,17,25,0.1)", legend: "#55575f", line: "#101218", normal: "#7a7c86", normalRain: "#55575f" },
 };
 
 function useChartColors(): ChartColors {
@@ -45,8 +50,8 @@ interface SeriesFormat {
 function ChartTooltip({ active, payload, label, formats }: TooltipProps<number, string> & { formats: Record<string, SeriesFormat> }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-border/50 bg-background/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
-      <div className="mb-1 font-medium text-foreground">{label}</div>
+    <div className="rounded-lg border border-border bg-popover/95 px-3 py-2 text-xs shadow-2xl backdrop-blur-xl">
+      <div className="mb-1 font-mono text-[10.5px] text-muted-foreground">{formatMonth(String(label), "long")}</div>
       {payload.map((item) => {
         const key = String(item.dataKey);
         const format = formats[key];
@@ -76,18 +81,19 @@ function ChartTooltip({ active, payload, label, formats }: TooltipProps<number, 
   );
 }
 
-function monthTick(month: string, total: number) {
-  return total > 24 ? formatMonth(month).replace(/ (\d{2})(\d{2})$/, " ’$2") : formatMonth(month);
-}
-
-const commonX = (total: number, colors: ChartColors) => ({
-  dataKey: "month",
-  tick: colors.axis,
-  tickLine: false,
-  axisLine: { stroke: colors.grid },
-  tickFormatter: (m: string) => monthTick(m, total),
-  minTickGap: 18,
-});
+/** A record of a few months names each month; a longer one names evenly spaced years. */
+const commonX = (rows: Row[], colors: ChartColors) => {
+  const months = rows.map((row) => String(row.month));
+  const long = months.length > 24;
+  return {
+    dataKey: "month",
+    tick: colors.axis,
+    tickLine: false,
+    axisLine: { stroke: colors.grid },
+    tickFormatter: (m: string) => (long ? m.slice(0, 4) : formatMonth(m)),
+    ...(long ? { ticks: yearTicks(months), interval: 0 as const } : { minTickGap: 18 }),
+  };
+};
 
 export function VegetationChart({ series }: { series: SatelliteSeries }) {
   const c = useChartColors();
@@ -103,45 +109,35 @@ export function VegetationChart({ series }: { series: SatelliteSeries }) {
   };
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={c.grid} strokeDasharray="3 3" vertical={false} />
-        <XAxis {...commonX(data.length, c)} />
+      <ComposedChart data={data} margin={{ top: 6, right: 24, bottom: 0, left: -8 }}>
+        <CartesianGrid stroke={c.grid} vertical={false} />
+        <XAxis {...commonX(data, c)} />
         <YAxis tick={c.axis} tickLine={false} axisLine={false} domain={[0, (max: number) => Math.min(1, Math.ceil((max + 0.05) * 10) / 10)]} width={44} />
-        <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} />
-        <Area dataKey="range" stroke="none" fill="#34d399" fillOpacity={0.15} connectNulls={false} isAnimationActive={false} />
-        <Line dataKey="mean" stroke="#34d399" strokeWidth={2.2} dot={{ r: 2.5, fill: "#34d399", strokeWidth: 0 }} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
+        <Tooltip content={<ChartTooltip formats={formats} />} />
+        <Area dataKey="range" stroke="none" fill={c.line} fillOpacity={0.1} connectNulls={false} isAnimationActive={false} />
+        <Line dataKey="mean" stroke={c.line} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
       </ComposedChart>
     </ResponsiveContainer>
   );
 }
 
-export function TemperatureChart({ climate, surface }: { climate: ClimatePoint[]; surface?: SatelliteSeries }) {
+export function TemperatureChart({ climate }: { climate: ClimatePoint[] }) {
   const c = useChartColors();
-  const lst = new Map((surface?.points ?? []).map((p) => [p.month, p.value]));
-  const months = climate.length ? climate.map((p) => p.month) : (surface?.points ?? []).map((p) => p.month);
-  const byMonth = new Map(climate.map((p) => [p.month, p]));
-  const data: Row[] = months.map((month) => ({
-    month,
-    air: byMonth.get(month)?.temp ?? null,
-    normal: byMonth.get(month)?.tempNormal ?? null,
-    surface: lst.get(month) ?? null,
-  }));
+  const data: Row[] = climate.map((p) => ({ month: p.month, air: p.temp, normal: p.tempNormal }));
   const formats = {
     air: { label: "Air temperature", unit: "°C" },
     normal: { label: "2001–2020 normal", unit: "°C" },
-    surface: { label: "Land surface (day)", unit: "°C" },
   };
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={c.grid} strokeDasharray="3 3" vertical={false} />
-        <XAxis {...commonX(data.length, c)} />
+      <ComposedChart data={data} margin={{ top: 6, right: 24, bottom: 0, left: -8 }}>
+        <CartesianGrid stroke={c.grid} vertical={false} />
+        <XAxis {...commonX(data, c)} />
         <YAxis tick={c.axis} tickLine={false} axisLine={false} width={44} unit="°" />
-        <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} />
+        <Tooltip content={<ChartTooltip formats={formats} />} />
         <Legend wrapperStyle={{ fontSize: 11, color: c.legend }} iconType="plainline" formatter={(value) => formats[value as keyof typeof formats]?.label ?? value} />
-        {climate.length > 0 && <Line dataKey="normal" stroke={c.normal} strokeDasharray="5 4" strokeWidth={1.5} dot={false} isAnimationActive={false} />}
-        {climate.length > 0 && <Line dataKey="air" stroke="#38bdf8" strokeWidth={2.2} dot={{ r: 2.5, fill: "#38bdf8", strokeWidth: 0 }} isAnimationActive={false} />}
-        {surface && <Line dataKey="surface" stroke="#fb923c" strokeWidth={2} dot={{ r: 2.5, fill: "#fb923c", strokeWidth: 0 }} connectNulls={false} isAnimationActive={false} />}
+        <Line dataKey="normal" stroke={c.normal} strokeDasharray="5 4" strokeWidth={1.25} dot={false} isAnimationActive={false} />
+        <Line dataKey="air" stroke={c.line} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -153,13 +149,13 @@ export function RainChart({ climate }: { climate: ClimatePoint[] }) {
   const formats = { rain: { label: "Rainfall", unit: "mm", decimals: 0 }, normal: { label: "2001–2020 normal", unit: "mm", decimals: 0 } };
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={c.grid} strokeDasharray="3 3" vertical={false} />
-        <XAxis {...commonX(data.length, c)} />
+      <ComposedChart data={data} margin={{ top: 6, right: 24, bottom: 0, left: -8 }}>
+        <CartesianGrid stroke={c.grid} vertical={false} />
+        <XAxis {...commonX(data, c)} />
         <YAxis tick={c.axis} tickLine={false} axisLine={false} width={44} />
-        <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} cursor={{ fill: "rgba(148,163,184,0.08)" }} />
+        <Tooltip content={<ChartTooltip formats={formats} />} cursor={{ fill: "rgba(148,163,184,0.08)" }} />
         <Legend wrapperStyle={{ fontSize: 11, color: c.legend }} formatter={(value) => formats[value as keyof typeof formats]?.label ?? value} />
-        <Bar dataKey="rain" fill="#38bdf8" fillOpacity={0.75} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+        <Bar dataKey="rain" fill={c.line} fillOpacity={0.7} isAnimationActive={false} />
         <Line dataKey="normal" stroke={c.normalRain} strokeDasharray="5 4" strokeWidth={1.5} dot={false} isAnimationActive={false} />
       </ComposedChart>
     </ResponsiveContainer>
@@ -175,14 +171,14 @@ export function SoilChart({ climate }: { climate: ClimatePoint[] }) {
   };
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={c.grid} strokeDasharray="3 3" vertical={false} />
-        <XAxis {...commonX(data.length, c)} />
+      <ComposedChart data={data} margin={{ top: 6, right: 24, bottom: 0, left: -8 }}>
+        <CartesianGrid stroke={c.grid} vertical={false} />
+        <XAxis {...commonX(data, c)} />
         <YAxis tick={c.axis} tickLine={false} axisLine={false} width={44} domain={[0, 100]} unit="%" />
-        <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} />
+        <Tooltip content={<ChartTooltip formats={formats} />} />
         <Legend wrapperStyle={{ fontSize: 11, color: c.legend }} iconType="plainline" formatter={(value) => formats[value as keyof typeof formats]?.label ?? value} />
         <Line dataKey="normal" stroke={c.normal} strokeDasharray="5 4" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-        <Line dataKey="soil" stroke="#a3e635" strokeWidth={2.2} dot={{ r: 2.5, fill: "#a3e635", strokeWidth: 0 }} isAnimationActive={false} />
+        <Line dataKey="soil" stroke={c.line} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -193,7 +189,6 @@ export function SingleSeriesChart({
   label,
   unit,
   decimals,
-  color,
   kind = "line",
   reference,
 }: {
@@ -201,7 +196,6 @@ export function SingleSeriesChart({
   label: string;
   unit: string;
   decimals: number;
-  color: string;
   kind?: "line" | "area";
   reference?: { y: number; label: string };
 }) {
@@ -210,17 +204,17 @@ export function SingleSeriesChart({
   const formats = { value: { label, unit, decimals } };
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-        <CartesianGrid stroke={c.grid} strokeDasharray="3 3" vertical={false} />
-        <XAxis {...commonX(data.length, c)} />
+      <ComposedChart data={data} margin={{ top: 6, right: 24, bottom: 0, left: -8 }}>
+        <CartesianGrid stroke={c.grid} vertical={false} />
+        <XAxis {...commonX(data, c)} />
         {/* Lines keep to their own range: methane near 1,900 ppb would be flat on an axis from zero. */}
         <YAxis tick={c.axis} tickLine={false} axisLine={false} width={44} domain={kind === "area" ? undefined : ["auto", "auto"]} />
-        <Tooltip content={<ChartTooltip formats={formats} />} labelFormatter={(m) => formatMonth(String(m), "long")} />
-        {reference && <ReferenceLine y={reference.y} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: reference.label, fill: "#f59e0b", fontSize: 10, position: "insideTopRight" }} />}
+        <Tooltip content={<ChartTooltip formats={formats} />} />
+        {reference && <ReferenceLine y={reference.y} stroke={c.normal} strokeDasharray="4 4" label={{ value: reference.label, fill: c.legend, fontSize: 10, position: "insideTopRight" }} />}
         {kind === "area" ? (
-          <Area dataKey="value" stroke={color} fill={color} fillOpacity={0.25} strokeWidth={2} connectNulls={false} isAnimationActive={false} />
+          <Area dataKey="value" stroke={c.line} fill={c.line} fillOpacity={0.14} strokeWidth={1.5} connectNulls={false} isAnimationActive={false} />
         ) : (
-          <Line dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 2, fill: color, strokeWidth: 0 }} connectNulls={false} isAnimationActive={false} />
+          <Line dataKey="value" stroke={c.line} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
         )}
       </ComposedChart>
     </ResponsiveContainer>

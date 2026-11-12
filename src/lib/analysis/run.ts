@@ -6,7 +6,7 @@
 import { createLimiter, createSharedCache, isAbortError, withRetry } from "../async";
 import { cachedValue, TTL } from "../cache/store";
 import { defaultEndMonth } from "./period";
-import { areaKm2 as geometryArea, representativePoints, type PolygonGeometry } from "../geo/geometry";
+import { areaKm2 as geometryArea, representativePoints, type LatLng, type PolygonGeometry } from "../geo/geometry";
 import { getLayer, type GibsLayer } from "../gibs/catalog";
 import { sampleArea, type AreaStats } from "../gibs/sample";
 import { addMonthsToMonth, dateForMonth, fetchTimeDomain, monthRange, monthsInDomain } from "../gibs/time";
@@ -24,6 +24,7 @@ import type {
   AnalysisProgress,
   AnalysisRequest,
   AnalysisResult,
+  AnalysisTarget,
   ClimatePoint,
   ClimateSeries,
   DatasetId,
@@ -40,7 +41,6 @@ export const DATASETS: DatasetInfo[] = [
     source: "NASA POWER (MERRA-2 & CERES)",
     unit: "",
     decimals: 1,
-    color: "#38bdf8",
     group: "climate",
   },
   {
@@ -51,7 +51,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MODIS_Terra_L3_NDVI_Monthly",
     unit: "NDVI",
     decimals: 2,
-    color: "#34d399",
     group: "land",
   },
   {
@@ -62,7 +61,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MODIS_Terra_L3_EVI_Monthly",
     unit: "EVI",
     decimals: 2,
-    color: "#22c55e",
     group: "land",
   },
   {
@@ -73,7 +71,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MODIS_Terra_L3_Land_Surface_Temp_Monthly_Day",
     unit: "°C",
     decimals: 1,
-    color: "#fb923c",
     group: "land",
   },
   {
@@ -84,7 +81,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MODIS_Terra_L3_Land_Surface_Temp_Monthly_Night",
     unit: "°C",
     decimals: 1,
-    color: "#f97316",
     group: "land",
   },
   {
@@ -95,7 +91,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MERRA2_Evaporation_Land_Monthly",
     unit: "mm/month",
     decimals: 1,
-    color: "#2dd4bf",
     group: "land",
   },
   {
@@ -106,7 +101,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "GLDAS_Underground_Soil_Moisture_Monthly",
     unit: "%",
     decimals: 1,
-    color: "#84cc16",
     group: "water",
   },
   {
@@ -117,7 +111,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "GRACE_Tellus_Liquid_Water_Equivalent_Thickness_Mascon_CRI",
     unit: "cm",
     decimals: 1,
-    color: "#0ea5e9",
     group: "water",
   },
   {
@@ -128,7 +121,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MODIS_Terra_L3_Snow_Cover_Monthly_Average_Pct",
     unit: "%",
     decimals: 0,
-    color: "#a5b4fc",
     group: "water",
   },
   {
@@ -139,7 +131,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "AMSRU2_Snow_Water_Equivalent_Monthly",
     unit: "mm",
     decimals: 1,
-    color: "#818cf8",
     group: "water",
   },
   {
@@ -150,7 +141,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MERRA2_Snowfall_Monthly",
     unit: "mm/month",
     decimals: 1,
-    color: "#c7d2fe",
     group: "water",
   },
   {
@@ -161,7 +151,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MERRA2_Total_Precipitable_Water_Vapor_Monthly",
     unit: "mm",
     decimals: 1,
-    color: "#22d3ee",
     group: "air",
   },
   {
@@ -172,7 +161,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MERRA2_Air_Temperature_250hPa_Monthly",
     unit: "°C",
     decimals: 1,
-    color: "#93c5fd",
     group: "air",
   },
   {
@@ -183,7 +171,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MERRA2_Ozone_Mixing_Ratio_50hPa_Monthly",
     unit: "ppm",
     decimals: 2,
-    color: "#a78bfa",
     group: "air",
   },
   {
@@ -194,7 +181,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "AIRS_L3_All_Sky_Outgoing_Longwave_Radiation_Monthly_Day",
     unit: "W/m²",
     decimals: 1,
-    color: "#fca5a5",
     group: "air",
   },
   {
@@ -205,7 +191,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MERRA2_Total_Aerosol_Optical_Thickness_550nm_Extinction_Monthly",
     unit: "AOD",
     decimals: 2,
-    color: "#facc15",
     group: "gases",
   },
   {
@@ -216,7 +201,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MERRA2_Dust_Surface_Mass_Concentration_Monthly",
     unit: "µg/m³",
     decimals: 1,
-    color: "#d97706",
     group: "gases",
   },
   {
@@ -227,7 +211,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MERRA2_Dust_Surface_Mass_Concentration_PM25_Monthly",
     unit: "µg/m³",
     decimals: 1,
-    color: "#b45309",
     group: "gases",
   },
   {
@@ -238,7 +221,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MERRA2_SO2_Column_Mass_Density_Monthly",
     unit: "mg/m²",
     decimals: 2,
-    color: "#c084fc",
     group: "gases",
   },
   {
@@ -249,7 +231,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "AIRS_L3_Carbon_Monoxide_500hPa_Volume_Mixing_Ratio_Monthly_Day",
     unit: "ppb",
     decimals: 0,
-    color: "#fdba74",
     group: "gases",
   },
   {
@@ -260,7 +241,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MOPITT_CO_Monthly_Surface_Mixing_Ratio_Day",
     unit: "ppb",
     decimals: 0,
-    color: "#fb7185",
     group: "gases",
   },
   {
@@ -271,7 +251,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "AIRS_L3_Methane_400hPa_Volume_Mixing_Ratio_Monthly_Day",
     unit: "ppb",
     decimals: 0,
-    color: "#bef264",
     group: "gases",
   },
   {
@@ -282,7 +261,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "MODIS_Terra_L3_SST_Thermal_4km_Night_Monthly",
     unit: "°C",
     decimals: 1,
-    color: "#f472b6",
     group: "ocean",
   },
   {
@@ -293,7 +271,6 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "SMAP_L3_Sea_Surface_Salinity_CAP_Monthly",
     unit: "PSU",
     decimals: 2,
-    color: "#7dd3fc",
     group: "ocean",
   },
 ];
@@ -441,6 +418,34 @@ export function samplePointCount(areaKm2: number): number {
   return 1;
 }
 
+/** Most climate points read for an area made of several places (one each, up to this many). */
+const MAX_PART_POINTS = 8;
+
+export function climatePointCount(target: Pick<AnalysisTarget, "areaKm2" | "parts">): number {
+  const own = samplePointCount(target.areaKm2);
+  return target.parts && target.parts.length > 1 ? Math.min(MAX_PART_POINTS, Math.max(own, target.parts.length)) : own;
+}
+
+/**
+ * Where climate is read: points spread over the area. For several places added together, each gets
+ * at least one point (the largest first), and the rest go where there is most area per point.
+ */
+export function climatePoints(target: Pick<AnalysisTarget, "geometry" | "areaKm2" | "parts">): LatLng[] {
+  const count = climatePointCount({ ...target, areaKm2: target.areaKm2 || geometryArea(target.geometry) });
+  const parts = target.parts;
+  if (!parts || parts.length < 2) return representativePoints(target.geometry, count);
+  const largest = [...parts].sort((a, b) => b.areaKm2 - a.areaKm2).slice(0, count);
+  const given = largest.map(() => 1);
+  for (let left = count - largest.length; left > 0; left--) {
+    let best = 0;
+    largest.forEach((part, i) => {
+      if (part.areaKm2 / given[i] > largest[best].areaKm2 / given[best]) best = i;
+    });
+    given[best] += 1;
+  }
+  return largest.flatMap((part, i) => representativePoints(part.geometry, given[i]));
+}
+
 export function buildClimatePoints(months: string[], monthly: PowerMonthly, normals: PowerClimatology): ClimatePoint[] {
   return months.map((month) => {
     const m = Number(month.slice(5, 7)) - 1;
@@ -473,7 +478,7 @@ export function buildClimatePoints(months: string[], monthly: PowerMonthly, norm
 }
 
 async function runClimate(request: AnalysisRequest, months: string[], signal: AbortSignal | undefined, tick: () => void): Promise<ClimateSeries> {
-  const samplePoints = representativePoints(request.target.geometry, samplePointCount(request.target.areaKm2 || geometryArea(request.target.geometry)));
+  const samplePoints = climatePoints(request.target);
   const startYear = Number(request.start.slice(0, 4));
   const endYear = Number(request.end.slice(0, 4));
   try {
@@ -507,7 +512,7 @@ export function countMaps(request: Pick<AnalysisRequest, "start" | "end" | "mont
 
 /** Requests to NASA POWER (monthly values and normals at each sample point). */
 export function countClimateRequests(request: Pick<AnalysisRequest, "datasets" | "target">): number {
-  return request.datasets.includes("climate") ? samplePointCount(request.target.areaKm2) * 2 : 0;
+  return request.datasets.includes("climate") ? climatePointCount(request.target) * 2 : 0;
 }
 
 export function countTasks(request: AnalysisRequest): number {

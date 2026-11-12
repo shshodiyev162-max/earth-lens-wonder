@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { demoAttr, demoById } from "@/lib/demo/scripts";
+import { demoAttr, demoById, DEMOS } from "@/lib/demo/scripts";
 import DemoPlayer, { type DemoControls } from "@/components/demo/DemoPlayer";
 import { useSearchParams } from "react-router-dom";
 import { GeoJSON, Pane, useMapEvents } from "react-leaflet";
 import type { Feature } from "geojson";
-import { AlertTriangle, Info, Loader2, PlayCircle, RefreshCw, ScanSearch, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Loader2, RefreshCw, ScanSearch, X } from "lucide-react";
 import AreasLayer from "@/components/map/AreasLayer";
 import BaseMap from "@/components/map/BaseMap";
 import DrawTools, { type DrawMode, type PickedPlace } from "@/components/map/DrawTools";
@@ -13,7 +13,7 @@ import GibsTileLayer from "@/components/map/GibsTileLayer";
 import ReferenceOverlays from "@/components/map/ReferenceOverlays";
 import FlyTo, { type FlyTarget } from "@/components/map/FlyTo";
 import LayerLegend from "@/components/map/LayerLegend";
-import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
+import MapPageShell from "@/components/map/MapPageShell";
 import AreaPicker from "@/components/trends/AreaPicker";
 import AreaSummaryCard from "@/components/trends/AreaSummaryCard";
 import AreaCoverCard from "@/components/trends/AreaCoverCard";
@@ -34,17 +34,40 @@ import { useFrames, type FrameMode } from "@/hooks/useFrames";
 import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
 import { useExactAreaGeometry } from "@/hooks/useExactAreaGeometry";
 import { usePlaceArea } from "@/hooks/usePlaceArea";
+import { useResolvedParts } from "@/hooks/useResolvedParts";
+import { partKey, partLabel, savedAreaPart, togglePart, type AreaPart } from "@/lib/areas/parts";
+import { combineGeometries, combinedAreaKm2, combinedName } from "@/lib/geo/combine";
 import { gridBudget, useTrendScans } from "@/hooks/useTrendScans";
 import { defaultEndMonth } from "@/lib/analysis/period";
 import { longerPeriodHint } from "@/lib/analysis/trend";
-import { bboxOf, centroidOf, type BBox, type PolygonGeometry } from "@/lib/geo/geometry";
+import { areaKm2, bboxOf, centroidOf, type BBox, type PolygonGeometry } from "@/lib/geo/geometry";
 import { encodeGeometryForLink } from "@/lib/geo/polyline";
 import { BASE_LAYER_ID, getLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { initialViewFrom } from "@/lib/mapView";
-import { INDICATORS, monthsLabel, SEASONS, type IndicatorId } from "@/lib/query/indicators";
+import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type IndicatorId } from "@/lib/query/indicators";
 import { DEFAULT_YEARS } from "@/lib/query/period";
+import { clearOfHotspotCard } from "@/lib/trends/cardRoom";
 import { PIXEL_SIGNIFICANCE, STRICT_P } from "@/lib/trends/hotspots";
-import { analysisHref, applyEdit, areaAnalysisHref, compareHref, DEFAULT_FILTER, filterFor, hotspotTitle, paramsFor, queryFromParams, resultsHeading, scanKey, seasonAverage, seasonDescription, type QueryEdit, type ResultFilter, type TrendQuery } from "@/lib/trends/query";
+import {
+  analysisHref,
+  applyEdit,
+  areaAnalysisHref,
+  compareHref,
+  DEFAULT_FILTER,
+  editForParts,
+  filterFor,
+  hotspotTitle,
+  paramsFor,
+  queryFromParams,
+  resultsHeading,
+  scanKey,
+  seasonAverage,
+  seasonDescription,
+  trendParts,
+  type QueryEdit,
+  type ResultFilter,
+  type TrendQuery,
+} from "@/lib/trends/query";
 import { changeImage, changeScale } from "@/lib/trends/render";
 import { rebuildHotspots, summarizeArea, type HotspotDetail } from "@/lib/trends/scan";
 import { cn } from "@/lib/utils";
@@ -71,13 +94,14 @@ function ChosenAreaLayer({ geometry }: { geometry: PolygonGeometry }) {
         key={JSON.stringify(geometry).length}
         data={{ type: "Feature", properties: {}, geometry } as Feature}
         interactive={false}
-        style={{ color: "#f8fafc", weight: 2.5, opacity: 0.95, dashArray: "7 5", fillColor: "#22d3ee", fillOpacity: 0.14 }}
+        style={{ color: "#ffffff", weight: 2.5, opacity: 0.95, dashArray: "7 5", fillColor: "#ffffff", fillOpacity: 0.14 }}
       />
     </Pane>
   );
 }
 
 const base = getLayer(BASE_LAYER_ID) as GibsLayer;
+const FIRST_YEAR = 2000;
 const LAST_YEAR = Number(defaultEndMonth().slice(0, 4)) - 1;
 
 /** "30 s – 2 min": NASA's map service answers in 0.4–1.5 s per map with six at a time. */
@@ -108,6 +132,8 @@ export default function Trends() {
   const [mapBounds, setMapBounds] = useState<BBox | null>(null);
   const [scanView, setScanView] = useState<BBox | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
+  /** The panel shows the form until a search runs, then the results; "Change search" brings the form back. */
+  const [formOpen, setFormOpen] = useState(!applied);
   /** A worked example being played ("choose" shows the list). Started with ?demo=… or the Demo button. */
   const [demo, setDemo] = useState<string | null>(() => params.get("demo"));
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -124,7 +150,41 @@ export default function Trends() {
   // A typed, listed or clicked place (a sea, a region, a city…) is found straight away, so it is
   // outlined and described before anything is scanned.
   const placeArea = usePlaceArea(draft && !draft.area ? draft.place : null, Boolean(draft?.near));
-  const chosenGeometry = exactGeometry ?? placeArea.area?.geometry ?? null;
+  const firstGeometry = exactGeometry ?? placeArea.area?.geometry ?? null;
+  // Places added to the chosen one: outlined with it, and read with it as one area.
+  const added = useResolvedParts(draft.extra);
+  const addedGeometries = useMemo(() => added.parts.flatMap((part) => (part ? [part.geometry] : [])), [added.parts]);
+  const chosenGeometry = useMemo(
+    () => (firstGeometry && addedGeometries.length ? combineGeometries([firstGeometry, ...addedGeometries]) : firstGeometry),
+    [firstGeometry, addedGeometries],
+  );
+  const parts = useMemo(() => trendParts(draft), [draft]);
+  const hasPlace = parts.length > 0;
+  /** While on, each place picked joins the chosen area instead of replacing it. */
+  const [adding, setAdding] = useState(false);
+  useEffect(() => {
+    if (!hasPlace) setAdding(false);
+  }, [hasPlace]);
+  const partRows = useMemo(
+    () =>
+      parts.map((part, index) => {
+        if (index === 0) return { key: partKey(part), label: draft.area?.name ?? placeArea.area?.name ?? partLabel(part), areaKm2: firstGeometry ? areaKm2(firstGeometry) : undefined };
+        const loaded = added.parts[index - 1];
+        return { key: partKey(part), label: loaded?.name ?? partLabel(part), areaKm2: loaded?.areaKm2 };
+      }),
+    [parts, draft.area, placeArea.area, firstGeometry, added.parts],
+  );
+  /** The places scanned, for the link to Analysis: a country typed by name goes by its code. */
+  const linkParts = useMemo(() => {
+    const list = applied ? trendParts(applied) : [];
+    const found = placeArea.area;
+    if (list[0]?.kind === "place" && found?.countryId && applied?.place === draft.place) list[0] = { kind: "country", id: found.countryId, name: found.name };
+    return list;
+  }, [applied, draft.place, placeArea.area]);
+  const togetherKm2 = useMemo(
+    () => (firstGeometry && parts.length > 1 && addedGeometries.length === parts.length - 1 ? combinedAreaKm2([firstGeometry, ...addedGeometries]) : undefined),
+    [firstGeometry, addedGeometries, parts.length],
+  );
 
   // A search without a place scans the map view as it was when the search ran.
   useEffect(() => {
@@ -183,6 +243,15 @@ export default function Trends() {
     [draft, setParams],
   );
 
+  /** A change to the search itself (not to how results are filtered) goes through the form. */
+  const editSearch = useCallback(
+    (change: QueryEdit) => {
+      setFormOpen(true);
+      edit(change);
+    },
+    [edit],
+  );
+
   /** Drawing needs the map: on phones the panel steps aside until the shape is done. */
   const startDrawing = (mode: DrawMode | null) => {
     setDrawMode(mode);
@@ -190,17 +259,33 @@ export default function Trends() {
     if (mode && window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(false);
   };
 
+  /** Adds a place to the chosen area, or takes it out when it is already in. */
+  const addPart = (part: AreaPart) => editSearch(editForParts(togglePart(trendParts(draft), part)));
+
+  /** Takes one place out (the next one leads when the first goes). */
+  const removePart = (index: number) => editSearch(editForParts(trendParts(draft).filter((_, i) => i !== index)));
+
   const onAreaComplete = (geometry: PolygonGeometry, kind: AreaKind, picked?: PickedPlace) => {
+    if (adding && hasPlace) {
+      // Countries and seas can be clicked one after another while adding.
+      const keepPicking = drawMode === "country";
+      if (!keepPicking) setDrawMode(null);
+      if (picked?.countryId) addPart({ kind: "country", id: picked.countryId, name: picked.name });
+      else if (picked?.region) addPart({ kind: "region", label: picked.region });
+      else addPart(savedAreaPart(workspace.addArea({ geometry, kind }), { local: false }));
+      if (!keepPicking && window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(true);
+      return;
+    }
     setDrawMode(null);
     if (picked?.countryId) {
-      edit({ area: { country: picked.countryId, name: picked.name } });
+      editSearch({ area: { country: picked.countryId, name: picked.name } });
     } else if (picked?.region) {
       // A sea or ocean: the same as choosing it by name.
-      edit({ place: picked.region });
+      editSearch({ place: picked.region });
     } else {
       // Drawn shapes are kept with your saved areas, so they can be reused here and in Explore and Analysis.
       const saved = workspace.addArea({ geometry, kind });
-      edit({ area: { poly: encodeGeometryForLink(geometry), name: saved.name } });
+      editSearch({ area: { poly: encodeGeometryForLink(geometry), name: saved.name } });
     }
     setFlyTarget({ bbox: bboxOf(geometry), key: `chosen-${Date.now()}` });
     if (window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(true);
@@ -220,8 +305,9 @@ export default function Trends() {
 
   const pickSavedArea = (id: string) => {
     const area = workspace.getArea(id);
-    if (area?.region) edit({ place: area.region });
-    else if (area) edit({ area: { poly: encodeGeometryForLink(area.geometry), name: area.name } });
+    if (area && adding && hasPlace) addPart(savedAreaPart(area, { local: false }));
+    else if (area?.region) editSearch({ place: area.region });
+    else if (area) editSearch({ area: { poly: encodeGeometryForLink(area.geometry), name: area.name } });
   };
 
   const runSearch = useCallback(
@@ -229,6 +315,7 @@ export default function Trends() {
       if (!query.place && !query.area) setScanView(mapBounds);
       setSelectedId(null);
       setViewMode("change");
+      setFormOpen(!query.understood);
       setApplied(query.understood ? query : null);
     },
     [mapBounds],
@@ -255,7 +342,7 @@ export default function Trends() {
   const select = (id: string) => {
     setSelectedId(id);
     const hotspot = hotspots.find((h) => h.id === id);
-    if (hotspot) setFlyTarget({ bbox: hotspot.bbox, key: `${id}-${Date.now()}` });
+    if (hotspot) setFlyTarget({ bbox: hotspot.bbox, padding: clearOfHotspotCard({ width: window.innerWidth, height: window.innerHeight }), key: `${id}-${Date.now()}` });
     if (window.matchMedia?.("(max-width: 1023px)").matches) setPanelOpen(false);
   };
 
@@ -281,14 +368,22 @@ export default function Trends() {
   // What the place is like: the exact outline when one is chosen, otherwise the area last scanned.
   const coverGeometry = chosenGeometry ?? (area && !(draft?.place && draft.place !== applied?.place) ? area.geometry : null);
   const coverName = chosenGeometry
-    ? (draft?.area?.name ?? placeArea.area?.name ?? "This area")
+    ? partRows.length > 1
+      ? combinedName(partRows.map((row) => row.label))
+      : (draft?.area?.name ?? placeArea.area?.name ?? "This area")
     : area && coverGeometry
       ? area.kind === "view"
         ? "The map view"
         : area.name
       : null;
   const landCover = useLandCover(coverGeometry);
-  const coverWater = exactGeometry ? undefined : chosenGeometry ? placeArea.area?.water : area?.water;
+  const coverWater = draft.extra.length
+    ? undefined
+    : exactGeometry
+      ? undefined
+      : chosenGeometry
+        ? placeArea.area?.water
+        : area?.water;
   const suggestions = useMemo(
     () => (landCover.cover && coverGeometry ? suggestMeasures(landCover.cover, centroidOf(coverGeometry)[0], coverWater) : []),
     [landCover.cover, coverGeometry, coverWater],
@@ -308,7 +403,9 @@ export default function Trends() {
     ? ""
     : area.kind === "view"
       ? "What the map showed when you searched"
-      : area.kind === "country"
+      : applied?.extra.length
+        ? (area.context ?? "Places together")
+        : area.kind === "country"
         ? "Country"
         : applied?.area?.poly
           ? "Outlined on the map"
@@ -316,38 +413,33 @@ export default function Trends() {
 
   const results =
     applied && active && indicator && filter ? (
-      <div {...demoAttr("results")} id={panelId} role={scanned.length > 1 ? "tabpanel" : undefined} aria-labelledby={scanned.length > 1 ? `measure-tab-${active}` : undefined} className="space-y-4">
-        <p className="text-[11px] leading-relaxed text-panel-muted">
-          <span className="font-semibold text-panel-soft">{indicator.label}:</span> {MEASURE_DEFINITIONS[active]}
-        </p>
+      <div {...demoAttr("results")} id={panelId} role={scanned.length > 1 ? "tabpanel" : undefined} aria-labelledby={scanned.length > 1 ? `measure-tab-${active}` : undefined} className="space-y-6">
         {(!measure || measure.status === "waiting") && scan.status !== "error" && (
-          <p role="status" className="flex items-center gap-2 rounded-xl border border-panel-line bg-panel-tint p-3 text-xs text-panel-soft">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-cyan" aria-hidden />
+          <p role="status" className="flex items-center gap-2 border-t border-panel-line pt-3 text-xs text-panel-soft">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-panel-muted" aria-hidden />
             {scan.status === "preparing" ? "Finding the place and NASA's record…" : `Waiting — ${indicator.label.toLowerCase()} is scanned after the measures before it.`}
           </p>
         )}
 
         {measure?.status === "scanning" && (
-          <div role="status" aria-live="polite" className="rounded-xl border border-panel-line bg-panel-tint p-3">
-            <div className="mb-2 flex items-center gap-2 text-sm text-panel-foreground">
-              <Loader2 className="h-4 w-4 animate-spin text-accent-cyan" aria-hidden />
-              {measure.progress?.message ?? "Scanning…"}
+          <div role="status" aria-live="polite">
+            <p className="font-editorial text-[2rem] leading-[1.08] text-panel-foreground">Reading NASA's record of {indicator.noun}.</p>
+            <div className="mt-4 h-px overflow-hidden bg-panel-line-strong" aria-hidden>
+              <div className="h-full bg-panel-foreground transition-all duration-300 motion-reduce:transition-none" style={{ width: `${Math.max(2, progressPct)}%` }} />
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-panel-tint-strong" aria-hidden>
-              <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${Math.max(3, progressPct)}%` }} />
-            </div>
-            <p className="mt-2 text-[11px] text-panel-muted">
+            <p className="mt-2 font-mono text-[11px] tabular-nums text-panel-soft">{measure.progress?.message ?? "Scanning…"}</p>
+            <p className="mt-3 text-xs leading-relaxed text-panel-muted">
               {scanned.length > 1 ? `Measure ${position} of ${scanned.length}. ` : ""}
-              {measureMaps > 0 && `About ${measureMaps} monthly NASA maps · ${timeRange(measureMaps)} the first time, depending on how busy NASA's map service is; seconds after that (kept on this device).`}
+              {measureMaps > 0 && `About ${measureMaps} monthly maps, ${timeRange(measureMaps)} the first time, depending on how busy NASA's map service is. Seconds after that, as they are kept on this device.`}
             </p>
-            <button type="button" onClick={scan.cancel} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-panel-tint-strong px-2.5 py-1.5 text-xs text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11">
-              <X className="h-3 w-3" /> Stop
+            <button type="button" onClick={scan.cancel} className="btn-line mt-3">
+              <X className="h-3 w-3" aria-hidden /> Stop
             </button>
           </div>
         )}
 
         {(measure?.status === "error" || measure?.status === "stopped") && (
-          <div role={measure.status === "error" ? "alert" : "status"} className="rounded-xl border border-orange-400/30 bg-orange-400/10 p-3 text-sm text-panel-foreground">
+          <div role={measure.status === "error" ? "alert" : "status"} className="rounded-lg border border-panel-line p-3.5 text-sm text-panel-foreground">
             <p className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-tone-warn" aria-hidden />
               {measure.status === "error" ? measure.error : `The ${indicator.label.toLowerCase()} scan was stopped.`}
@@ -356,9 +448,9 @@ export default function Trends() {
               <button
                 type="button"
                 onClick={() => scan.retry(active)}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-panel-tint-strong px-3 py-1.5 text-xs font-medium text-panel-foreground hover:bg-panel-tint-hover pointer-coarse:min-h-11"
+                className="btn-line mt-3"
               >
-                <RefreshCw className="h-3.5 w-3.5" /> {measure.status === "error" ? "Try again" : `Scan ${indicator.label.toLowerCase()}`}
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden /> {measure.status === "error" ? "Try again" : `Scan ${indicator.label.toLowerCase()}`}
               </button>
             )}
           </div>
@@ -366,7 +458,6 @@ export default function Trends() {
 
         {measure?.status === "done" && result && area && plan && (
           <>
-            <ResultFilters indicator={indicator} filter={filter} tested={plan.kind === "trend"} onChange={setFilter} />
             {summary && (
               <AreaSummaryCard
                 name={areaName}
@@ -381,7 +472,7 @@ export default function Trends() {
                 seasonSubject={seasonAverage(months)}
                 hotspotCount={hotspots.length}
                 hotspotKm2={shownKm2}
-                analysisHref={areaAnalysisHref(area, applied.area, active, plan, latest)}
+                analysisHref={areaAnalysisHref(area, applied.area, active, plan, latest, linkParts)}
                 compareHref={compareHref({ center: area.center, areaKm2: summary.scannedKm2 }, active, plan, months)}
                 hint={plan.kind === "trend" ? longerPeriodHint(result.region.verdict, plan.startYear) : null}
                 onTryAllYears={tryAllYears}
@@ -391,22 +482,29 @@ export default function Trends() {
                 }}
               />
             )}
-            <h2 className="text-sm font-semibold leading-snug text-panel-foreground">{resultsHeading(hotspots.length, active, filter.direction, area, plan)}</h2>
-            {hotspots.length > 0 ? (
-              <div {...demoAttr("hotspots")}>
-                <HotspotList hotspots={hotspots} labels={scan.labels} indicator={indicator} plan={plan} selectedId={selectedId} onSelect={select} />
-              </div>
-            ) : (
-              <p className="rounded-xl border border-panel-line bg-panel-tint p-3 text-xs leading-relaxed text-panel-soft">
-                No area changed by at least {minChange} {indicator.unit} {filter.direction === "any" ? "either way" : "in this direction"}
-                {filter.minAreaKm2 ? ` over ${filter.minAreaKm2.toLocaleString("en-US")} km² or more` : ""}. Try “Both”, a smaller change, or another period or place.
+            <div className="space-y-4 border-t border-panel-line pt-6">
+              <p className="eyebrow text-panel-muted">Where it changed most</p>
+              <h2 className="font-editorial text-[1.6rem] leading-[1.12] text-panel-foreground">{resultsHeading(hotspots.length, active, filter.direction, area, plan)}</h2>
+              <ResultFilters indicator={indicator} filter={filter} tested={plan.kind === "trend"} onChange={setFilter} />
+              {hotspots.length > 0 ? (
+                <div {...demoAttr("hotspots")}>
+                  <HotspotList hotspots={hotspots} labels={scan.labels} indicator={indicator} plan={plan} selectedId={selectedId} onSelect={select} />
+                </div>
+              ) : (
+                <p className="border-t border-panel-line pt-3 text-xs leading-relaxed text-panel-soft">
+                  No area changed by at least {minChange} {indicator.unit} {filter.direction === "any" ? "either way" : "in this direction"}
+                  {filter.minAreaKm2 ? ` over ${filter.minAreaKm2.toLocaleString("en-US")} km² or more` : ""}. Try “Both”, a smaller change, or another period or place.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2.5 border-t border-panel-line pt-4 text-[13px] leading-relaxed text-panel-muted">
+              <p>
+                <span className="text-panel-soft">{indicator.label}.</span> {MEASURE_DEFINITIONS[active]}
               </p>
-            )}
-            <details className="group rounded-xl border border-panel-line bg-panel-tint p-3">
-              <summary className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-panel-soft">
-                <Info className="h-3.5 w-3.5 text-accent-cyan" aria-hidden /> About these results
-              </summary>
-              <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-panel-muted">
+            </div>
+            <details className="group rounded-lg border border-panel-line p-3.5">
+              <summary className="flex cursor-pointer items-center text-xs font-medium text-panel-soft pointer-coarse:min-h-11">About these results</summary>
+              <ul className="mt-2.5 space-y-1.5 text-xs leading-relaxed text-panel-muted">
                 <li>
                   Data: {indicator.product}, read as {result.grid.width}×{result.grid.height} grids from NASA GIBS{result.coarse ? " (large area: scanned coarsely, top hotspots re-read finer)" : ""}.
                 </li>
@@ -440,86 +538,126 @@ export default function Trends() {
       </div>
     ) : null;
 
-  const sidebar = (
+  const showForm = formOpen || !applied;
+  const sidebar = showForm ? (
     <>
-      <SidebarSection>
-        <div className="flex items-start gap-3">
-          <p className="min-w-0 flex-1 text-xs leading-relaxed text-panel-muted">
-            Choose what to measure, the place, the years and the months — then find changes.
-            {draft.understood && draft.text && (
-              <>
-                {" "}
-                In words: <span className="text-panel-soft">“{draft.text}”</span>
-              </>
-            )}
+      <div className="mb-5 space-y-3">
+        {draft.understood && draft.text && (
+          <p className="text-[13px] leading-relaxed text-panel-soft">
+            In words: <span className="text-panel-foreground">“{draft.text}”</span>
           </p>
-          <button
-            type="button"
-            onClick={() => setDemo("choose")}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-panel-line bg-panel-tint px-2.5 py-2 text-xs font-medium text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11"
-          >
-            <PlayCircle className="h-3.5 w-3.5 text-accent-cyan" aria-hidden /> Demo
+        )}
+        {!applied && !draft.understood && (
+          <div>
+            <p className="font-mono text-[10.5px] tabular-nums text-panel-muted">
+              {INDICATOR_ORDER.length} measures · {FIRST_YEAR}–{LAST_YEAR} · one NASA map per month
+            </p>
+            <h2 className="field-label mt-5">Worked examples</h2>
+            <ul className="mt-2 border-b border-panel-line">
+              {DEMOS.map((example) => (
+                <li key={example.id}>
+                  <button
+                    type="button"
+                    onClick={() => setDemo(example.id)}
+                    className="group flex w-full items-center justify-between gap-3 border-t border-panel-line py-2 text-left text-[13px] leading-snug text-panel-soft transition-colors hover:text-panel-foreground pointer-coarse:min-h-11"
+                  >
+                    {example.title}
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" strokeWidth={1.5} aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+          {(applied || draft.understood) && (
+            <button type="button" onClick={() => setDemo("choose")} className="link-quiet pointer-coarse:min-h-11">
+              Watch a demo
+            </button>
+          )}
+          {applied && (
+            <button type="button" onClick={() => setFormOpen(false)} className="link-quiet inline-flex items-center gap-1 pointer-coarse:min-h-11">
+              <ArrowLeft className="h-3 w-3" aria-hidden /> Back to the results
+            </button>
+          )}
+        </div>
+      </div>
+      <TrendForm
+        query={draft}
+        where={
+          <div className="space-y-3">
+            <div {...demoAttr("where")}>
+              <AreaPicker
+                query={draft}
+                foundName={placeArea.area?.name ?? area?.name ?? null}
+                savedAreas={workspace.areas}
+                drawMode={drawMode}
+                onDraw={startDrawing}
+                onEdit={edit}
+                placeError={[placeArea.error, ...added.errors].filter(Boolean).join(" ") || null}
+                parts={partRows}
+                togetherKm2={togetherKm2}
+                adding={adding}
+                onAddingChange={(next) => {
+                  setAdding(next);
+                  if (!next && drawMode === "country") startDrawing(null);
+                }}
+                onAdd={addPart}
+                onRemovePart={removePart}
+              />
+            </div>
+            {coverName && (
+              <AreaCoverCard
+                name={coverName}
+                status={landCover.status}
+                cover={landCover.cover}
+                first={landCover.first}
+                suggestions={suggestions}
+                selected={draft.everything ? scanned : draft.indicators}
+                onAdd={(id) => edit({ indicators: [...(draft.everything ? scanned : draft.indicators), id] })}
+                onUseAll={(ids) => edit({ indicators: ids })}
+              />
+            )}
+          </div>
+        }
+        years={{ first: FIRST_YEAR, last: LAST_YEAR }}
+        onEdit={edit}
+        onRun={() => runSearch(draft)}
+        dirty={dirty}
+        current={Boolean(applied) && scan.status !== "error" && scan.status !== "idle"}
+        busy={busy}
+        estimate={estimate}
+      />
+    </>
+  ) : (
+    <>
+      <div className="mb-6 flex items-start justify-between gap-4 border-b border-panel-line pb-4">
+        <p className="min-w-0 text-[13px] leading-snug text-panel-soft">{applied.text}</p>
+        <button type="button" onClick={() => setFormOpen(true)} className="btn-line shrink-0 px-3 py-1.5">
+          Change search
+        </button>
+      </div>
+      {scan.status === "error" && (
+        <div role="alert" className="mb-6 rounded-lg border border-panel-line p-3.5 text-sm text-panel-foreground">
+          <p className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-tone-warn" aria-hidden />
+            {scan.error}
+          </p>
+          <button type="button" onClick={() => scan.retry()} className="btn-line mt-3">
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Try again
           </button>
         </div>
-      </SidebarSection>
-
-      <SidebarSection title="Your search">
-        <TrendForm
-          query={draft}
-          where={
-            <div className="space-y-3">
-              <div {...demoAttr("where")}>
-                <AreaPicker
-                  query={draft}
-                  foundName={placeArea.area?.name ?? area?.name ?? null}
-                  savedAreas={workspace.areas}
-                  drawMode={drawMode}
-                  onDraw={startDrawing}
-                  onEdit={edit}
-                  placeError={placeArea.error}
-                />
-              </div>
-              {coverName && (
-                <AreaCoverCard
-                  name={coverName}
-                  status={landCover.status}
-                  cover={landCover.cover}
-                  first={landCover.first}
-                  suggestions={suggestions}
-                  selected={draft.everything ? scanned : draft.indicators}
-                  onAdd={(id) => edit({ indicators: [...(draft.everything ? scanned : draft.indicators), id] })}
-                  onUseAll={(ids) => edit({ indicators: ids })}
-                />
-              )}
-            </div>
-          }
-          years={{ first: 2000, last: LAST_YEAR }} onEdit={edit} onRun={() => runSearch(draft)} dirty={dirty} current={Boolean(applied) && scan.status !== "error" && scan.status !== "idle"} busy={busy} estimate={estimate} />
-      </SidebarSection>
-
-      {scan.status === "error" && (
-        <SidebarSection>
-          <div role="alert" className="rounded-xl border border-orange-400/30 bg-orange-400/10 p-3 text-sm text-panel-foreground">
-            <p className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-tone-warn" aria-hidden />
-              {scan.error}
-            </p>
-            <button type="button" onClick={() => scan.retry()} className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-panel-tint-strong px-3 py-1.5 text-xs font-medium text-panel-foreground hover:bg-panel-tint-hover pointer-coarse:min-h-11">
-              <RefreshCw className="h-3.5 w-3.5" /> Try again
-            </button>
-          </div>
-        </SidebarSection>
       )}
-
-      {applied && active && scan.status !== "idle" && scan.status !== "error" && (
-        <SidebarSection title="Results">
-          {dirty && <p className="mb-2 text-[11px] text-panel-muted">Showing results for: “{applied.text}”.</p>}
+      {active && scan.status !== "idle" && scan.status !== "error" && (
+        <>
+          {dirty && <p className="mb-3 text-xs text-panel-muted">Showing results for: “{applied.text}”.</p>}
           {scanned.length > 1 && (
-            <div {...demoAttr("tabs")} className="mb-3">
+            <div {...demoAttr("tabs")} className="mb-6">
               <MeasureTabs indicators={scanned} measures={scan.measures} counts={counts} active={active} onChange={setTab} panelId={panelId} />
             </div>
           )}
           {results}
-        </SidebarSection>
+        </>
       )}
     </>
   );
@@ -560,6 +698,7 @@ export default function Trends() {
               compareHref={compareHref(selected, active, plan, months)}
               onScanHere={() => scanHere(selected)}
               onClose={() => setSelectedId(null)}
+              className="max-h-[calc(100dvh-14.5rem)] overflow-y-auto"
             />
           </div>
           <div className="pointer-events-auto absolute inset-x-3 bottom-20 flex justify-center lg:hidden">
@@ -572,14 +711,14 @@ export default function Trends() {
               compareHref={compareHref(selected, active, plan, months)}
               onScanHere={() => scanHere(selected)}
               onClose={() => setSelectedId(null)}
-              className="max-h-[55vh] overflow-y-auto"
+              className="max-h-[45dvh] overflow-y-auto"
             />
           </div>
         </>
       )}
       {result && indicator && (
         <div className={cn("absolute bottom-20 left-1/2 flex w-[min(28rem,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2", selected && "hidden lg:flex")}>
-          <div className="pointer-events-auto flex rounded-full border border-panel-line bg-panel/90 p-0.5 text-xs shadow-xl backdrop-blur" role="radiogroup" aria-label="Map shows">
+          <div className="float-surface pointer-events-auto flex rounded-full p-0.5 text-xs" role="radiogroup" aria-label="Map shows">
             {(
               [
                 ["change", result.plan.kind === "trend" ? `${indicator.label} trend` : `${indicator.label} change`],
@@ -592,7 +731,7 @@ export default function Trends() {
                 role="radio"
                 aria-checked={viewMode === mode}
                 onClick={() => setViewMode(mode)}
-                className={cn("rounded-full px-3 py-1.5 font-medium pointer-coarse:min-h-11", viewMode === mode ? "bg-cyan-400/20 text-accent-cyan-soft" : "text-panel-muted hover:text-panel-foreground")}
+                className={viewMode === mode ? "segment-on" : "segment"}
               >
                 {label}
               </button>
@@ -600,8 +739,8 @@ export default function Trends() {
           </div>
           {viewMode === "frames" &&
             (framesLoading ? (
-              <p role="status" className="pointer-events-auto flex items-center gap-2 rounded-lg border border-panel-line bg-panel/90 px-3 py-2 text-xs text-panel-muted backdrop-blur">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-cyan" aria-hidden /> Preparing monthly maps…
+              <p role="status" className="float-surface pointer-events-auto flex items-center gap-2 px-3 py-2 text-xs text-panel-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-panel-muted" aria-hidden /> Preparing monthly maps…
               </p>
             ) : (
               <TimeAnimator frames={frames} index={frameIndex} onIndex={setFrameIndex} mode={frameMode} onMode={setFrameMode} seasonLabel={monthsLabel(months)} />
@@ -623,7 +762,7 @@ export default function Trends() {
     act: (action) => {
       switch (action.kind) {
         case "edit":
-          edit(action.edit);
+          editSearch(action.edit);
           break;
         case "run":
           if (draft) runSearch(draft);
@@ -653,17 +792,19 @@ export default function Trends() {
   return (
     <>
       <MapPageShell
-        title="Trend detective"
-        description="Find where Earth is changing. Choose a measure and a place; TerraScope reads NASA's monthly maps, tests every pixel for a real trend and ranks the places that changed most."
+        eyebrow="Trends"
+        title="Where is Earth changing?"
+        description="Choose a measure and a place. TerraScope reads one NASA map per month, tests every pixel for a real trend, and ranks the places that changed most."
+        compactHeader={!showForm}
         sidebar={sidebar}
         topRight={
           viewMoved ? (
-            <button type="button" onClick={() => setScanView(mapBounds)} className="flex items-center gap-2 rounded-lg border border-panel-line bg-panel/90 px-3 py-2 text-xs font-medium text-panel-foreground shadow-xl backdrop-blur hover:border-cyan-400/50">
-              <ScanSearch className="h-3.5 w-3.5 text-accent-cyan" /> Scan this view
+            <button type="button" onClick={() => setScanView(mapBounds)} className="float-surface flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium text-panel-foreground hover:border-panel-foreground/50 pointer-coarse:min-h-11">
+              <ScanSearch className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Scan this view
             </button>
           ) : indicator && plan ? (
-            <div role="status" className="rounded-lg border border-panel-line bg-panel/85 px-3 py-2 text-[11px] text-panel-muted backdrop-blur">
-              NASA {indicator.product.split(" (")[0].split(",")[0]} · {plan.kind === "comparison" ? `${plan.baseline[0]} vs ${plan.recent[0]}` : `${plan.startYear}–${plan.endYear}`}
+            <div role="status" className="float-surface hidden rounded-full px-3 py-1.5 font-mono text-[10.5px] tabular-nums text-panel-soft sm:block">
+              {indicator.product.split(" (")[0].split(",")[0]} · {plan.kind === "comparison" ? `${plan.baseline[0]} vs ${plan.recent[0]}` : `${plan.startYear}–${plan.endYear}`}
             </div>
           ) : null
         }

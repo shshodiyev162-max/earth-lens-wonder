@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, History } from "lucide-react";
 import YearTrendChart from "@/components/trends/YearTrendChart";
+import { TONE_COLOUR, TONE_TEXT, toneOf } from "./tone";
 import { RainChart, SingleSeriesChart, SoilChart, TemperatureChart, VegetationChart } from "./Charts";
 import { levelNote } from "@/lib/analysis/insights";
 import { metricValues, type MetricDef } from "@/lib/analysis/metrics";
 import { formatSpan } from "@/lib/analysis/period";
 import { DATASET_BY_ID } from "@/lib/analysis/run";
 import { explainVerdict, formatP, signed, WEAK_EVIDENCE } from "@/lib/analysis/stats";
-import { directionOf, isConcerning, metricNotes, missingDatasets, rankTrends, rateText, type MetricTrend } from "@/lib/analysis/trend";
+import { directionOf, metricNotes, missingDatasets, rankTrends, rateText, type MetricTrend } from "@/lib/analysis/trend";
 import type { AnalysisProgress, AnalysisResult } from "@/lib/analysis/types";
 import { METRIC_DEFINITIONS } from "@/lib/glossary";
 import { cn } from "@/lib/utils";
@@ -15,12 +16,7 @@ import { cn } from "@/lib/utils";
 const COLUMNS = "grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1.15fr)_9.5rem_minmax(0,1.3fr)_5rem_7.5rem]";
 
 /** Worrying changes, welcome changes, changes with no good or bad side, and no clear change. */
-function toneOf(trend: MetricTrend): string {
-  const direction = directionOf(trend);
-  if (direction === "none") return "text-muted-foreground";
-  if (trend.metric.concern === "none") return "text-accent-cyan";
-  return isConcerning(trend.metric, direction) ? "text-tone-warn" : "text-tone-good";
-}
+const verdictTone = (trend: MetricTrend) => TONE_TEXT[toneOf(directionOf(trend), trend.metric.concern)];
 
 function verdictLabel(trend: MetricTrend): string {
   if (trend.verdict) return trend.verdict.label;
@@ -49,7 +45,6 @@ function MonthlyChart({ metric, result }: { metric: MetricDef; result: AnalysisR
       label={metric.label}
       unit={metric.unit}
       decimals={metric.decimals}
-      color={metric.color}
       kind={metric.id === "snow" || metric.id === "snowWater" ? "area" : "line"}
       reference={metric.id === "aod" ? { y: 0.4, label: "hazy" } : undefined}
     />
@@ -108,14 +103,14 @@ function Details({ trend, result, compare }: { trend: MetricTrend; result: Analy
           {span ? ` · years tested ${formatSpan(span)} (${yearly.filter((y) => y.value !== null).length})` : ""}
         </p>
       </div>
-      <div className="min-w-0 space-y-5">
+      <div className="min-w-0 space-y-5 text-foreground">
         <figure>
           <figcaption className="mb-1 text-xs text-muted-foreground">{verdict ? "One value per year, with the trend and its 95% range" : "One value per year"}</figcaption>
           <YearTrendChart
             series={yearly}
             baseline={compare?.baseline}
             recent={compare?.recent}
-            color={metric.color}
+            color={TONE_COLOUR[toneOf(directionOf(trend), metric.concern)]}
             unit={metric.unit}
             decimals={metric.decimals}
             showRange={Boolean(verdict)}
@@ -151,9 +146,9 @@ function Row({ trend, result, compare, startOpen }: { trend: MetricTrend; result
         <summary className={cn("grid cursor-pointer list-none items-center gap-x-4 gap-y-1 rounded py-3 transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden", COLUMNS)}>
           <span className="flex min-w-0 items-center gap-1">
             <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none" />
-            <span className="min-w-0 text-sm font-medium text-foreground">{metric.label}</span>
+            <span className="min-w-0 text-sm text-foreground">{metric.label}</span>
           </span>
-          <span className={cn("justify-self-end text-right text-xs font-semibold xl:justify-self-start xl:text-left", toneOf(trend))}>
+          <span className={cn("justify-self-end text-right text-xs font-medium xl:justify-self-start xl:text-left", verdictTone(trend))}>
             {verdictLabel(trend)}
             {lean && <span className="block font-normal text-muted-foreground">{lean}</span>}
           </span>
@@ -177,8 +172,8 @@ function Row({ trend, result, compare, startOpen }: { trend: MetricTrend; result
             )}
           </span>
           <span className="hidden font-mono text-xs tabular-nums text-muted-foreground xl:block">{p !== null ? formatP(p) : "—"}</span>
-          <span className="justify-self-end">
-            <YearTrendChart series={yearly} color={metric.color} unit={metric.unit} decimals={metric.decimals} compact variant="page" label={`${metric.label}, one value per year`} />
+          <span className={cn("justify-self-end", TONE_TEXT[toneOf(directionOf(trend), metric.concern)])}>
+            <YearTrendChart series={yearly} unit={metric.unit} decimals={metric.decimals} compact variant="page" label={`${metric.label}, one value per year`} />
           </span>
         </summary>
         {open && <Details trend={trend} result={result} compare={compare} />}
@@ -241,7 +236,7 @@ export default function Scoreboard({ result, trends, compare, running, progress,
         ))}
       </ul>
       {hint?.hint && !running && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
           <p className="max-w-prose text-[13px] leading-relaxed text-muted-foreground">
             {hint.verdict
               ? `${hinted === 1 ? "One measure shows" : `${hinted} measures show`} no clear trend. A small trend can hide among normal ups and downs in a short record, so a longer one may give a clearer answer.`
@@ -250,7 +245,7 @@ export default function Scoreboard({ result, trends, compare, running, progress,
           <button
             type="button"
             onClick={onTryAllYears}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/50 pointer-coarse:min-h-11"
+            className="btn-line shrink-0"
           >
             <History className="h-3.5 w-3.5" aria-hidden /> Test every year since {hint.hint.startYear}
           </button>

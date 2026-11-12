@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
+import { ArrowRight, X } from "lucide-react";
+import { TONE_COLOUR, toneOf } from "@/components/analysis/tone";
 import { demoAttr } from "@/lib/demo/scripts";
-import { BarChart3, Columns2, ScanSearch, X } from "lucide-react";
-import { explainVerdict, formatP, signed } from "@/lib/analysis/stats";
+import { answerInWords, explainVerdict, formatP, signed } from "@/lib/analysis/stats";
+import { rateText } from "@/lib/analysis/trend";
 import { formatArea } from "@/lib/geo/geometry";
 import type { Indicator } from "@/lib/query/indicators";
 import type { PeriodPlan } from "@/lib/query/period";
@@ -24,82 +26,72 @@ interface HotspotCardProps {
 
 /** Details of one hotspot, with links to the full analysis and the then-vs-now swipe. */
 export default function HotspotCard({ hotspot, title, indicator, plan, analysisHref, compareHref, onScanHere, onClose, className }: HotspotCardProps) {
-  const color = hotspot.sign < 0 ? indicator.colors.decline : indicator.colors.increase;
   const verdict = hotspot.verdict;
+  const rate = verdict ? rateText(verdict, { unit: indicator.unit, decimals: indicator.decimals }) : null;
+  const compared = plan.kind === "comparison" ? `${plan.baseline[0]} → ${plan.recent[0]}` : `${plan.baseline[0]}–${plan.baseline[1]} → ${plan.recent[0]}–${plan.recent[1]}`;
   return (
-    <section {...demoAttr("hotspot-card")} aria-label={`Hotspot ${hotspot.rank}: ${title}`} className={cn("w-full max-w-sm rounded-2xl border border-panel-line bg-panel/95 p-4 text-panel-foreground shadow-2xl backdrop-blur-xl", className)}>
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-cyan">Hotspot {hotspot.rank}</p>
-          <h2 translate="no" className="text-base font-semibold leading-snug">
-            {title}
-          </h2>
-        </div>
-        <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-panel-muted hover:bg-panel-tint-strong hover:text-panel-foreground" aria-label="Close hotspot details">
-          <X className="h-4 w-4" />
+    <section {...demoAttr("hotspot-card")} aria-label={`Hotspot ${hotspot.rank}: ${title}`} className={cn("float-surface w-full max-w-sm bg-panel/90 p-5 text-panel-foreground", className)}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="eyebrow text-panel-muted">Hotspot {String(hotspot.rank).padStart(2, "0")}</p>
+        <button type="button" onClick={onClose} className="-m-1.5 rounded-full p-1.5 text-panel-muted hover:text-panel-foreground pointer-coarse:p-2.5" aria-label="Close hotspot details">
+          <X className="h-4 w-4" strokeWidth={1.5} />
         </button>
       </div>
-      <dl className="mb-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-        <dt className="text-panel-muted">Area</dt>
-        <dd className="text-right font-medium">{formatArea(hotspot.areaKm2)}</dd>
-        <dt className="text-panel-muted">Change</dt>
-        <dd className="text-right font-medium">
-          {signed(hotspot.meanChange, indicator.decimals)} {indicator.unit}
-        </dd>
-        <dt className="text-panel-muted">Compared</dt>
-        <dd className="text-right font-medium">
-          {plan.kind === "comparison" ? `${plan.baseline[0]} → ${plan.recent[0]}` : `${plan.baseline[0]}–${plan.baseline[1]} → ${plan.recent[0]}–${plan.recent[1]}`}
-        </dd>
+      <h2 translate="no" className="mt-2 font-editorial text-[1.75rem] leading-[1.08] text-panel-foreground">
+        {title}
+      </h2>
+      {verdict && <p className="mt-1 font-editorial text-[1.2rem] leading-tight text-panel-muted">{answerInWords(verdict)}</p>}
+
+      <div className="mt-3 border-t border-panel-line pt-2.5">
+        <p className="font-mono text-base font-medium tabular-nums tracking-tight">{rate ? rate.rate : `${signed(hotspot.meanChange, indicator.decimals)} ${indicator.unit}`}</p>
+        <p className="mt-0.5 font-mono text-[10.5px] tabular-nums text-panel-muted">{rate && verdict ? `${rate.range} · ${formatP(verdict.p)}` : compared}</p>
+      </div>
+
+      <div className="mt-3">
+        <YearTrendChart
+          series={hotspot.series}
+          baseline={plan.baseline}
+          recent={plan.recent}
+          color={TONE_COLOUR[toneOf(verdict?.direction ?? "none", indicator.concern)]}
+          unit={indicator.unit}
+          decimals={indicator.decimals}
+          showRange={Boolean(verdict)}
+          label={`${indicator.subject} in ${title}, year by year${verdict ? ", with the trend line and its 95% range" : ""}`}
+        />
+      </div>
+
+      {verdict && <p className="mt-3 text-xs leading-relaxed text-panel-soft">{explainVerdict(verdict, `${indicator.subject} here`, indicator.unit, indicator.decimals + 1)}</p>}
+
+      <dl className="mt-3 font-mono text-[10.5px] tabular-nums">
+        <div className="flex justify-between gap-3 border-t border-panel-line py-1.5">
+          <dt className="text-panel-muted">Area</dt>
+          <dd>{formatArea(hotspot.areaKm2)}</dd>
+        </div>
+        <div className="flex justify-between gap-3 border-t border-panel-line py-1.5">
+          <dt className="text-panel-muted">Change, {compared}</dt>
+          <dd className="whitespace-nowrap">
+            {signed(hotspot.meanChange, indicator.decimals)} {indicator.unit}
+          </dd>
+        </div>
         {plan.kind === "trend" && (
-          <>
+          <div className="flex justify-between gap-3 border-t border-panel-line py-1.5">
             <dt className="text-panel-muted">Pixels with a significant trend</dt>
-            <dd className="text-right font-medium">{Math.round(hotspot.significantShare * 100)}%</dd>
-          </>
-        )}
-        {verdict && (
-          <>
-            <dt className="text-panel-muted">Trend (Sen's slope)</dt>
-            <dd className="text-right font-medium">
-              {signed(verdict.slopePerYear, indicator.decimals + 1)} {indicator.unit}/yr
-              <span className="block text-[10px] font-normal text-panel-muted">
-                95% range {signed(verdict.lowerPerYear, indicator.decimals + 1)} to {signed(verdict.upperPerYear, indicator.decimals + 1)} · {formatP(verdict.p)}
-              </span>
-            </dd>
-          </>
+            <dd>{Math.round(hotspot.significantShare * 100)}%</dd>
+          </div>
         )}
       </dl>
-      {verdict && (
-        <p className="mb-2 text-xs leading-relaxed text-panel-soft">
-          <span className={cn("font-semibold", verdict.direction === "none" || indicator.concern === "none" ? "text-panel-foreground" : verdict.direction === indicator.concern ? "text-tone-warn" : "text-tone-good")}>
-            {verdict.label}
-          </span>
-          . {explainVerdict(verdict, `${indicator.subject} here`, indicator.unit, indicator.decimals + 1)}
-        </p>
-      )}
-      <YearTrendChart
-        series={hotspot.series}
-        baseline={plan.baseline}
-        recent={plan.recent}
-        color={color}
-        unit={indicator.unit}
-        decimals={indicator.decimals}
-        showRange={Boolean(verdict)}
-        label={`${indicator.subject} in ${title}, year by year${verdict ? ", with the trend line and its 95% range" : ""}`}
-      />
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <Link to={analysisHref} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-300">
-          <BarChart3 className="h-3.5 w-3.5" /> Open full analysis
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link to={analysisHref} className="btn-solid group w-full">
+          Open full analysis
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
         </Link>
-        <Link to={compareHref} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-panel-line bg-panel-tint px-3 py-2 text-xs font-semibold text-panel-foreground hover:border-cyan-400/50">
-          <Columns2 className="h-3.5 w-3.5" /> Compare then vs now
+        <Link to={compareHref} className="btn-line flex-1">
+          Then vs now
         </Link>
         {onScanHere && (
-          <button
-            type="button"
-            onClick={onScanHere}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-panel-line bg-panel-tint px-3 py-2 text-xs font-semibold text-panel-foreground hover:border-cyan-400/50 sm:col-span-2"
-          >
-            <ScanSearch className="h-3.5 w-3.5" /> Scan inside this area
+          <button type="button" onClick={onScanHere} className="btn-line flex-1">
+            Scan inside
           </button>
         )}
       </div>

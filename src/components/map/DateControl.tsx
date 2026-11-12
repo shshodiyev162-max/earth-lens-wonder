@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { LayerDateState } from "@/hooks/useLayerDate";
 import { isTimeEnabled, periodLabel, type GibsLayer } from "@/lib/gibs/catalog";
 import { formatDate, shiftDate, stepForLayer, todayUtc } from "@/lib/gibs/time";
@@ -40,7 +40,7 @@ export default function DateControl({ layer, state, requested, onChange, label =
     return (
       <div>
         {!compact && <DateLabel>{label}</DateLabel>}
-        <div className="rounded-xl border border-panel-line bg-panel-tint px-4 py-3 text-sm text-panel-muted">Static cloud-free composite</div>
+        <div className="rounded-md border border-panel-line px-3 py-2.5 text-sm text-panel-muted">Static cloud-free composite</div>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export default function DateControl({ layer, state, requested, onChange, label =
           type="button"
           onClick={() => go(-1)}
           disabled={!canGoBack}
-          className="rounded-xl border border-panel-line bg-panel-tint px-2.5 text-panel-soft transition hover:border-cyan-400/40 hover:text-panel-foreground disabled:opacity-30"
+          className="rounded-md border border-panel-line-strong px-2 text-panel-soft transition-colors hover:border-panel-foreground/50 hover:text-panel-foreground disabled:opacity-30 pointer-coarse:min-w-11"
           aria-label={`Previous ${layer.period === "daily" ? "day" : "period"}`}
         >
           <ChevronLeft className="h-4 w-4" />
@@ -77,14 +77,14 @@ export default function DateControl({ layer, state, requested, onChange, label =
           min={min}
           max={max}
           onChange={(event) => event.target.value && onChange(event.target.value)}
-          className="min-w-0 flex-1 rounded-xl border border-panel-line bg-panel-tint px-3 py-3 text-sm text-panel-foreground outline-none focus:border-cyan-400/50"
+          className="min-w-0 flex-1 rounded-md border border-panel-line-strong bg-transparent px-2.5 py-2 font-mono text-[13px] tabular-nums text-panel-foreground outline-none focus:border-panel-foreground/70 pointer-coarse:min-h-11"
           aria-label={`${label} for ${layer.name}`}
         />
         <button
           type="button"
           onClick={() => go(1)}
           disabled={!canGoForward}
-          className="rounded-xl border border-panel-line bg-panel-tint px-2.5 text-panel-soft transition hover:border-cyan-400/40 hover:text-panel-foreground disabled:opacity-30"
+          className="rounded-md border border-panel-line-strong px-2 text-panel-soft transition-colors hover:border-panel-foreground/50 hover:text-panel-foreground disabled:opacity-30 pointer-coarse:min-w-11"
           aria-label={`Next ${layer.period === "daily" ? "day" : "period"}`}
         >
           <ChevronRight className="h-4 w-4" />
@@ -93,7 +93,7 @@ export default function DateControl({ layer, state, requested, onChange, label =
           type="button"
           onClick={() => onChange(null)}
           disabled={!requested}
-          className="rounded-xl border border-panel-line bg-panel-tint px-3 text-xs font-semibold text-panel-soft transition hover:border-cyan-400/40 hover:text-panel-foreground disabled:opacity-40"
+          className="rounded-md border border-panel-line-strong px-2.5 text-xs text-panel-soft transition-colors hover:border-panel-foreground/50 hover:text-panel-foreground disabled:opacity-40"
         >
           Latest
         </button>
@@ -102,7 +102,7 @@ export default function DateControl({ layer, state, requested, onChange, label =
         <p
           className={cn(
             "mt-2 flex items-start gap-1.5 text-xs leading-relaxed",
-            status.tone === "warn" ? "text-tone-warn" : status.tone === "info" ? "text-accent-cyan-soft" : "text-panel-muted",
+            status.tone === "warn" ? "text-tone-warn" : status.tone === "info" ? "text-panel-soft" : "text-panel-muted",
           )}
         >
           {state.loading && <Loader2 className="mt-0.5 h-3 w-3 shrink-0 animate-spin" />}
@@ -115,8 +115,6 @@ export default function DateControl({ layer, state, requested, onChange, label =
 
 function DateLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-panel-muted">
-      <CalendarDays className="h-4 w-4 text-accent-cyan" /> {children}
-    </label>
+    <label className="field-label mb-2.5 block">{children}</label>
   );
 }

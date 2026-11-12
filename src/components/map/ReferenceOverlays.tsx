@@ -3,10 +3,11 @@ import { GeoJSON, Pane } from "react-leaflet";
 import { canvas } from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import { loadCountries } from "@/lib/geo/countries";
+import MapDetails from "./MapDetails";
 
 // No place-label tiles: CARTO's now print "API KEY REQUIRED", and NASA's
 // Reference_Labels_15m tiles come back as solid black images that cover the imagery.
-// Places are found with the search bar instead.
+// Names are drawn from the bundled data instead (see MapDetails).
 
 const PANE = "reference-borders";
 
@@ -20,15 +21,21 @@ function BorderLines({ data }: { data: GeoJsonObject }) {
   const renderer = useMemo(() => canvas({ pane: PANE, padding: 0.5 }), []);
   return (
     <>
-      {/* Soft dark edge so the cyan line stays visible over white clouds and pale deserts. */}
+      {/*
+        Cyan shows over clouds, snow, desert and sea alike, with a dark edge for the brightest of them.
+        It also keeps borders apart from white, which on a map always means your own chosen area.
+      */}
       <GeoJSON data={data} interactive={false} {...{ renderer }} style={{ color: "#02070d", weight: 3, opacity: 0.45, fill: false }} />
-      <GeoJSON data={data} interactive={false} {...{ renderer }} style={{ color: "#00ffff", weight: 1.2, opacity: 0.9, fill: false }} />
+      <GeoJSON data={data} interactive={false} {...{ renderer }} style={{ color: "#00e5ff", weight: 1.1, opacity: 0.9, fill: false }} />
     </>
   );
 }
 
-/** Cyan country outlines (borders and coastlines) drawn above the imagery, as in the original version. */
-export default function ReferenceOverlays({ borders = true }: { borders?: boolean }) {
+/**
+ * Country outlines (borders and coastlines) drawn above the imagery, with the grid, names, scale and
+ * cursor readout. A map too small to carry those turns them off with `details={false}`.
+ */
+export default function ReferenceOverlays({ borders = true, details = true }: { borders?: boolean; details?: boolean }) {
   const [data, setData] = useState<GeoJsonObject | null>(null);
 
   useEffect(() => {
@@ -43,8 +50,11 @@ export default function ReferenceOverlays({ borders = true }: { borders?: boolea
   }, [borders]);
 
   return (
-    <Pane name={PANE} style={{ zIndex: 420, pointerEvents: "none" }}>
-      {borders && data && <BorderLines data={data} />}
-    </Pane>
+    <>
+      <Pane name={PANE} style={{ zIndex: 420, pointerEvents: "none" }}>
+        {borders && data && <BorderLines data={data} />}
+      </Pane>
+      {details && <MapDetails />}
+    </>
   );
 }

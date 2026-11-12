@@ -1,14 +1,16 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { motion } from "framer-motion";
-import { AlertTriangle, Globe, Info, Loader2, MapPin, Play, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, FileText, Loader2, Map as MapIcon, Plus, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import LocationPicker from "@/components/analysis/LocationPicker";
+import AnalysisMap from "@/components/analysis/AnalysisMap";
 import { DatasetPicker, MonthsPicker, PeriodPicker } from "@/components/analysis/AnalysisControls";
 import Scoreboard from "@/components/analysis/Scoreboard";
 import Glossary from "@/components/common/Glossary";
+import StepLabel from "@/components/common/StepLabel";
 import { AnswerPanel, Methodology, RecentPanel, ResultsHeader } from "@/components/analysis/ResultsPanels";
 import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
+import { ANALYSIS_AREA_KEYS, analysisParts, partKey, partLabel, placePart, savedAreaPart, togglePart, writeAnalysisParts, type AreaPart } from "@/lib/areas/parts";
 import type { PickedCountry } from "@/components/map/DrawTools";
 import { useAnalysisRun } from "@/hooks/useAnalysisRun";
 import { useAnalysisTarget } from "@/hooks/useAnalysisTarget";
@@ -27,11 +29,11 @@ import {
 } from "@/lib/analysis/period";
 import { analysisTrends } from "@/lib/analysis/trend";
 import type { AnalysisPeriod, DatasetId } from "@/lib/analysis/types";
-import { defaultRadiusKm, hasBoundary, type PlaceResult } from "@/lib/geo/geocode";
-import type { LatLng, PolygonGeometry } from "@/lib/geo/geometry";
+import type { PlaceResult } from "@/lib/geo/geocode";
+import { formatArea, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
+import { togetherLabel } from "@/lib/areas/resolve";
 import { cn } from "@/lib/utils";
 
-const TARGET_KEYS = ["area", "osm", "country", "region", "poly", "lat", "lon", "r", "bbox", "name", "ctx"];
 const ALL_DATASETS = DATASETS.map((d) => d.id);
 
 function parseDatasets(value: string | null): DatasetId[] {
@@ -47,23 +49,10 @@ const EXAMPLES = [
   { name: "Nile Delta", ctx: "Egypt", lat: 30.85, lon: 31.05, r: 60 },
 ];
 
-function EmptyCard({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
-  return (
-    <div className="glass rounded-2xl p-6">
-      <div className="flex items-center gap-2 mb-3">
-        <Globe className="w-5 h-5 text-primary" />
-        <h2 className="text-sm font-medium text-foreground">{title}</h2>
-      </div>
-      <p className="text-sm text-muted-foreground leading-relaxed">{children}</p>
-      {action && <div className="mt-5">{action}</div>}
-    </div>
-  );
-}
-
 /** Placeholder shaped like the report while NASA data is still arriving. */
 function ReportSkeleton() {
   return (
-    <div className="space-y-6 border-t border-border pt-6" aria-hidden="true">
+    <div className="space-y-6" aria-hidden="true">
       <div className="space-y-3">
         <Skeleton className="h-3 w-28" />
         <Skeleton className="h-8 w-4/5" />
@@ -99,6 +88,9 @@ export default function Analysis() {
   const problems = periodProblems(selection, months.length);
   const hints = periodHints(selection, calendarMonths, months.length);
 
+  /** While on, each place picked joins the area; nothing is read until adding is done. */
+  const [adding, setAdding] = useState(false);
+
   // Very large requests wait for a click instead of starting by themselves.
   const maps = countMaps({ start, end, months, datasets });
   const climateRequests = target ? countClimateRequests({ datasets, target }) : 0;
@@ -106,12 +98,18 @@ export default function Analysis() {
   const [confirmedRun, setConfirmedRun] = useState<string | null>(null);
   const large = maps > LARGE_RUN_MAPS;
   const waiting = Boolean(target) && !problems.length && large && confirmedRun !== runKey;
-  const run = useAnalysisRun(target, { start, end, months, period: analysisPeriod }, datasets, !problems.length && !waiting);
+  const run = useAnalysisRun(target, { start, end, months, period: analysisPeriod }, datasets, !problems.length && !waiting && !adding);
   const trends = useMemo(() => (run.result ? analysisTrends(run.result) : []), [run.result]);
   const sizeNote = maps
     ? `${maps.toLocaleString("en-US")} monthly NASA maps to read: ${formatEstimate(estimateSeconds(maps, climateRequests))} the first time, seconds after that.${datasets.includes("climate") ? " Climate results come first." : ""}`
     : undefined;
   const resultsRef = useRef<HTMLDivElement>(null);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const controlsShown = !target || controlsOpen;
+  /** The big area shows the map (to choose the place) or the report; with no place yet, only the map. */
+  const [view, setView] = useState<"map" | "report">(() => (analysisParts(params).length ? "report" : "map"));
+  const hasArea = Boolean(target || targetLoading);
+  const showing = hasArea ? view : "map";
 
   /** On phones the report sits below the controls — bring it into view after a choice. */
   const revealResults = () => {
@@ -123,7 +121,7 @@ export default function Analysis() {
     (values: Record<string, string | undefined>) => {
       setParams((current) => {
         const next = new URLSearchParams(current);
-        TARGET_KEYS.forEach((key) => next.delete(key));
+        ANALYSIS_AREA_KEYS.forEach((key) => next.delete(key));
         Object.entries(values).forEach(([key, value]) => value !== undefined && next.set(key, value));
         return next;
       });
@@ -131,44 +129,73 @@ export default function Analysis() {
     [setParams],
   );
 
-  const onPlace = (place: PlaceResult) => {
-    if (place.region) {
-      setTargetParams({ region: place.region });
-    } else if (place.osm && hasBoundary(place)) {
-      setTargetParams({ osm: `${place.osm.type}${place.osm.id}`, name: place.name, ctx: place.context || undefined });
-    } else {
-      setTargetParams({ lat: place.center[0].toFixed(5), lon: place.center[1].toFixed(5), r: String(defaultRadiusKm(place.kind)), name: place.name, ctx: place.context || undefined });
+  // The places the area is made of (usually one). While adding, each place picked joins them.
+  const parts = useMemo(() => analysisParts(params), [params]);
+  useEffect(() => {
+    if (!parts.length) setAdding(false);
+  }, [parts.length]);
+  const partRows = useMemo(
+    () =>
+      parts.map((part) => {
+        const key = partKey(part);
+        const loaded = target?.parts?.find((p) => p.key === key);
+        return { key, label: loaded?.name ?? partLabel(part), areaKm2: loaded?.areaKm2 };
+      }),
+    [parts, target],
+  );
+
+  /** A place chosen: it becomes the area and its report opens, or, while adding, it joins the area (picking one already in takes it out). */
+  const choose = (part: AreaPart) => {
+    if (adding && parts.length) {
+      setParams((current) => writeAnalysisParts(current, togglePart(analysisParts(current), part)));
+      return;
     }
+    setParams((current) => writeAnalysisParts(current, [part]));
+    setView("report");
     revealResults();
   };
 
-  const onPoint = (point: LatLng, radiusKm: number) => {
-    const keepName = target?.ref.type === "point" && Math.abs(target.ref.lat - point[0]) < 1e-6 && Math.abs(target.ref.lon - point[1]) < 1e-6;
-    setTargetParams({
-      lat: point[0].toFixed(5),
-      lon: point[1].toFixed(5),
-      r: String(radiusKm),
-      name: keepName ? params.get("name") ?? undefined : undefined,
-      ctx: keepName ? params.get("ctx") ?? undefined : undefined,
+  const showMap = () => {
+    setView("map");
+    revealResults();
+  };
+
+  /** Adding happens on the map; when it's done, the report of the whole area opens. */
+  const changeAdding = (next: boolean) => {
+    setAdding(next);
+    if (next) showMap();
+    else setView("report");
+  };
+
+  const onPlace = (place: PlaceResult) => choose(placePart(place));
+
+  const onPoint = (point: LatLng, radiusKm: number) => choose({ kind: "point", lat: point[0], lon: point[1], radiusKm });
+
+  /** A new size for the circle around the first place, keeping its name and any places added to it. */
+  const onRadius = (radiusKm: number) =>
+    setParams((current) => {
+      const [first, ...rest] = analysisParts(current);
+      return first?.kind === "point" ? writeAnalysisParts(current, [{ ...first, radiusKm }, ...rest]) : current;
     });
-  };
 
-  const onDrawn = (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => {
-    if (country?.countryId) {
-      setTargetParams({ country: country.countryId });
-    } else if (country?.region) {
-      setTargetParams({ region: country.region });
+  const onDrawn = (geometry: PolygonGeometry, kind: AreaKind, picked?: PickedCountry) => {
+    if (picked?.countryId) {
+      choose({ kind: "country", id: picked.countryId, name: picked.name });
+    } else if (picked?.region) {
+      choose({ kind: "region", label: picked.region });
     } else {
+      // Drawn shapes are kept with your saved areas, so they can be reused on the other pages.
       const area = workspace.addArea({ geometry, kind });
-      setTargetParams({ area: area.id });
+      choose(adding && parts.length ? savedAreaPart(area) : { kind: "area", id: area.id });
     }
-    revealResults();
   };
 
   const onArea = (id: string) => {
-    setTargetParams({ area: id });
-    revealResults();
+    const area = workspace.getArea(id);
+    if (area) choose(adding && parts.length ? savedAreaPart(area) : { kind: "area", id });
   };
+
+  const onRemovePart = (index: number) => setParams((current) => writeAnalysisParts(current, analysisParts(current).filter((_, i) => i !== index)));
 
   const onPeriod = (edit: PeriodEdit) => setParams((current) => writePeriod(current, selection, edit), { replace: true });
 
@@ -188,176 +215,240 @@ export default function Analysis() {
   const progressPct = run.progress ? Math.round((run.progress.done / Math.max(run.progress.total, 1)) * 100) : 0;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)]">
-      <div className="max-w-7xl mx-auto px-6 py-12 space-y-8">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="font-editorial text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.01em] text-foreground">Area analysis</h1>
-          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Pick a place. NASA's monthly records are read for exactly that area, and each measure is tested for a real change. Every number is measured, not simulated.
-          </p>
-        </motion.div>
+    <div className="lg:flex lg:items-start">
+      <aside aria-label="Analysis controls" className="border-b border-border bg-panel px-6 pb-6 pt-7 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:w-[24rem] lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+        <p className="eyebrow">Analysis</p>
+        <h1 className="mt-3 font-editorial text-[2.75rem] leading-[1.03] tracking-[-0.012em] text-foreground">Read any place on Earth.</h1>
+        {/* On phones, once there is a report, the controls fold away so the report comes first. */}
+        <button type="button" aria-expanded={controlsShown} onClick={() => setControlsOpen((open) => !open)} className={cn("link-quiet mt-3 text-xs pointer-coarse:min-h-11 lg:hidden", !target && "hidden")}>
+          {controlsShown ? "Hide the place, years and measures" : "Change the place, years or measures"}
+        </button>
+        <div className={cn("lg:block", controlsShown ? "block" : "hidden")}>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">NASA's monthly records are read for exactly the area you choose, and each measure is tested for a real change. Every number is measured, not simulated.</p>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr,2fr] items-start">
-          {/* Left Sidebar */}
-          <div className="space-y-6">
-            <section className="glass rounded-2xl p-6 space-y-4">
-              <h2 className="text-sm font-semibold text-muted-foreground">1. Choose a place</h2>
-              <LocationPicker target={target} loading={targetLoading} onPlace={onPlace} onPoint={onPoint} onDrawn={onDrawn} onArea={onArea} />
-            </section>
+          <section className="mt-7 space-y-3 border-t border-border pt-4">
+            <StepLabel number={1}>Place</StepLabel>
+            <LocationPicker
+              target={target}
+              loading={targetLoading}
+              parts={partRows}
+              adding={adding}
+              onAddingChange={changeAdding}
+              onPlace={onPlace}
+              onPoint={onPoint}
+              onRadius={onRadius}
+              onArea={onArea}
+              onRemovePart={onRemovePart}
+              onShowMap={showMap}
+            />
+          </section>
 
-            <section className="glass rounded-2xl p-6 space-y-4">
-              <h2 className="text-sm font-semibold text-muted-foreground">2. Choose a time range and data</h2>
-              <PeriodPicker selection={selection} onChange={onPeriod} />
-              <MonthsPicker selection={selection} latitude={latitude} onChange={onPeriod} />
-              {(problems.length > 0 || hints.length > 0 || selection.notes.length > 0) && (
-                <ul className="space-y-1.5 text-xs leading-relaxed" aria-live="polite">
-                  {problems.map((text) => (
-                    <li key={text} className="flex gap-1.5 text-tone-warn">
-                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden /> {text}
-                    </li>
-                  ))}
-                  {[...selection.notes, ...hints].map((text) => (
-                    <li key={text} className="flex gap-1.5 text-muted-foreground">
-                      <Info className="mt-0.5 h-3 w-3 shrink-0 text-primary" aria-hidden /> {text}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <DatasetPicker selected={datasets} onChange={onDatasets} note={sizeNote} />
-            </section>
-          </div>
-
-          {/* Right Report Section */}
-          <section ref={resultsRef} aria-label="Report" className="min-w-0 scroll-mt-20 space-y-8">
-            {targetError && (
-              <div role="alert" className="glass rounded-2xl p-6 flex items-start gap-3 text-sm text-tone-warn">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {targetError}
-              </div>
-            )}
-
-            {!target && !targetLoading && !targetError && (
-              <EmptyCard
-                title="Pick a place to start"
-                action={
-                  <div className="space-y-3">
-                    <label className="text-xs font-medium text-muted-foreground">Or try an example</label>
-                    <div className="flex flex-wrap gap-2">
-                      {EXAMPLES.map((example) => (
-                        <button
-                          key={example.name}
-                          type="button"
-                          onClick={() => {
-                            setTargetParams({ lat: String(example.lat), lon: String(example.lon), r: String(example.r), name: example.name, ctx: example.ctx });
-                            revealResults();
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium glass text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <MapPin className="h-3.5 w-3.5 text-primary" /> {example.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                }
-              >
-                Search for a city, region or country on the left, click anywhere on the small map, or draw your own area. Areas you drew on the Explore map show up there
-                too.
-              </EmptyCard>
-            )}
-
-            {targetLoading && !target && (
-              <div role="status" aria-label="Fetching the boundary from OpenStreetMap" className="space-y-6">
-                <div className="glass rounded-2xl p-6 grid gap-5 sm:grid-cols-[12rem,1fr]">
-                  <Skeleton className="aspect-[4/3] w-full rounded-xl" />
-                  <div className="space-y-3">
-                    <Skeleton className="h-3 w-24" />
-                    <Skeleton className="h-8 w-56 max-w-full" />
-                    <Skeleton className="h-4 w-72 max-w-full" />
-                    <p className="pt-2 text-xs text-muted-foreground">Fetching the boundary from OpenStreetMap…</p>
-                  </div>
-                </div>
-                <ReportSkeleton />
-              </div>
-            )}
-
-            {target && (
-              <>
-                <ResultsHeader target={target} result={run.result} running={running} shareUrl={shareUrl} />
-
-                {waiting && (
-                  <div className="glass rounded-2xl p-6 space-y-3" role="status">
-                    <p className="text-sm font-medium text-foreground">This is a big request: about {maps.toLocaleString("en-US")} monthly NASA maps.</p>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      Reading them takes {formatEstimate(estimateSeconds(maps, climateRequests))} the first time, depending on how busy NASA's map service is — seconds after that, as
-                      the maps are kept on this device. Fewer years, fewer months or fewer datasets make it faster.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmedRun(runKey)}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 pointer-coarse:min-h-11"
-                    >
-                      <Play className="h-4 w-4" aria-hidden /> Start the analysis
-                    </button>
-                  </div>
-                )}
-
-                {running && (
-                  <div role="status" aria-live="polite">
-                    <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                        Reading NASA data{run.progress?.label && run.progress.label !== "Starting" ? ` · ${run.progress.label}` : ""}
-                      </span>
-                      <span className="font-mono text-foreground">
-                        {run.progress?.done ?? 0}/{run.progress?.total ?? "…"}
-                      </span>
-                    </div>
-                    <div className="h-px overflow-hidden bg-border">
-                      <div className="h-full bg-primary transition-all duration-300 motion-reduce:transition-none" style={{ width: `${progressPct}%` }} />
-                    </div>
-                  </div>
-                )}
-
-                {run.status === "error" && (
-                  <div role="alert" className="glass rounded-2xl p-6 flex flex-wrap items-center justify-between gap-3 text-sm text-tone-bad">
-                    <span className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" /> {run.error}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={run.rerun}
-                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium glass text-foreground hover:bg-card/80 transition-colors"
-                    >
-                      <RefreshCw className="h-4 w-4" /> Try again
-                    </button>
-                  </div>
-                )}
-
-                {running && !run.result && <ReportSkeleton />}
-
-                {run.result && run.report && (
-                  // Results from the run before stay faintly visible until this run's first results arrive.
-                  <div className={cn("space-y-8 transition-opacity", running && !run.current && "pointer-events-none opacity-50")}>
-                    <AnswerPanel report={run.report} result={run.result} running={running} />
-                    <Scoreboard
-                      result={run.result}
-                      trends={trends}
-                      compare={run.result.period?.compare ?? null}
-                      running={running}
-                      progress={run.progress}
-                      onTryAllYears={selection.kind === "all" ? undefined : () => onPeriod({ kind: "all" })}
-                    />
-                    {run.report.recent && <RecentPanel recent={run.report.recent} />}
-                    <div className="space-y-3">
-                      <Methodology report={run.report} result={run.result} />
-                      <Glossary look="line" />
-                    </div>
-                  </div>
-                )}
-              </>
+          <section className="mt-5 space-y-3 border-t border-border pt-4">
+            <StepLabel number={2}>Years and months</StepLabel>
+            <PeriodPicker selection={selection} onChange={onPeriod} />
+            <MonthsPicker selection={selection} latitude={latitude} onChange={onPeriod} />
+            {(problems.length > 0 || hints.length > 0 || selection.notes.length > 0) && (
+              <ul className="space-y-1.5 text-xs leading-relaxed" aria-live="polite">
+                {problems.map((text) => (
+                  <li key={text} className="flex gap-1.5 text-tone-warn">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden /> {text}
+                  </li>
+                ))}
+                {[...selection.notes, ...hints].map((text) => (
+                  <li key={text} className="text-muted-foreground">
+                    {text}
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
+
+          <section className="mt-5 space-y-3 border-t border-border pt-4">
+            <StepLabel number={3}>Measures</StepLabel>
+            <DatasetPicker selected={datasets} onChange={onDatasets} note={sizeNote} />
+          </section>
         </div>
-      </div>
+      </aside>
+
+      <section ref={resultsRef} aria-label={showing === "map" ? "Map" : "Report"} className="min-w-0 flex-1 scroll-mt-16">
+        {hasArea && (
+          <div className="sticky top-16 z-[1100] flex h-[3.25rem] items-center justify-between gap-3 border-b border-border bg-background/90 px-4 backdrop-blur-md md:px-6">
+            <div className="segmented" role="group" aria-label="Show the map or the report">
+              <button type="button" aria-pressed={showing === "map"} onClick={() => setView("map")} className={cn("inline-flex items-center gap-1.5", showing === "map" ? "segment-on" : "segment")}>
+                <MapIcon className="h-3.5 w-3.5" aria-hidden /> Map
+              </button>
+              <button type="button" aria-pressed={showing === "report"} onClick={() => setView("report")} className={cn("inline-flex items-center gap-1.5", showing === "report" ? "segment-on" : "segment")}>
+                <FileText className="h-3.5 w-3.5" aria-hidden /> Report
+              </button>
+            </div>
+            {running && showing === "map" && (
+              <span className="flex min-w-0 items-center gap-2 truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
+                <span className="truncate">
+                  Reading NASA data · {run.progress?.done ?? 0}/{run.progress?.total ?? "…"}
+                </span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {targetError && (
+          <div role="alert" className="flex items-start gap-3 border-b border-border px-6 py-4 text-sm text-tone-warn md:px-10">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {targetError}
+          </div>
+        )}
+
+        {showing === "map" && (
+          <AnalysisMap
+            target={target}
+            loading={targetLoading}
+            adding={adding}
+            radiusKm={target?.ref.type === "point" ? target.ref.radiusKm : 10}
+            onPoint={onPoint}
+            onDrawn={onDrawn}
+            className={cn("h-[clamp(24rem,72dvh,44rem)]", hasArea ? "lg:h-[calc(100dvh-7.25rem)]" : "lg:h-[calc(100dvh-4rem)]")}
+          >
+            {!target ? (
+              <div className="float-surface pointer-events-auto max-w-sm px-4 py-3.5 sm:px-5 sm:py-4">
+                <p className="field-label hidden sm:block">Area report</p>
+                <h2 className="font-editorial text-[1.45rem] leading-[1.05] text-panel-foreground sm:mt-2 sm:text-[clamp(1.6rem,3vw,2.1rem)]">Pick a place to start.</h2>
+                <p className="mt-1.5 text-xs leading-relaxed text-panel-soft sm:mt-2 sm:text-[13px]">
+                  <span className="sm:hidden">Tap the map, or draw or pick with the tools on the right.</span>
+                  <span className="hidden sm:inline">Click anywhere for the area around that point, draw a shape, or pick a country or sea with the tools on the right. You can also search for a place.</span>
+                </p>
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:mt-3">
+                  <span className="mr-0.5 text-xs text-panel-muted">Or try</span>
+                  {EXAMPLES.map((example) => (
+                    <button
+                      key={example.name}
+                      type="button"
+                      onClick={() => {
+                        setTargetParams({ lat: String(example.lat), lon: String(example.lon), r: String(example.r), name: example.name, ctx: example.ctx });
+                        setView("report");
+                        revealResults();
+                      }}
+                      className="chip"
+                    >
+                      {example.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="float-surface pointer-events-auto max-w-sm px-4 py-3.5">
+                <p className="field-label">{adding ? "Adding places" : target.parts ? togetherLabel(target.parts.length) : "Chosen area"}</p>
+                <p translate="no" className="mt-1.5 truncate font-editorial text-[1.6rem] leading-tight text-panel-foreground">
+                  {target.name}
+                </p>
+                <p className="mt-0.5 font-mono text-[10.5px] tabular-nums text-panel-muted">{formatArea(target.areaKm2)}</p>
+                <p className="mt-2 hidden text-xs leading-relaxed text-panel-soft sm:block">
+                  {adding
+                    ? "Click countries and seas with the flag tool, draw shapes, or click for a circle: each joins the area. Pick one again to take it out."
+                    : "Click the map, draw, or pick a country or sea to choose another place."}
+                </p>
+                {adding ? (
+                  <button type="button" onClick={() => changeAdding(false)} className="btn-solid mt-3">
+                    Done adding
+                  </button>
+                ) : (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => setView("report")} className="btn-solid group">
+                      See the report
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
+                    </button>
+                    <button type="button" onClick={() => changeAdding(true)} className="btn-line">
+                      <Plus className="h-3.5 w-3.5" aria-hidden /> Add another place
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </AnalysisMap>
+        )}
+
+        {showing === "report" && targetLoading && !target && (
+          <div role="status" aria-label="Fetching the boundary from OpenStreetMap">
+            <Skeleton className="h-[clamp(16rem,38vh,26rem)] w-full rounded-none" />
+            <div className="px-6 py-8 md:px-10">
+              <p className="font-mono text-[11px] text-muted-foreground">Fetching the boundary from OpenStreetMap…</p>
+              <ReportSkeleton />
+            </div>
+          </div>
+        )}
+
+        {showing === "report" && target && (
+          <>
+            <ResultsHeader target={target} result={run.result} running={running} shareUrl={shareUrl} />
+
+            <div className="space-y-10 px-6 py-9 md:px-10">
+              {waiting && (
+                <div className="space-y-3" role="status">
+                  <p className="eyebrow">A big request</p>
+                  <p className="max-w-3xl font-editorial text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] text-foreground">About {maps.toLocaleString("en-US")} monthly NASA maps.</p>
+                  <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                    Reading them takes {formatEstimate(estimateSeconds(maps, climateRequests))} the first time, depending on how busy NASA's map service is, and seconds after that, as the maps are kept on this device. Fewer years, months or measures
+                    make it faster.
+                  </p>
+                  <button type="button" onClick={() => setConfirmedRun(runKey)} className="btn-solid group">
+                    Start the analysis
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
+                  </button>
+                </div>
+              )}
+
+              {running && (
+                <div role="status" aria-live="polite">
+                  <div className="mb-2 flex items-center justify-between gap-3 font-mono text-[11px] tabular-nums text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                      Reading NASA data{run.progress?.label && run.progress.label !== "Starting" ? ` · ${run.progress.label}` : ""}
+                    </span>
+                    <span>
+                      {run.progress?.done ?? 0}/{run.progress?.total ?? "…"}
+                    </span>
+                  </div>
+                  <div className="h-px overflow-hidden bg-border">
+                    <div className="h-full bg-foreground transition-all duration-300 motion-reduce:transition-none" style={{ width: `${progressPct}%` }} />
+                  </div>
+                </div>
+              )}
+
+              {run.status === "error" && (
+                <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4 text-sm text-tone-bad">
+                  <span className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden /> {run.error}
+                  </span>
+                  <button type="button" onClick={run.rerun} className="btn-line">
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Try again
+                  </button>
+                </div>
+              )}
+
+              {running && !run.result && <ReportSkeleton />}
+
+              {run.result && run.report && (
+                // Results from the run before stay faintly visible until this run's first results arrive.
+                <div className={cn("space-y-12 transition-opacity", running && !run.current && "pointer-events-none opacity-50")}>
+                  <AnswerPanel report={run.report} result={run.result} running={running} />
+                  <Scoreboard
+                    result={run.result}
+                    trends={trends}
+                    compare={run.result.period?.compare ?? null}
+                    running={running}
+                    progress={run.progress}
+                    onTryAllYears={selection.kind === "all" ? undefined : () => onPeriod({ kind: "all" })}
+                  />
+                  {run.report.recent && <RecentPanel recent={run.report.recent} />}
+                  <div className="space-y-2.5">
+                    <Methodology report={run.report} result={run.result} />
+                    <Glossary look="line" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }

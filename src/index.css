@@ -3,164 +3,146 @@
 @tailwind utilities;
 
 @layer base {
+  /* One look across the site, taken from the home page: near-black or warm paper, hairlines, and the
+     interface itself in neutral ink. Colour is kept for the data: amber and green mean a tested change. */
+
   /* Light mode. The site always opens in dark mode (class="dark" on <html>); the toggle switches. */
   :root {
     color-scheme: light;
 
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    --background: 40 20% 97%;
+    --foreground: 230 24% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 230 24% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 230 24% 8%;
 
-    --primary: 174 84% 24%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 230 24% 8%;
+    --primary-foreground: 40 20% 97%;
 
-    --secondary: 210 25% 93%;
-    --secondary-foreground: 222 40% 20%;
+    --secondary: 40 12% 92%;
+    --secondary-foreground: 230 20% 15%;
 
-    --muted: 210 25% 94%;
-    --muted-foreground: 215 19% 35%;
+    --muted: 40 12% 93%;
+    --muted-foreground: 230 7% 35%;
 
-    --accent: 174 60% 32%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 40 12% 90%;
+    --accent-foreground: 230 24% 8%;
 
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 25% 85%;
-    --input: 214 25% 85%;
-    --ring: 174 84% 30%;
+    --border: 230 8% 85%;
+    --input: 230 8% 85%;
+    --ring: 230 24% 8%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     --earth-green: 142 70% 28%;
     --earth-blue: 205 85% 36%;
     --earth-orange: 24 90% 35%;
     --earth-red: 0 72% 42%;
     --earth-yellow: 32 95% 32%;
-    --space-deep: 220 25% 4%;
-    --glow-primary: 174 84% 30%;
-    --glow-blue: 205 85% 38%;
+    --space-deep: 230 24% 4%;
 
-    /* Map pages (sidebar, floating pills, ribbon, dropdowns) */
-    --panel: 0 0% 100%;
+    /* Map pages and the Analysis controls: the side panel, floating pills, dropdowns */
+    --panel: 40 20% 97%;
     --panel-raised: 0 0% 100%;
     --panel-ribbon: 0 0% 100%;
-    --panel-foreground: 222 47% 11%;
-    --panel-soft: 215 25% 27%;
-    --panel-muted: 215 19% 35%;
-    --panel-line: 15 23 42 / 0.12;
-    --panel-line-strong: 15 23 42 / 0.2;
-    --panel-tint: 15 23 42 / 0.04;
-    --panel-tint-strong: 15 23 42 / 0.06;
-    --panel-tint-hover: 15 23 42 / 0.09;
-    --accent-cyan: 192 82% 28%;
-    --accent-cyan-soft: 192 82% 26%;
+    --panel-foreground: 230 24% 8%;
+    --panel-soft: 230 12% 22%;
+    --panel-muted: 230 7% 35%;
+    --panel-line: 15 17 25 / 0.14;
+    --panel-line-strong: 15 17 25 / 0.26;
+    --panel-tint: 15 17 25 / 0.03;
+    --panel-tint-strong: 15 17 25 / 0.06;
+    --panel-tint-hover: 15 17 25 / 0.09;
 
-    /* Good / warning / bad / info text */
-    --tone-good: 142 72% 26%;
-    --tone-warn: 26 90% 33%;
+    /* Good / warning / bad text: only for tested results and problems */
+    --tone-good: 146 72% 24%;
+    --tone-warn: 28 90% 32%;
     --tone-bad: 0 74% 42%;
-    --tone-info: 192 82% 28%;
-    --tile: 210 40% 96% / 1;
+    --tone-info: 230 24% 8%;
+    --tile: 15 17 25 / 0.03;
 
-    /* Backgrounds and buttons */
-    --hero-1: 210 40% 98%;
-    --hero-2: 205 45% 94%;
-    --hero-3: 174 35% 92%;
-    --gradient-1: 174 84% 26%;
-    --gradient-2: 205 85% 38%;
-
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 174 84% 24%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 25% 93%;
-    --sidebar-accent-foreground: 222 40% 20%;
-    --sidebar-border: 214 25% 85%;
-    --sidebar-ring: 174 84% 30%;
+    --sidebar-background: 40 20% 97%;
+    --sidebar-foreground: 230 24% 8%;
+    --sidebar-primary: 230 24% 8%;
+    --sidebar-primary-foreground: 40 20% 97%;
+    --sidebar-accent: 40 12% 92%;
+    --sidebar-accent-foreground: 230 20% 15%;
+    --sidebar-border: 230 8% 85%;
+    --sidebar-ring: 230 24% 8%;
   }
 
-  /* Dark mode — the original design, unchanged. */
   .dark {
     color-scheme: dark;
 
-    --background: 220 20% 7%;
-    --foreground: 210 20% 92%;
+    --background: 230 24% 4%;
+    --foreground: 0 0% 98%;
 
-    --card: 220 18% 10%;
-    --card-foreground: 210 20% 92%;
+    --card: 230 16% 7%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 220 18% 10%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 230 16% 7%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 174 72% 50%;
-    --primary-foreground: 220 20% 7%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 230 24% 5%;
 
-    --secondary: 220 16% 16%;
-    --secondary-foreground: 210 20% 85%;
+    --secondary: 230 10% 12%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 215 12% 55%;
+    --muted: 230 10% 11%;
+    --muted-foreground: 228 8% 66%;
 
-    --accent: 174 60% 40%;
-    --accent-foreground: 210 20% 95%;
+    --accent: 230 10% 14%;
+    --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 4 80% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 174 72% 50%;
+    --border: 230 8% 17%;
+    --input: 230 8% 17%;
+    --ring: 0 0% 98%;
 
-    --earth-green: 142 50% 45%;
-    --earth-blue: 205 75% 50%;
-    --earth-orange: 28 85% 55%;
-    --earth-red: 0 65% 50%;
-    --earth-yellow: 45 90% 55%;
-    --space-deep: 220 25% 4%;
-    --glow-primary: 174 72% 50%;
-    --glow-blue: 205 85% 60%;
+    --earth-green: 146 50% 50%;
+    --earth-blue: 205 75% 55%;
+    --earth-orange: 28 85% 58%;
+    --earth-red: 4 80% 60%;
+    --earth-yellow: 38 92% 62%;
+    --space-deep: 230 24% 4%;
 
-    --panel: 213 61% 7%;
-    --panel-raised: 212 54% 9%;
-    --panel-ribbon: 216 61% 10%;
-    --panel-foreground: 0 0% 100%;
-    --panel-soft: 213 27% 84%;
-    --panel-muted: 215 20% 65%;
+    --panel: 230 24% 4%;
+    --panel-raised: 230 16% 7%;
+    --panel-ribbon: 230 24% 5%;
+    --panel-foreground: 0 0% 98%;
+    --panel-soft: 228 10% 82%;
+    --panel-muted: 228 8% 64%;
     --panel-line: 255 255 255 / 0.1;
-    --panel-line-strong: 255 255 255 / 0.15;
-    --panel-tint: 255 255 255 / 0.04;
-    --panel-tint-strong: 255 255 255 / 0.05;
+    --panel-line-strong: 255 255 255 / 0.2;
+    --panel-tint: 255 255 255 / 0.03;
+    --panel-tint-strong: 255 255 255 / 0.06;
     --panel-tint-hover: 255 255 255 / 0.1;
-    --accent-cyan: 188 86% 53%;
-    --accent-cyan-soft: 187 92% 69%;
 
-    --tone-good: 142 69% 58%;
-    --tone-warn: 48 96% 53%;
-    --tone-bad: 0 91% 71%;
-    --tone-info: 188 86% 53%;
-    --tile: 217 33% 17% / 0.5;
+    --tone-good: 146 55% 62%;
+    --tone-warn: 38 92% 62%;
+    --tone-bad: 4 88% 72%;
+    --tone-info: 0 0% 90%;
+    --tile: 255 255 255 / 0.03;
 
-    --hero-1: 220 25% 4%;
-    --hero-2: 220 20% 10%;
-    --hero-3: 205 30% 12%;
     --space: 230 45% 2%;
-    --gradient-1: 174 72% 50%;
-    --gradient-2: 205 85% 60%;
 
-    --sidebar-background: 220 20% 7%;
-    --sidebar-foreground: 210 20% 92%;
-    --sidebar-primary: 174 72% 50%;
-    --sidebar-primary-foreground: 220 20% 7%;
-    --sidebar-accent: 220 16% 16%;
-    --sidebar-accent-foreground: 210 20% 85%;
-    --sidebar-border: 220 14% 18%;
-    --sidebar-ring: 174 72% 50%;
+    --sidebar-background: 230 24% 4%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 0 0% 98%;
+    --sidebar-primary-foreground: 230 24% 5%;
+    --sidebar-accent: 230 10% 12%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 230 8% 17%;
+    --sidebar-ring: 0 0% 98%;
   }
 }
 
@@ -173,70 +155,99 @@
     @apply bg-background text-foreground font-body antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-display;
+}
+
+/* The shared pieces of the look. Page layouts use these rather than spelling them out. */
+@layer components {
+  /* Small capitals in the mono face, above a headline or a group. */
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground;
+  }
+
+  .field-label {
+    @apply font-mono text-[10.5px] font-normal uppercase tracking-[0.16em] text-panel-muted;
+  }
+
+  /* The one main action on a screen. */
+  .btn-solid {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-panel-foreground px-5 py-2.5 text-sm font-medium text-panel transition-colors hover:bg-panel-foreground/85 disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:min-h-11;
+  }
+
+  /* Everything else you can press. */
+  .btn-line {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full border border-panel-line-strong px-3.5 py-2 text-xs font-medium text-panel-soft transition-colors hover:border-panel-foreground/50 hover:text-panel-foreground disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:min-h-11;
+  }
+
+  .link-quiet {
+    @apply text-panel-soft underline decoration-panel-foreground/30 underline-offset-[5px] transition-colors hover:text-panel-foreground hover:decoration-panel-foreground;
+  }
+
+  /* A choice that can be on or off. */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-panel-line-strong px-2.5 py-1 text-xs text-panel-soft transition-colors hover:border-panel-foreground/50 hover:text-panel-foreground pointer-coarse:min-h-11;
+  }
+
+  .chip-on {
+    @apply inline-flex items-center gap-1 rounded-full border border-panel-foreground bg-panel-foreground px-2.5 py-1 text-xs font-medium text-panel transition-colors pointer-coarse:min-h-11;
+  }
+
+  .field {
+    @apply w-full rounded-md border border-panel-line-strong bg-transparent px-3 py-2 text-sm text-panel-foreground outline-none transition-colors placeholder:text-panel-muted focus:border-panel-foreground/70 pointer-coarse:min-h-11;
+  }
+
+  /* Native lists need a solid colour behind them. */
+  select.field {
+    @apply bg-panel;
+  }
+
+  /* Anything floating over a map. */
+  .float-surface {
+    @apply rounded-lg border border-panel-line bg-panel/80 shadow-2xl backdrop-blur-xl;
+  }
+
+  /* A row of two or three choices. */
+  .segmented {
+    @apply inline-flex rounded-full border border-panel-line-strong p-0.5 text-xs;
+  }
+
+  .segment {
+    @apply rounded-full px-3 py-1 font-medium text-panel-muted transition-colors hover:text-panel-foreground pointer-coarse:min-h-11;
+  }
+
+  .segment-on {
+    @apply rounded-full bg-panel-foreground px-3 py-1 font-medium text-panel pointer-coarse:min-h-11;
   }
 }
 
-@layer utilities {
-  .glow-primary {
-    box-shadow: 0 0 20px hsl(var(--glow-primary) / 0.3), 0 0 60px hsl(var(--glow-primary) / 0.1);
-  }
-
-  .glow-text {
-    text-shadow: 0 0 30px hsl(var(--glow-primary) / 0.5);
-  }
-
-  .glass {
-    @apply bg-card/60 backdrop-blur-xl border border-border/50;
-  }
-
-  .glass-strong {
-    @apply bg-card/80 backdrop-blur-2xl border border-border/60;
-  }
-
-  .gradient-hero {
-    background: linear-gradient(135deg, hsl(var(--hero-1)) 0%, hsl(var(--hero-2)) 50%, hsl(var(--hero-3)) 100%);
-  }
-
-  .gradient-primary {
-    background: linear-gradient(135deg, hsl(var(--gradient-1)) 0%, hsl(var(--gradient-2)) 100%);
-  }
-
-  .gradient-earth {
-    background: linear-gradient(135deg, hsl(142 50% 45%) 0%, hsl(174 72% 50%) 100%);
-  }
-}
-
-/* Map controls, popups and loading placeholders — light values, then the original dark ones. */
+/* Map controls, popups and loading placeholders: light values, then dark. */
 :root {
-  --lf-bg: 0 0% 100%;
-  --lf-bg-hover: 210 25% 93%;
-  --lf-fg: 222 47% 11%;
-  --lf-line: 214 25% 82%;
-  --lf-line-soft: 214 25% 88%;
-  --lf-muted: 215 19% 35%;
-  --lf-link: 174 84% 24%;
-  --lf-link-soft: 222 40% 25%;
-  --lf-disabled: 215 15% 70%;
-  --lf-attr-bg: 0 0% 100%;
+  --lf-bg: 40 20% 97%;
+  --lf-bg-hover: 40 12% 92%;
+  --lf-fg: 230 24% 8%;
+  --lf-line: 230 8% 82%;
+  --lf-line-soft: 230 8% 88%;
+  --lf-muted: 230 7% 35%;
+  --lf-link: 230 24% 8%;
+  --lf-link-soft: 230 12% 22%;
+  --lf-disabled: 230 6% 70%;
+  --lf-attr-bg: 40 20% 97%;
   --lf-shadow: 0.15;
-  --skeleton: 15 23 42 / 0.07;
+  --skeleton: 15 17 25 / 0.07;
   --skeleton-shine: 255 255 255 / 0.6;
 }
 
 .dark {
-  --lf-bg: 214 45% 8%;
-  --lf-bg-hover: 220 16% 16%;
-  --lf-fg: 210 20% 92%;
-  --lf-line: 220 14% 22%;
-  --lf-line-soft: 220 14% 18%;
-  --lf-muted: 215 12% 60%;
-  --lf-link: 174 72% 60%;
-  --lf-link-soft: 210 20% 80%;
-  --lf-disabled: 215 12% 35%;
-  --lf-attr-bg: 214 45% 6%;
-  --lf-shadow: 0.45;
+  --lf-bg: 230 24% 4%;
+  --lf-bg-hover: 230 10% 14%;
+  --lf-fg: 0 0% 98%;
+  --lf-line: 0 0% 100% / 0.14;
+  --lf-line-soft: 0 0% 100% / 0.1;
+  --lf-muted: 228 8% 66%;
+  --lf-link: 0 0% 98%;
+  --lf-link-soft: 228 10% 82%;
+  --lf-disabled: 228 6% 38%;
+  --lf-attr-bg: 230 24% 4%;
+  --lf-shadow: 0.5;
   --skeleton: 255 255 255 / 0.05;
   --skeleton-shine: 255 255 255 / 0.06;
 }
@@ -246,7 +257,7 @@
 /* Each map is its own stacking context, so Leaflet's internal z-indexes
    (panes 200–700, controls 800–1000) never leak above page UI. */
 .leaflet-container {
-  background: #02070d;
+  background: #03040a;
   font-family: "Inter", sans-serif;
   isolation: isolate;
   z-index: 0;
@@ -260,19 +271,20 @@
 .leaflet-bar,
 .leaflet-control-zoom {
   border: 1px solid hsl(var(--lf-line)) !important;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   overflow: hidden;
   box-shadow: 0 10px 30px rgb(0 0 0 / var(--lf-shadow)) !important;
 }
 
 .leaflet-control-zoom a {
-  width: 34px !important;
-  height: 34px !important;
-  line-height: 34px !important;
-  background: hsl(var(--lf-bg) / 0.92) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-weight: 400 !important;
+  background: hsl(var(--lf-bg) / 0.8) !important;
   color: hsl(var(--lf-fg)) !important;
   border-bottom-color: hsl(var(--lf-line-soft)) !important;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(16px);
 }
 
 .leaflet-control-zoom a:hover {
@@ -284,11 +296,21 @@
   color: hsl(var(--lf-disabled)) !important;
 }
 
+/* Finger-sized on touch screens, like every other control. */
+@media (pointer: coarse) {
+  .leaflet-control-zoom a {
+    width: 44px !important;
+    height: 44px !important;
+    line-height: 44px !important;
+  }
+}
+
 .leaflet-control-attribution {
   background: hsl(var(--lf-attr-bg) / 0.75) !important;
   color: hsl(var(--lf-muted)) !important;
-  font-size: 10px !important;
-  border-radius: 6px 6px 0 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9.5px !important;
+  border-radius: 4px 4px 0 0;
   padding: 1px 6px !important;
   backdrop-filter: blur(6px);
 }
@@ -297,7 +319,102 @@
   color: hsl(var(--lf-link-soft)) !important;
 }
 
-/* On map pages the zoom buttons sit top-left, just below the floating top bar (as in the original design),
+/* What a map shows besides imagery. The imagery is the same in both themes, so these are too. */
+.map-names {
+  transition: opacity 0.2s ease;
+}
+
+.map-names-moving {
+  opacity: 0;
+}
+
+.map-name {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  text-shadow: 0 0 4px rgb(3 4 10 / 0.95), 0 1px 2px rgb(3 4 10 / 0.9);
+}
+
+.map-name-country {
+  font: 500 10px/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.95);
+}
+
+.map-name-sea,
+.map-name-ocean {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-style: italic;
+  line-height: 1;
+  color: #c9eeff;
+}
+
+.map-name-sea {
+  font-size: 15px;
+}
+
+.map-name-ocean {
+  font-size: 21px;
+  letter-spacing: 0.02em;
+}
+
+.map-ticks {
+  position: absolute;
+  inset: 0;
+  z-index: 450;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.map-tick {
+  position: absolute;
+  font: 9.5px/1 "JetBrains Mono", ui-monospace, monospace;
+  color: rgb(255 255 255 / 0.9);
+  text-shadow: 0 0 3px rgb(3 4 10), 0 0 1px rgb(3 4 10);
+}
+
+.map-tick-lon {
+  top: 6px;
+  transform: translateX(-50%);
+}
+
+.map-tick-lat {
+  left: 6px;
+  transform: translateY(-50%);
+}
+
+.leaflet-bottom.leaflet-left .leaflet-control-scale,
+.map-readout {
+  margin-bottom: 4px !important;
+}
+
+.leaflet-control-scale-line {
+  border: 1px solid rgb(255 255 255 / 0.8) !important;
+  border-top: 0 !important;
+  background: rgb(3 4 10 / 0.65) !important;
+  color: #fff !important;
+  font: 10px/1.5 "JetBrains Mono", ui-monospace, monospace !important;
+  text-shadow: none !important;
+  padding: 0 5px !important;
+}
+
+.map-readout {
+  border-radius: 4px;
+  background: rgb(3 4 10 / 0.65);
+  color: #fff;
+  font: 10.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.map-readout-place {
+  color: #c9eeff;
+}
+
+/* On map pages the zoom buttons sit top-left, just below the floating top bar,
    and anything at the bottom stays clear of the view ribbon. */
 .map-page .leaflet-top {
   top: 3.75rem;
@@ -316,7 +433,7 @@
 }
 
 .leaflet-popup-content-wrapper {
-  border-radius: 14px;
+  border-radius: 8px;
 }
 
 .leaflet-popup-content {
@@ -370,16 +487,17 @@
 }
 
 .leaflet-tooltip.hotspot-rank {
-  background: #0f172a;
-  color: #f8fafc;
-  border: 1.5px solid #f8fafc;
+  background: #fafafa;
+  color: #05060a;
+  border: 0;
   border-radius: 999px;
-  min-width: 22px;
-  height: 22px;
+  min-width: 20px;
+  height: 20px;
   padding: 0 6px;
-  font-weight: 700;
-  font-size: 11px;
-  line-height: 19px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 10.5px;
+  line-height: 20px;
   text-align: center;
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
 }
@@ -387,8 +505,6 @@
 .leaflet-tooltip.hotspot-rank::before {
   display: none;
 }
-
-/* ── Additions that don't change the look ── */
 
 /* Keyboard users get a visible focus ring; mouse clicks don't show it.
    Text fields show focus on their own box instead (border / ring classes). */

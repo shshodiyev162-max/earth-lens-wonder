@@ -7,6 +7,17 @@ import type { AnalysisRequest, AnalysisResult } from "@/lib/analysis/types";
 import { monthRange } from "@/lib/gibs/time";
 
 vi.mock("@/components/analysis/LocationPicker", () => ({ default: () => <div data-testid="location-picker" /> }));
+// The map needs a real browser: here it is a button that picks Samarkand, with the card shown over it.
+vi.mock("@/components/analysis/AnalysisMap", () => ({
+  default: ({ children, onPoint }: { children?: React.ReactNode; onPoint: (point: [number, number], radiusKm: number) => void }) => (
+    <div data-testid="analysis-map">
+      <button type="button" onClick={() => onPoint([39.65, 66.96], 10)}>
+        Click Samarkand on the map
+      </button>
+      {children}
+    </div>
+  ),
+}));
 
 vi.mock("@/lib/geo/geocode", async (original) => {
   const actual = (await original()) as object;
@@ -91,6 +102,45 @@ describe("Analysis page", () => {
     expect(runAnalysis).not.toHaveBeenCalled();
   });
 
+  it("opens on the map, shows the report once a place is picked there, and switches between them", async () => {
+    renderAt("/analysis");
+    expect(screen.getByTestId("analysis-map")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Report/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Click Samarkand on the map" }));
+    expect(await screen.findByRole("heading", { name: "39.650°N, 66.960°E" })).toBeInTheDocument();
+    expect(screen.queryByTestId("analysis-map")).not.toBeInTheDocument();
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("button", { name: /Map/ }));
+    expect(screen.getByTestId("analysis-map")).toBeInTheDocument();
+    expect(screen.getByText("Chosen area")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /See the report/ }));
+    expect(screen.getByRole("heading", { name: "39.650°N, 66.960°E" })).toBeInTheDocument();
+    // Switching views never reads the data again.
+    expect(runAnalysis).toHaveBeenCalledTimes(1);
+  });
+
+  it("adds places on the map, and reads nothing until adding is done", async () => {
+    renderAt(BUKHARA);
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: /Map/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add another place" }));
+    expect(screen.getByText("Adding places")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Click Samarkand on the map" }));
+    expect(await screen.findByText("Bukhara + 39.65°N, 66.96°E")).toBeInTheDocument();
+    // Still on the map, and nothing read for the area being built.
+    expect(screen.getByTestId("analysis-map")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(runAnalysis).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Done adding" }));
+    expect(await screen.findByRole("heading", { name: "Bukhara + 39.65°N, 66.96°E" })).toBeInTheDocument();
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(2));
+    expect(runAnalysis.mock.calls[1][0].target.parts).toHaveLength(2);
+  });
+
   it("runs a real analysis for the place in the URL and answers from the tests", async () => {
     renderAt(BUKHARA);
     expect(screen.getByRole("heading", { name: "Bukhara" })).toBeInTheDocument();
@@ -101,6 +151,16 @@ describe("Analysis page", () => {
     expect(await screen.findByRole("heading", { name: "Is it changing?" })).toBeInTheDocument();
     expect(screen.getByText(/No clear trend in any of the \d+ measures tested/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Download CSV/i })).toBeEnabled();
+  });
+
+  it("reads places added together as one area, named together", async () => {
+    renderAt("/analysis?bbox=60,40,64,44&name=West&add=bbox:62,42,66,46!East&ds=climate");
+    expect(await screen.findByRole("heading", { name: "West + East" })).toBeInTheDocument();
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
+    const { target } = runAnalysis.mock.calls[0][0];
+    expect(target.parts?.map((part) => part.name)).toEqual(["West", "East"]);
+    expect(target.bbox).toEqual([60, 40, 66, 46]);
+    expect(screen.getByText(/2 places together/)).toBeInTheDocument();
   });
 
   it("starts with twenty years, climate and the two land measures", async () => {
@@ -232,7 +292,7 @@ describe("Analysis page", () => {
   it("waits for a click before reading a very large number of maps", async () => {
     renderAt(`${BUKHARA}&period=all`);
     const start = await screen.findByRole("button", { name: /Start the analysis/ });
-    expect(screen.getByText(/This is a big request/)).toBeInTheDocument();
+    expect(screen.getByText("A big request")).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 450));
     expect(runAnalysis).not.toHaveBeenCalled();
     fireEvent.click(start);

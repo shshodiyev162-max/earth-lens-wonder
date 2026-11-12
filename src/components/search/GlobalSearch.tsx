@@ -63,14 +63,14 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[2100] bg-background/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[2100] bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
-          className="fixed left-1/2 top-[10vh] z-[2101] w-[min(40rem,calc(100vw-1.5rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-card shadow-lg outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="fixed left-1/2 top-[10vh] z-[2101] w-[min(40rem,calc(100vw-1.5rem))] -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-popover shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
           aria-describedby={undefined}
         >
           <DialogPrimitive.Title className="sr-only">Search places and layers</DialogPrimitive.Title>
           <div className="flex items-center gap-3 border-b border-border px-4">
-            <Search className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+            <Search className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={1.5} aria-hidden />
             <input
               autoFocus
               value={query}
@@ -87,7 +87,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
               autoComplete="off"
               spellCheck={false}
             />
-            {loading && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="Searching" />}
+            {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Searching" />}
             <DialogPrimitive.Close className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground" aria-label="Close search">
               <X className="h-4 w-4" />
             </DialogPrimitive.Close>
@@ -98,7 +98,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
                 <p className="px-3 pb-3 pt-1 text-sm text-muted-foreground">
                   Type a city, region, country, sea, mountain or lake — or coordinates like <span className="font-mono text-foreground">39.77, 64.42</span>.
                 </p>
-                <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Open a NASA layer</div>
+                <div className="px-3 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Open a NASA layer</div>
                 <div className="grid gap-0.5 sm:grid-cols-2">
                   {QUICK_LAYERS.map((layer) => {
                     const Icon = isScienceLayer(layer) ? Ruler : ImageIcon;
@@ -107,9 +107,9 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
                         type="button"
                         key={layer.id}
                         onClick={() => choose({ type: "layer", layer })}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-primary/10"
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-foreground/[0.07]"
                       >
-                        <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} aria-hidden />
                         <span className="min-w-0">
                           <span className="block truncate font-medium">{layer.name}</span>
                           <span className="block truncate text-xs text-muted-foreground">{layer.source}</span>
@@ -127,7 +127,7 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
                 const active = index === highlight;
                 return (
                   <div key={view.key}>
-                    {startsSection(items, index) && <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{view.section}</div>}
+                    {startsSection(items, index) && <div className="px-3 pb-1 pt-2.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{view.section}</div>}
                     <button
                       type="button"
                       id={`${listId}-option-${index}`}
@@ -137,9 +137,9 @@ export default function GlobalSearch({ open, onOpenChange }: { open: boolean; on
                       data-index={index}
                       onMouseEnter={() => setHighlight(index)}
                       onClick={() => choose(item)}
-                      className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors", active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-primary/10")}
+                      className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors", active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-foreground/[0.07]")}
                     >
-                      <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
+                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} aria-hidden />
                       <span className="min-w-0 flex-1">
                         <span translate="no" className="block truncate font-medium">
                           {view.title}

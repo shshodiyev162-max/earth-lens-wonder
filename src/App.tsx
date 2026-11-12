@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Layout from "./components/Layout";
+import PlanetLimb from "./components/common/PlanetLimb";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { RequireAuth } from "./components/RequireAuth";
 import { AuthProvider } from "./context/AuthContext";
@@ -31,25 +32,27 @@ function PageLoader() {
   const { pathname } = useLocation();
   if (MAP_ROUTES.includes(pathname)) {
     return (
-      <div role="status" aria-label="Loading map" className="flex h-[calc(100dvh-4rem)] bg-[#02070d]">
-        <div className="hidden w-[22rem] shrink-0 space-y-5 border-r border-panel-line bg-panel p-5 lg:block">
-          <Skeleton className="h-3 w-32" />
-          <Skeleton className="h-7 w-48" />
+      <div role="status" aria-label="Loading map" className="flex h-[calc(100dvh-4rem)] bg-[#03040a]">
+        <div className="hidden w-[24rem] shrink-0 space-y-5 border-r border-panel-line bg-panel px-6 pt-7 lg:block">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-20 w-64" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-32 w-full" />
           <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-14 w-full rounded-xl" />
-          <Skeleton className="h-12 w-full rounded-xl" />
-          <Skeleton className="h-32 w-full rounded-2xl" />
         </div>
         <div className="flex-1" />
       </div>
     );
   }
   return (
-    <div role="status" aria-label="Loading page" className="max-w-7xl mx-auto px-6 py-12 space-y-8">
-      <Skeleton className="h-9 w-64 max-w-full" />
-      <div className="grid gap-6 lg:grid-cols-[1fr,2fr]">
-        <Skeleton className="h-96 rounded-2xl" />
-        <Skeleton className="h-96 rounded-2xl" />
+    <div role="status" aria-label="Loading page" className="flex min-h-[calc(100dvh-4rem)]">
+      <div className="hidden w-[24rem] shrink-0 space-y-5 border-r border-border px-6 pt-7 lg:block">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-20 w-64" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+      <div className="flex-1">
+        <Skeleton className="h-72 w-full rounded-none" />
       </div>
     </div>
   );
@@ -57,15 +60,13 @@ function PageLoader() {
 
 function PageError() {
   return (
-    <div className="min-h-[calc(100dvh-4rem)] flex items-center justify-center px-6 gradient-hero">
-      <div role="alert" className="glass rounded-2xl p-8 max-w-md text-center">
-        <h1 className="text-xl font-display font-bold text-foreground mb-2">Something went wrong on this page</h1>
-        <p className="text-sm text-muted-foreground mb-6">Reload the page to try again. If it keeps happening, check your internet connection — the maps and data come from NASA over the internet.</p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-display font-semibold gradient-primary text-primary-foreground hover:opacity-90 transition-opacity"
-        >
+    <div className="dark relative flex min-h-[calc(100dvh-4rem)] items-center overflow-hidden px-6 md:px-12">
+      <PlanetLimb />
+      <div role="alert" className="relative mx-auto w-full max-w-[1400px] pb-[18vh]">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/70">Error</p>
+        <h1 className="mt-5 max-w-3xl font-editorial text-[clamp(2.75rem,6vw,5rem)] leading-[1.02] tracking-[-0.015em] text-white">Something went wrong on this page</h1>
+        <p className="mt-6 max-w-md text-[17px] leading-relaxed text-white/80">Reload the page to try again. If it keeps happening, check your internet connection: the maps and data come from NASA over the internet.</p>
+        <button type="button" onClick={() => window.location.reload()} className="mt-9 inline-flex min-h-12 items-center rounded-full bg-white px-7 py-3 text-[15px] font-medium text-black transition-colors hover:bg-white/85">
           Reload the page
         </button>
       </div>

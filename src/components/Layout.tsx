@@ -8,7 +8,7 @@ const TITLES: Record<string, string> = {
   "/split": "Compare · TerraScope",
   "/sync": "Side by side · TerraScope",
   "/analysis": "Area analysis · TerraScope",
-  "/trends": "Trend detective · TerraScope",
+  "/trends": "Trends · TerraScope",
 };
 
 export default function Layout() {

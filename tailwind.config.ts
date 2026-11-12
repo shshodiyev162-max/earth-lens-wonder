@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
+import plugin from "tailwindcss/plugin";
 
 export default {
   darkMode: ["class"],
@@ -15,7 +16,6 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ["Space Grotesk", "sans-serif"],
         body: ["Inter", "sans-serif"],
         editorial: ["Instrument Serif", "Georgia", "serif"],
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
@@ -66,11 +66,7 @@ export default {
           DEFAULT: "hsl(var(--space) / <alpha-value>)",
           deep: "hsl(var(--space-deep))",
         },
-        glow: {
-          primary: "hsl(var(--glow-primary))",
-          blue: "hsl(var(--glow-blue))",
-        },
-        // Map-page chrome (sidebar, floating pills, ribbon, dropdowns): navy in dark mode, white in light.
+        // Map-page chrome (side panel, floating pills, dropdowns).
         panel: {
           DEFAULT: "hsl(var(--panel) / <alpha-value>)",
           raised: "hsl(var(--panel-raised) / <alpha-value>)",
@@ -84,17 +80,13 @@ export default {
           "tint-strong": "rgb(var(--panel-tint-strong))",
           "tint-hover": "rgb(var(--panel-tint-hover))",
         },
-        "accent-cyan": {
-          DEFAULT: "hsl(var(--accent-cyan) / <alpha-value>)",
-          soft: "hsl(var(--accent-cyan-soft) / <alpha-value>)",
-        },
         tone: {
           good: "hsl(var(--tone-good) / <alpha-value>)",
           warn: "hsl(var(--tone-warn) / <alpha-value>)",
           bad: "hsl(var(--tone-bad) / <alpha-value>)",
           info: "hsl(var(--tone-info) / <alpha-value>)",
         },
-        tile: "hsl(var(--tile))",
+        tile: "rgb(var(--tile))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -148,5 +140,9 @@ export default {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [
+    tailwindcssAnimate,
+    // Touch screens: controls grow to a size a finger can hit.
+    plugin(({ addVariant }) => addVariant("pointer-coarse", "@media (pointer: coarse)")),
+  ],
 } satisfies Config;

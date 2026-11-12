@@ -57,7 +57,7 @@ export default function ValueProbe({ layers, date, disabled }: { layers: { layer
   return (
     <Popup position={probe.point} eventHandlers={{ remove: () => setProbe(null) }} className="probe-popup" maxWidth={280} minWidth={210}>
       <div className="space-y-2">
-        <div className="text-[11px] font-medium text-panel-muted">{formatLatLng(probe.point)}</div>
+        <div className="font-mono text-[10.5px] tabular-nums text-panel-muted">{formatLatLng(probe.point)}</div>
         {probe.status === "loading" && (
           <div role="status" aria-label="Reading NASA data" className="space-y-2 py-0.5">
             <div className="skeleton h-2.5 w-24" />
@@ -71,21 +71,21 @@ export default function ValueProbe({ layers, date, disabled }: { layers: { layer
             const layerDate = layers.find((item) => item.layer.id === layer.id)?.date ?? date ?? null;
             return (
               <div key={layer.id}>
-                <div className="text-[11px] uppercase tracking-wide text-panel-muted">{layer.name}</div>
+                <div className="text-xs text-panel-muted">{layer.name}</div>
                 {value === null ? (
                   <div className="text-sm text-panel-soft">No measurement here{layer.period === "daily" ? " (cloud, night or outside the satellite swath)" : ""}.</div>
                 ) : (
-                  <div className="text-lg font-semibold text-panel-foreground">{formatValue(value, layer.unit, layer.decimals)}</div>
+                  <div className="font-mono text-lg font-medium tabular-nums tracking-tight text-panel-foreground">{formatValue(value, layer.unit, layer.decimals)}</div>
                 )}
-                {layerDate && <div className="text-[11px] text-panel-muted">{formatDate(layerDate)}</div>}
+                {layerDate && <div className="font-mono text-[10.5px] tabular-nums text-panel-muted">{formatDate(layerDate)}</div>}
               </div>
             );
           })}
         <Link
           to={analysisHrefForPoint(probe.point, 10)}
-          className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-cyan-400/15 px-2.5 py-1.5 text-xs font-semibold text-accent-cyan-soft transition hover:bg-cyan-400/25"
+          className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-panel-line-strong px-3 py-1.5 text-xs font-medium no-underline transition-colors hover:border-panel-foreground/50"
         >
-          <TrendingUp className="h-3.5 w-3.5" /> Analyze 10 km around here
+          Analyze 10 km around here
         </Link>
       </div>
     </Popup>

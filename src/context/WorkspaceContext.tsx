@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { combineGeometries, combinedAreaKm2, combinedName } from "@/lib/geo/combine";
 import { areaKm2, bboxOf, centroidOf, isPolygonGeometry, type BBox, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
 import { readJson, renameKey, writeJson } from "@/lib/storage";
 
-export type AreaKind = "rectangle" | "polygon" | "circle" | "place";
+export type AreaKind = "rectangle" | "polygon" | "circle" | "place" | "combined";
 
 export interface SavedArea {
   id: string;
@@ -15,6 +16,21 @@ export interface SavedArea {
   createdAt: string;
   /** A named sea, ocean or region (lib/geo/regions): links use its name instead of the outline. */
   region?: string;
+  /** A country picked on the map: links use its code instead of the outline. */
+  countryId?: string;
+  /** For areas combined from others: their names. */
+  parts?: string[];
+}
+
+export interface NewArea {
+  geometry: PolygonGeometry;
+  kind: AreaKind;
+  name?: string;
+  region?: string;
+  countryId?: string;
+  parts?: string[];
+  /** The size when it isn't simply the outline's (combined areas count shared land once). */
+  areaKm2?: number;
 }
 
 export interface MapView {
@@ -26,7 +42,9 @@ interface WorkspaceValue {
   areas: SavedArea[];
   activeAreaId: string | null;
   setActiveAreaId: (id: string | null) => void;
-  addArea: (input: { geometry: PolygonGeometry; kind: AreaKind; name?: string; region?: string }) => SavedArea;
+  addArea: (input: NewArea) => SavedArea;
+  /** Saves the areas together as one new area (the originals stay). */
+  combineAreas: (ids: string[]) => SavedArea | null;
   renameArea: (id: string, name: string) => void;
   removeArea: (id: string) => void;
   clearAreas: () => void;
@@ -98,15 +116,33 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       geometry: input.geometry,
       bbox: bboxOf(input.geometry),
       center: centroidOf(input.geometry),
-      areaKm2: areaKm2(input.geometry),
+      areaKm2: input.areaKm2 ?? areaKm2(input.geometry),
       createdAt: new Date().toISOString(),
       ...(input.region ? { region: input.region } : {}),
+      ...(input.countryId ? { countryId: input.countryId } : {}),
+      ...(input.parts?.length ? { parts: input.parts } : {}),
     };
     areasRef.current = [...areasRef.current, area];
     setAreas((previous) => [...previous, area]);
     setActiveAreaId(area.id);
     return area;
   }, []);
+
+  const combineAreas = useCallback<WorkspaceValue["combineAreas"]>(
+    (ids) => {
+      const chosen = areasRef.current.filter((area) => ids.includes(area.id));
+      if (chosen.length < 2) return null;
+      const geometries = chosen.map((area) => area.geometry);
+      return addArea({
+        geometry: combineGeometries(geometries),
+        kind: "combined",
+        name: combinedName(chosen.map((area) => area.name)),
+        parts: chosen.flatMap((area) => area.parts ?? [area.name]),
+        areaKm2: combinedAreaKm2(geometries),
+      });
+    },
+    [addArea],
+  );
 
   const renameArea = useCallback((id: string, name: string) => {
     const trimmed = name.trim();
@@ -127,8 +163,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const getArea = useCallback((id: string | null | undefined) => (id ? areas.find((area) => area.id === id) : undefined), [areas]);
 
   const value = useMemo<WorkspaceValue>(
-    () => ({ areas, activeAreaId, setActiveAreaId, addArea, renameArea, removeArea, clearAreas, getArea, view, setView }),
-    [areas, activeAreaId, addArea, renameArea, removeArea, clearAreas, getArea, view, setView],
+    () => ({ areas, activeAreaId, setActiveAreaId, addArea, combineAreas, renameArea, removeArea, clearAreas, getArea, view, setView }),
+    [areas, activeAreaId, addArea, combineAreas, renameArea, removeArea, clearAreas, getArea, view, setView],
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

@@ -25,16 +25,16 @@ export default function AreasLayer({
             data={{ type: "Feature", properties: {}, geometry: area.geometry } as Feature}
             interactive={interactive}
             style={{
-              color: active ? "#34d399" : "#22d3ee",
+              color: "#ffffff",
               weight: active ? 2.5 : 1.8,
-              fillColor: active ? "#34d399" : "#22d3ee",
+              fillColor: "#ffffff",
               fillOpacity: active ? 0.16 : 0.08,
             }}
             eventHandlers={interactive ? { click: () => onSelect?.(area.id) } : undefined}
           >
             {interactive && (
               <Tooltip direction="top" sticky opacity={0.95}>
-                <span className="font-semibold">{area.name}</span> · {formatArea(area.areaKm2)}
+                <span className="font-medium">{area.name}</span> · {formatArea(area.areaKm2)}
               </Tooltip>
             )}
           </GeoJSON>

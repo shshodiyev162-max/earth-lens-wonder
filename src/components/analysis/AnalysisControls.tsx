@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Calendar, CalendarRange, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
 import { DATASETS, DATASET_BY_ID } from "@/lib/analysis/run";
 import type { DatasetId } from "@/lib/analysis/types";
@@ -28,8 +28,7 @@ const PERIOD_OPTIONS: { id: PeriodKind; label: string }[] = [
 ];
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-const pill = "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors pointer-coarse:min-h-11";
-const input = "rounded-md border border-border bg-transparent px-2 py-1 text-xs text-foreground pointer-coarse:min-h-11";
+const input = "rounded-md border border-panel-line-strong bg-transparent px-2 py-1 font-mono text-xs tabular-nums text-foreground outline-none focus:border-panel-foreground/70 pointer-coarse:min-h-11";
 
 /** Two year boxes ("2001" – "2010"); a change is applied when a box loses focus or Enter is pressed. */
 function SpanInput({ label, span, first, last, onChange }: { label: string; span: YearSpan; first: number; last: number; onChange: (span: YearSpan) => void }) {
@@ -93,10 +92,7 @@ export function PeriodPicker({ selection, onChange }: PeriodPickerProps) {
   const spans = selection.baseline && selection.recent ? { baseline: selection.baseline, recent: selection.recent } : defaultComparison(latest);
   return (
     <div className="space-y-3">
-      <div className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-        <Calendar className="w-3 h-3 text-primary" /> Time range
-      </div>
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Time range">
+      <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Time range">
         {PERIOD_OPTIONS.map((option) => (
           <button
             key={option.id}
@@ -104,7 +100,7 @@ export function PeriodPicker({ selection, onChange }: PeriodPickerProps) {
             role="radio"
             aria-checked={period === option.id}
             onClick={() => onChange({ kind: option.id, ...(option.id === "custom" ? { start, end } : {}) })}
-            className={cn(pill, period === option.id ? "bg-primary text-primary-foreground" : "glass text-muted-foreground hover:text-foreground")}
+            className={period === option.id ? "chip-on" : "chip"}
           >
             {option.label}
           </button>
@@ -140,13 +136,12 @@ export function PeriodPicker({ selection, onChange }: PeriodPickerProps) {
         <div className="space-y-2">
           <SpanInput label="Then" span={spans.baseline} first={EARLIEST_YEAR} last={lastYear} onChange={(baseline) => onChange({ kind: "compare", baseline, recent: spans.recent })} />
           <SpanInput label="Now" span={spans.recent} first={EARLIEST_YEAR} last={lastYear} onChange={(recent) => onChange({ kind: "compare", baseline: spans.baseline, recent })} />
-          <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-            <CalendarRange className="mt-0.5 h-3 w-3 shrink-0 text-primary" aria-hidden />
+          <p className="text-xs leading-relaxed text-muted-foreground">
             Each year becomes one average, then the two periods are compared with a t-test. 5–10 years in each works best.
           </p>
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">
+        <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
           {formatMonth(start, "long")} – {formatMonth(end, "long")}
         </p>
       )}
@@ -164,7 +159,7 @@ export function MonthsPicker({ selection, latitude, onChange }: { selection: Per
   const flipped = latitude < 0 && !selection.customMonths?.length && selection.season !== "all";
   return (
     <div className="space-y-2">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+      <label htmlFor={id} className="block text-xs text-muted-foreground">
         Months of each year
       </label>
       <select
@@ -175,7 +170,7 @@ export function MonthsPicker({ selection, latitude, onChange }: { selection: Per
           if (next === "custom") onChange({ customMonths: months.length < 12 ? months : [6, 7, 8] });
           else onChange({ season: next });
         }}
-        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground pointer-coarse:min-h-11"
+        className="field"
       >
         {SEASON_CHOICES.map((choice) => (
           <option key={choice} value={choice}>
@@ -197,54 +192,41 @@ export function DatasetPicker({ selected, onChange, note }: { selected: DatasetI
   };
   const climateOn = selected.includes("climate");
   return (
-    <div className="space-y-3">
-      <div className="text-xs font-medium text-muted-foreground">NASA measures</div>
+    <div className="space-y-3.5">
       <button
         type="button"
         role="checkbox"
         aria-checked={climateOn}
         onClick={() => toggle("climate")}
-        className={cn("flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition-colors pointer-coarse:min-h-11", climateOn ? "border-primary bg-primary/5" : "border-border/50 hover:bg-card/60")}
+        className={cn("flex w-full items-start gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors pointer-coarse:min-h-11", climateOn ? "border-panel-foreground" : "border-panel-line-strong hover:border-panel-foreground/50")}
       >
-        <Check className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 text-primary", climateOn ? "opacity-100" : "opacity-0")} aria-hidden />
+        <Check className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 text-panel-foreground", climateOn ? "opacity-100" : "opacity-0")} aria-hidden />
         <span className="min-w-0">
-          <span className="block text-xs font-medium text-foreground">{DATASET_BY_ID.climate.label}</span>
-          <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{DATASET_BY_ID.climate.description}</span>
+          <span className="block text-[13px] font-medium text-foreground">{DATASET_BY_ID.climate.label}</span>
+          <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{DATASET_BY_ID.climate.description}</span>
         </span>
       </button>
       {MEASURE_GROUPS.map((group) => (
-        <div key={group.id} className="space-y-1">
-          <p id={`dataset-group-${group.id}`} className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        <div key={group.id} className="space-y-1.5">
+          <p id={`dataset-group-${group.id}`} className="text-xs text-muted-foreground">
             {group.label}
           </p>
-          <div className="grid grid-cols-2 gap-1.5" role="group" aria-labelledby={`dataset-group-${group.id}`}>
-            {DATASETS.filter((d) => d.group === group.id).map((dataset) => {
-              const on = selected.includes(dataset.id);
-              return (
-                <button
-                  key={dataset.id}
-                  type="button"
-                  role="checkbox"
-                  aria-checked={on}
-                  title={dataset.description}
-                  onClick={() => toggle(dataset.id)}
-                  className={cn("flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-xs transition-colors pointer-coarse:min-h-11", on ? "border-primary bg-primary/5 font-medium text-foreground" : "border-border/50 text-muted-foreground hover:bg-card/60 hover:text-foreground")}
-                >
-                  <Check className={cn("h-3 w-3 shrink-0 text-primary", on ? "opacity-100" : "opacity-0")} aria-hidden />
-                  {dataset.label}
-                </button>
-              );
-            })}
+          <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby={`dataset-group-${group.id}`}>
+            {DATASETS.filter((d) => d.group === group.id).map((dataset) => (
+              <button key={dataset.id} type="button" role="checkbox" aria-checked={selected.includes(dataset.id)} title={dataset.description} onClick={() => toggle(dataset.id)} className={selected.includes(dataset.id) ? "chip-on" : "chip"}>
+                {dataset.label}
+              </button>
+            ))}
           </div>
         </div>
       ))}
-      {note && <p className="text-xs leading-relaxed text-muted-foreground">{note}</p>}
-      <details className="rounded-lg border border-border/50 px-3 py-2">
-        <summary className="flex cursor-pointer items-center text-xs font-medium text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">What does each one measure?</summary>
-        <dl className="mt-2 space-y-1.5 text-[11px] leading-relaxed">
+      {note && <p className="font-mono text-[10.5px] leading-relaxed text-muted-foreground">{note}</p>}
+      <details className="border-t border-panel-line pt-2.5">
+        <summary className="flex cursor-pointer items-center text-xs text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11">What does each one measure?</summary>
+        <dl className="mt-2.5 space-y-2 text-xs leading-relaxed">
           {DATASETS.map((dataset) => (
             <div key={dataset.id}>
-              <dt className="font-semibold text-foreground">{dataset.label}</dt>
+              <dt className="font-medium text-foreground">{dataset.label}</dt>
               <dd className="text-muted-foreground">{dataset.description}</dd>
             </div>
           ))}

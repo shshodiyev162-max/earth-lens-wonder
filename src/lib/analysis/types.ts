@@ -36,7 +36,6 @@ export interface DatasetInfo {
   layerId?: string;
   unit: string;
   decimals: number;
-  color: string;
   /** Group in the picker (the climate dataset stands apart: it is six measures from one quick request). */
   group: MeasureGroup | "climate";
 }
@@ -48,7 +47,17 @@ export type TargetRef =
   | { type: "poly"; poly: string }
   | { type: "point"; lat: number; lon: number; radiusKm: number }
   | { type: "area"; id: string }
-  | { type: "bbox"; bbox: BBox };
+  | { type: "bbox"; bbox: BBox }
+  | { type: "place"; text: string };
+
+/** One of the places an area is made of, when several are added together. */
+export interface TargetPart {
+  key: string;
+  name: string;
+  context?: string;
+  geometry: PolygonGeometry;
+  areaKm2: number;
+}
 
 export interface AnalysisTarget {
   name: string;
@@ -58,7 +67,10 @@ export interface AnalysisTarget {
   center: LatLng;
   areaKm2: number;
   kind: "place" | "drawn" | "point";
+  /** The first place (the others are in `parts`). */
   ref: TargetRef;
+  /** Two or more places added together: each one, the first one first. */
+  parts?: TargetPart[];
 }
 
 /** Which months count and whether two periods are compared. */

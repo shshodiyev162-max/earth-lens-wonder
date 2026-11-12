@@ -33,8 +33,8 @@ export default function ResultFilters({ indicator, filter, tested, onChange }: R
     ["any", "Both"],
   ];
   return (
-    <div {...demoAttr("filters")} className="space-y-3 rounded-xl border border-panel-line bg-panel-tint p-3">
-      <div className="flex rounded-lg bg-panel-tint-strong p-0.5 text-xs" role="radiogroup" aria-label="Show">
+    <div {...demoAttr("filters")} className="space-y-3">
+      <div className="segmented flex w-full" role="radiogroup" aria-label="Show">
         {options.map(([value, label]) => (
           <button
             key={value}
@@ -42,7 +42,7 @@ export default function ResultFilters({ indicator, filter, tested, onChange }: R
             role="radio"
             aria-checked={filter.direction === value}
             onClick={() => set({ direction: value })}
-            className={cn("flex-1 rounded-md px-2 py-1.5 font-medium pointer-coarse:min-h-11", filter.direction === value ? "bg-cyan-400/20 text-accent-cyan-soft" : "text-panel-muted hover:text-panel-foreground")}
+            className={cn("flex-1", filter.direction === value ? "segment-on" : "segment")}
           >
             {label}
           </button>
@@ -64,7 +64,7 @@ export default function ResultFilters({ indicator, filter, tested, onChange }: R
           value={factorIndex}
           onChange={(event) => set({ minFactor: FACTORS[Number(event.target.value)] })}
           aria-valuetext={`${formatAmount(amount, indicator.decimals)} ${indicator.unit}`}
-          className="w-full accent-cyan-400"
+          className="w-full accent-panel-foreground"
         />
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-panel-muted">
@@ -74,7 +74,7 @@ export default function ResultFilters({ indicator, filter, tested, onChange }: R
             id={areaId}
             value={filter.minAreaKm2}
             onChange={(event) => set({ minAreaKm2: Number(event.target.value) })}
-            className="rounded-md border border-panel-line bg-panel px-1.5 py-1 text-[11px] text-panel-foreground pointer-coarse:min-h-11"
+            className="rounded-md border border-panel-line-strong bg-panel px-1.5 py-1 text-[11px] text-panel-foreground pointer-coarse:min-h-11"
           >
             {AREAS.map((area) => (
               <option key={area} value={area}>
@@ -85,7 +85,7 @@ export default function ResultFilters({ indicator, filter, tested, onChange }: R
         </label>
         {tested && (
           <label htmlFor={strictId} className="flex items-center gap-1.5">
-            <input id={strictId} type="checkbox" checked={filter.strict} onChange={(event) => set({ strict: event.target.checked })} className="h-3.5 w-3.5 accent-cyan-400 pointer-coarse:h-5 pointer-coarse:w-5" />
+            <input id={strictId} type="checkbox" checked={filter.strict} onChange={(event) => set({ strict: event.target.checked })} className="h-3.5 w-3.5 accent-panel-foreground pointer-coarse:h-5 pointer-coarse:w-5" />
             Only clear trends (p &lt; 0.05)
           </label>
         )}

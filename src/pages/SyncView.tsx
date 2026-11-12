@@ -20,14 +20,13 @@ import SelectedPlaceCard from "@/components/map/SelectedPlaceCard";
 import LayerLegend from "@/components/map/LayerLegend";
 import MapPageShell, { SidebarSection } from "@/components/map/MapPageShell";
 import QuickRegions, { type QuickRegion } from "@/components/map/QuickRegions";
-import { CoordsPill, CursorTracker } from "@/components/map/CursorCoords";
 import { useWorkspace, type AreaKind, type SavedArea } from "@/context/WorkspaceContext";
 import { useLayerDate } from "@/hooks/useLayerDate";
 import { usePlaceSelection } from "@/hooks/usePlaceSelection";
 import { useRouteFocusPlace } from "@/hooks/useRouteFocusPlace";
 import { DEFAULT_COMPARE_LAYER_ID, DEFAULT_LAYER_ID, getLayerOrDefault, isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { formatDate, isIsoDate } from "@/lib/gibs/time";
-import { formatArea, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
+import { formatArea, type PolygonGeometry } from "@/lib/geo/geometry";
 import { analysisHrefForArea } from "@/lib/links";
 import { cn } from "@/lib/utils";
 
@@ -91,7 +90,6 @@ export default function SyncView() {
   const [finishSignal, setFinishSignal] = useState(0);
   const [undoSignal, setUndoSignal] = useState(0);
   const [regionId, setRegionId] = useState<string | null>(null);
-  const [cursor, setCursor] = useState<LatLng>(() => workspace.view.center);
   const left = usePlaceSelection();
   const { selection, select, clear } = left;
 
@@ -113,7 +111,7 @@ export default function SyncView() {
 
   const onAreaComplete = (geometry: PolygonGeometry, kind: AreaKind, country?: PickedCountry) => {
     setDrawMode(null);
-    const area = workspace.addArea({ geometry, kind, name: country?.name, region: country?.region });
+    const area = workspace.addArea({ geometry, kind, name: country?.name, region: country?.region, countryId: country?.countryId });
     toast.success(`${area.name} saved`, {
       description: formatArea(area.areaKm2),
       action: { label: "Analyze", onClick: () => navigate(analysisHrefForArea(area.id)) },
@@ -173,27 +171,23 @@ export default function SyncView() {
         type="button"
         onClick={() => update(linkDates ? { link: "0", rightDate: leftRequested } : { link: null, rightDate: null })}
         aria-pressed={linkDates}
-        className={cn(
-          "mb-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition",
-          linkDates ? "border-cyan-400/40 bg-cyan-400/10 text-accent-cyan-soft" : "border-panel-line bg-panel-tint text-panel-soft hover:border-cyan-400/40 hover:text-panel-foreground",
-        )}
+        className="btn-line mb-6 w-full"
       >
-        {linkDates ? <Link2 className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
-        {linkDates ? "Dates linked — set them separately" : "Dates separate — link them"}
+        {linkDates ? <Link2 className="h-3.5 w-3.5" aria-hidden /> : <Link2Off className="h-3.5 w-3.5" aria-hidden />}
+        {linkDates ? "Dates linked: set them separately" : "Dates separate: link them"}
       </button>
 
       <QuickRegions activeId={regionId} onSelect={jumpToRegion} />
       <AreasPanel layer={isScienceLayer(rightLayer) ? rightLayer : leftLayer} date={isScienceLayer(rightLayer) ? rightDate.date : leftDate.date} dateReady={!rightDate.loading && !leftDate.loading} onZoomTo={zoomToArea} />
 
-      <section className="mt-auto rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
-        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-panel-foreground">
-          <Info className="h-4 w-4 shrink-0 text-accent-cyan" /> {leftLayer.name} + {rightLayer.name}
+      <section className="mt-auto border-t border-panel-line pt-4">
+        <div className="mb-1.5 text-[13px] font-medium text-panel-foreground">
+          {leftLayer.name} + {rightLayer.name}
         </div>
-        <p className="text-xs leading-relaxed text-panel-muted">{leftLayer.description}</p>
-        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded bg-panel-tint-strong px-2 py-1 text-panel-soft">{leftLayer.source}</span>
-          <span className="rounded bg-panel-tint-strong px-2 py-1 text-panel-soft">{rightLayer.source}</span>
-        </div>
+        <p className="text-[13px] leading-relaxed text-panel-muted">{leftLayer.description}</p>
+        <p className="mt-3 font-mono text-[10.5px] leading-relaxed text-panel-muted">
+          {leftLayer.source} · {rightLayer.source}
+        </p>
       </section>
     </>
   );
@@ -202,11 +196,11 @@ export default function SyncView() {
   const phoneLabel = (layer: GibsLayer, date: string | null, side: "left" | "right") => (
     <div
       className={cn(
-        "absolute left-3 z-[1000] max-w-[calc(100%-1.5rem)] truncate rounded-lg border border-panel-line bg-panel/85 px-3 py-1.5 text-[11px] text-panel-soft backdrop-blur sm:hidden",
+        "float-surface absolute left-3 z-[1000] max-w-[calc(100%-1.5rem)] truncate rounded-full px-3 py-1.5 text-[11px] text-panel-soft sm:hidden",
         side === "left" ? "bottom-3" : "bottom-20",
       )}
     >
-      <span className="font-semibold text-panel-foreground">{layer.name}</span>
+      <span className="font-medium text-panel-foreground">{layer.name}</span>
       {date ? ` · ${formatDate(date)}` : ""}
     </div>
   );
@@ -233,23 +227,23 @@ export default function SyncView() {
         </>
       )}
       {isScienceLayer(leftLayer) && (
-        <div className="absolute bottom-20 left-4 hidden sm:block">
+        <div className="absolute bottom-32 left-4 hidden sm:block">
           <LayerLegend layer={leftLayer} />
         </div>
       )}
       {isScienceLayer(rightLayer) && (
-        <div className="absolute bottom-20 left-[calc(50%+1rem)] hidden sm:block">
+        <div className="absolute bottom-32 left-[calc(50%+1rem)] hidden sm:block">
           <LayerLegend layer={rightLayer} />
         </div>
       )}
-      <CoordsPill point={cursor} />
     </>
   );
 
   return (
     <MapPageShell
-      title="Synced maps"
-      description="Two NASA layers in lockstep. Pan, zoom, or jump to a quick region — both views stay perfectly in sync."
+      eyebrow="Sync"
+      title="Two maps, moving as one."
+      description="Pan or zoom either map and the other follows, so the same place stays side by side. Choose a layer and a date for each."
       sidebar={sidebar}
       topRight={
         <div className="hidden max-w-[22rem] truncate rounded-lg border border-panel-line bg-panel/85 px-3 py-2 text-[11px] text-panel-muted backdrop-blur md:block">
@@ -270,7 +264,6 @@ export default function SyncView() {
             <DrawTools mode={drawMode} {...drawProps} />
             <ValueProbe layers={[{ layer: leftLayer, date: leftDate.date }]} disabled={Boolean(drawMode)} />
             <FlyTo target={left.flyTarget} />
-            <CursorTracker onChange={setCursor} />
             <ZoomLimit layers={[leftLayer, rightLayer]} />
           </BaseMap>
           {phoneLabel(leftLayer, leftDate.date, "left")}
@@ -283,7 +276,6 @@ export default function SyncView() {
             {selection && <PlaceOutline place={selection.place} geometry={selection.geometry} />}
             <DrawTools mode={drawMode} {...drawProps} />
             <ValueProbe layers={[{ layer: rightLayer, date: rightDate.date }]} disabled={Boolean(drawMode)} />
-            <CursorTracker onChange={setCursor} />
             <ZoomLimit layers={[leftLayer, rightLayer]} />
           </BaseMap>
           {phoneLabel(rightLayer, rightDate.date, "right")}

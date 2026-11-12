@@ -1,4 +1,3 @@
-import { Globe2 } from "lucide-react";
 import type { LatLng } from "@/lib/geo/geometry";
 
 const QUICK_REGIONS: { id: string; name: string; center: LatLng; zoom: number }[] = [
@@ -14,18 +13,16 @@ export type QuickRegion = (typeof QUICK_REGIONS)[number];
 /** One-tap jumps to a few regions, as in the original Explore sidebar. */
 export default function QuickRegions({ activeId, onSelect }: { activeId: string | null; onSelect: (region: QuickRegion) => void }) {
   return (
-    <section className="mb-5">
-      <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-panel-muted">
-        <Globe2 className="h-4 w-4 text-accent-cyan" /> Quick regions
-      </h2>
-      <div className="flex flex-wrap gap-2">
+    <section className="mb-6">
+      <h2 className="field-label mb-2.5">Jump to</h2>
+      <div className="flex flex-wrap gap-1.5">
         {QUICK_REGIONS.map((region) => (
           <button
             key={region.id}
             type="button"
             aria-pressed={activeId === region.id}
             onClick={() => onSelect(region)}
-            className={`rounded-lg px-3 py-2 text-xs font-medium transition ${activeId === region.id ? "bg-cyan-400 text-slate-950" : "bg-panel-tint-strong text-panel-soft hover:bg-panel-tint-hover"}`}
+            className={activeId === region.id ? "chip-on" : "chip"}
           >
             {region.name}
           </button>

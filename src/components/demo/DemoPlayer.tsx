@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Pause, Play, PlayCircle, X } from "lucide-react";
+import { ArrowRight, ChevronLeft, Loader2, Pause, Play, X } from "lucide-react";
 import { DEMOS, type DemoAction, type DemoScript, type DemoTarget, type DemoWait } from "@/lib/demo/scripts";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +40,7 @@ function Spotlight({ target }: { target: DemoTarget | undefined }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed z-[2050] rounded-xl border-2 border-cyan-400 shadow-[0_0_0_4px_rgba(34,211,238,0.25)] transition-all duration-300"
+      className="pointer-events-none fixed z-[2050] rounded-lg border border-white shadow-[0_0_0_9999px_rgb(3_4_10/0.45)] transition-all duration-300 motion-reduce:transition-none"
       style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12 }}
     />
   );
@@ -121,30 +121,29 @@ export default function DemoPlayer({ script, controls, onChoose, onClose, pace =
     return () => window.clearTimeout(timer);
   }, [playing, waiting, step, last, go, pace]);
 
-  const shell = "pointer-events-auto fixed bottom-24 left-3 z-[2100] w-[min(24rem,calc(100vw-1.5rem))] rounded-2xl border border-panel-line bg-panel/95 p-4 text-panel-foreground shadow-2xl backdrop-blur-xl lg:bottom-auto lg:left-auto lg:right-16 lg:top-28";
-  const button = "inline-flex items-center justify-center gap-1 rounded-lg border border-panel-line bg-panel-tint px-2.5 py-1.5 text-xs font-medium text-panel-soft hover:text-panel-foreground disabled:opacity-40 pointer-coarse:min-h-11";
+  const shell = "float-surface pointer-events-auto fixed bottom-24 left-3 z-[2100] w-[min(25rem,calc(100vw-1.5rem))] bg-panel/90 p-5 text-panel-foreground lg:bottom-auto lg:left-auto lg:right-16 lg:top-28";
 
   if (!script) {
     return (
       <div ref={card} tabIndex={-1} role="dialog" aria-label="Choose a demo" className={shell}>
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-cyan">Watch a demo</p>
-            <p className="text-sm font-semibold">Three worked examples with real NASA data</p>
+            <p className="eyebrow text-panel-muted">Watch a demo</p>
+            <p className="mt-2 font-editorial text-[1.6rem] leading-[1.1]">Three worked examples with real NASA data</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close the demo" className="rounded-lg p-1.5 text-panel-muted hover:text-panel-foreground pointer-coarse:p-2.5">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <ul className="space-y-2">
+        <ul className="border-t border-panel-line">
           {DEMOS.map((demo) => (
-            <li key={demo.id}>
-              <button type="button" onClick={() => onChoose(demo.id)} className="flex w-full items-start gap-2 rounded-xl border border-panel-line bg-panel-tint p-3 text-left hover:border-cyan-400/50">
-                <PlayCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent-cyan" aria-hidden />
+            <li key={demo.id} className="border-b border-panel-line">
+              <button type="button" onClick={() => onChoose(demo.id)} className="group flex w-full items-start justify-between gap-3 py-3 text-left">
                 <span>
                   <span className="block text-sm font-medium">{demo.title}</span>
-                  <span className="block text-[11px] leading-relaxed text-panel-muted">{demo.summary}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-panel-muted">{demo.summary}</span>
                 </span>
+                <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-panel-muted transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
               </button>
             </li>
           ))}
@@ -159,43 +158,43 @@ export default function DemoPlayer({ script, controls, onChoose, onClose, pace =
       <div ref={card} tabIndex={-1} role="dialog" aria-label={`Demo: ${script.title}`} className={shell}>
         <div className="mb-2 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-cyan">
+            <p className="eyebrow text-panel-muted">
               Demo · step {index + 1} of {steps.length}
             </p>
-            <p className="text-sm font-semibold leading-snug">{script.title}</p>
+            <p className="mt-2 font-editorial text-[1.45rem] leading-[1.12]">{script.title}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close the demo" className="rounded-lg p-1.5 text-panel-muted hover:text-panel-foreground pointer-coarse:p-2.5">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <p aria-live="polite" className="min-h-[4.5rem] text-xs leading-relaxed text-panel-soft">
+        <p aria-live="polite" className="min-h-[4.5rem] text-[13px] leading-relaxed text-panel-soft">
           {step?.caption}
         </p>
         {waiting && (
           <p role="status" className="mt-2 flex items-center gap-2 text-[11px] text-panel-muted">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-cyan" aria-hidden /> Waiting for NASA's maps…
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-panel-muted" aria-hidden /> Waiting for NASA's maps…
           </p>
         )}
-        <div className="mt-3 flex items-center gap-1.5" aria-hidden>
+        <div className="mt-3 flex items-center gap-1" aria-hidden>
           {steps.map((_, i) => (
-            <span key={i} className={cn("h-1 flex-1 rounded-full", i <= index ? "bg-cyan-400" : "bg-panel-tint-strong")} />
+            <span key={i} className={cn("h-px flex-1", i <= index ? "bg-panel-foreground" : "bg-panel-line-strong")} />
           ))}
         </div>
         <div className="mt-3 flex items-center justify-between gap-2">
-          <button type="button" onClick={() => go(-1)} disabled={index === 0} className={button}>
+          <button type="button" onClick={() => go(-1)} disabled={index === 0} className="btn-line">
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Back
           </button>
-          <button type="button" onClick={() => setPlaying((p) => !p)} aria-pressed={playing} disabled={last} className={button}>
+          <button type="button" onClick={() => setPlaying((p) => !p)} aria-pressed={playing} disabled={last} className="btn-line">
             {playing && !last ? <Pause className="h-3.5 w-3.5" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
             {playing && !last ? "Pause" : "Play"}
           </button>
           {last ? (
-            <button type="button" onClick={onClose} className={cn(button, "border-cyan-400/60 bg-cyan-400 text-slate-950 hover:text-slate-950")}>
+            <button type="button" onClick={onClose} className="btn-solid px-4 py-2 text-xs">
               Finish
             </button>
           ) : (
-            <button type="button" onClick={() => go(1)} disabled={waiting} className={cn(button, "border-cyan-400/60 bg-cyan-400 text-slate-950 hover:text-slate-950")}>
-              Next <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+            <button type="button" onClick={() => go(1)} disabled={waiting} className="btn-solid px-4 py-2 text-xs">
+              Next <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </button>
           )}
         </div>

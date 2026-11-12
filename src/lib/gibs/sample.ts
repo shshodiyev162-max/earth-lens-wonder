@@ -3,7 +3,8 @@
 // lat/lon grid), rasterize the area's polygon onto the same grid, decode every
 // pixel inside it through the layer's colormap and summarise the values.
 
-import { bboxOf, clampBBox, polygonsOf, type BBox, type LatLng, type PolygonGeometry } from "../geo/geometry";
+import { bboxOf, clampBBox, type BBox, type LatLng, type PolygonGeometry } from "../geo/geometry";
+import { coverCells } from "../geo/combine";
 import { GIBS_WMS_4326, isTimeEnabled, nativeResolutionDeg, type GibsLayer } from "./catalog";
 import { applyTransform, decodePixel, fetchColorMap, scaleLimits, type ParsedColorMap } from "./colormap";
 import { fetchWithTimeout } from "../async";
@@ -75,52 +76,25 @@ export function wmsGetMapUrl(layer: GibsLayer, grid: RasterGrid, date: string | 
     BBOX: [s, w, n, e].map((v) => v.toFixed(6)).join(","),
     WIDTH: String(grid.width),
     HEIGHT: String(grid.height),
-    FORMAT: "image/png",
-    TRANSPARENT: "TRUE",
+    FORMAT: layer.format === "jpg" ? "image/jpeg" : "image/png",
+    ...(layer.format === "jpg" ? {} : { TRANSPARENT: "TRUE" }),
   });
   if (date && isTimeEnabled(layer)) params.set("TIME", date);
   return `${GIBS_WMS_4326}?${params}`;
 }
 
 /**
- * Scanline rasterisation with the even-odd rule (holes work naturally).
- * A pixel is inside when its centre is inside the polygon.
+ * Scanline rasterisation: a pixel is inside when its centre is inside the area. Holes work within
+ * each polygon, and where the parts of a combined area overlap, the pixel simply counts once.
  */
 export function rasterizeMask(geometry: PolygonGeometry, grid: RasterGrid): Uint8Array {
   const { width, height } = grid;
   const [w, s, e, n] = grid.bbox;
   const dx = (e - w) / width;
   const dy = (n - s) / height;
-  const mask = new Uint8Array(width * height);
-  const rings = polygonsOf(geometry).flat();
-  const crossings: number[] = [];
-  let filled = 0;
+  const mask = coverCells(geometry, grid);
 
-  for (let row = 0; row < height; row++) {
-    const lat = n - (row + 0.5) * dy;
-    crossings.length = 0;
-    for (const ring of rings) {
-      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const [x1, y1] = ring[j];
-        const [x2, y2] = ring[i];
-        if (y1 > lat !== y2 > lat) {
-          crossings.push(x1 + ((lat - y1) * (x2 - x1)) / (y2 - y1));
-        }
-      }
-    }
-    if (crossings.length < 2) continue;
-    crossings.sort((a, b) => a - b);
-    for (let k = 0; k + 1 < crossings.length; k += 2) {
-      const start = Math.max(0, Math.ceil((crossings[k] - w) / dx - 0.5));
-      const end = Math.min(width - 1, Math.ceil((crossings[k + 1] - w) / dx - 0.5) - 1);
-      for (let col = start; col <= end; col++) {
-        mask[row * width + col] = 1;
-        filled += 1;
-      }
-    }
-  }
-
-  if (filled === 0) {
+  if (mask.indexOf(1) === -1) {
     // Area smaller than one pixel: use the pixel under its bbox centre.
     const [bw, bs, be, bn] = bboxOf(geometry);
     const col = Math.min(width - 1, Math.max(0, Math.floor(((bw + be) / 2 - w) / dx)));

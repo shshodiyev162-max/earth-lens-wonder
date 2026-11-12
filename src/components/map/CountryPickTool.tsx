@@ -7,15 +7,15 @@ import { loadWaterShapes, roughOutline, waterAt, type Water } from "@/lib/geo/wa
 import type { PolygonGeometry } from "@/lib/geo/geometry";
 
 const HIGHLIGHT_STYLE: L.PathOptions = {
-  color: "#22d3ee",
+  color: "#ffffff",
   weight: 2,
-  fillColor: "#22d3ee",
+  fillColor: "#ffffff",
   fillOpacity: 0.16,
   interactive: false,
 };
 
 /** A sea or ocean is drawn dashed, so it stands out from the coastlines around it. */
-const WATER_STYLE: L.PathOptions = { ...HIGHLIGHT_STYLE, color: "#f8fafc", weight: 2.5, dashArray: "7 5", fillOpacity: 0.14 };
+const WATER_STYLE: L.PathOptions = { ...HIGHLIGHT_STYLE, color: "#ffffff", weight: 2.5, dashArray: "7 5", fillOpacity: 0.14 };
 
 interface CountryPickToolProps {
   onPick: (country: Country) => void;

@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAbortError } from "@/lib/async";
 import { findCountry, loadCountries } from "@/lib/geo/countries";
 import { lookupOsm } from "@/lib/geo/geocode";
-import { bboxOf, centroidOf, type BBox } from "@/lib/geo/geometry";
+import { areaKm2, bboxOf, centroidOf, type BBox } from "@/lib/geo/geometry";
+import { combineParts, PartError, resolvePart } from "@/lib/areas/resolve";
 import { decodeGeometry } from "@/lib/geo/polyline";
 import { INDICATORS, seasonMonths, type IndicatorId } from "@/lib/query/indicators";
 import { fetchLandCover, measuresForEverything, type LandCover } from "@/lib/trends/landcover";
 import { MAX_GRIDS, planPeriod, type PeriodPlan } from "@/lib/query/period";
 import type { Hotspot } from "@/lib/trends/hotspots";
 import { AreaError, resolveArea, type ScanArea } from "@/lib/trends/place";
-import { filterFor, scanKey, type TrendQuery } from "@/lib/trends/query";
+import { filterFor, scanKey, trendParts, type TrendQuery } from "@/lib/trends/query";
 import { fetchAvailability, mismatch, nameHotspots, runScan, ScanError, WrongPlaceError, type DataAvailability, type ScanProgress, type ScanResult } from "@/lib/trends/scan";
 
 export interface MeasureScan {
@@ -52,7 +53,27 @@ export function gridBudget(measureCount: number): number {
   return measureCount <= 2 ? MAX_GRIDS : 120;
 }
 
+/** The area to scan: the place or area chosen, with any places added to it read as one. */
 async function areaFor(query: TrendQuery, view: BBox | null, signal: AbortSignal): Promise<ScanArea> {
+  const first = await firstArea(query, view, signal);
+  if (!query.extra.length || first.kind === "view") return first;
+  const added = await Promise.all(
+    query.extra.map((part) =>
+      resolvePart(part, { signal }).catch((error) => {
+        if (isAbortError(error)) throw error;
+        throw new AreaError(error instanceof PartError ? error.message : "One of the places couldn't be loaded. Check your connection and try again.");
+      }),
+    ),
+  );
+  const [firstPart] = trendParts(query);
+  const combined = combineParts([
+    { part: firstPart, key: "first", name: first.name, context: first.context, geometry: first.geometry, areaKm2: areaKm2(first.geometry), water: first.water },
+    ...added,
+  ]);
+  return { name: combined.name, context: combined.context, geometry: combined.geometry, bbox: combined.bbox, center: combined.center, kind: "place", water: combined.water };
+}
+
+async function firstArea(query: TrendQuery, view: BBox | null, signal: AbortSignal): Promise<ScanArea> {
   const given = query.area;
   if (given?.poly) {
     const geometry = decodeGeometry(given.poly);

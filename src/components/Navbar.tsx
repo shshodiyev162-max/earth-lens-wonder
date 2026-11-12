@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Globe, Map, BarChart3, User, Menu, X, Search, LogOut, Sun, Moon, TrendingUp } from "lucide-react";
+import { User, Menu, X, Search, LogOut, Sun, Moon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import GlobalSearch from "@/components/search/GlobalSearch";
 import NavSearch, { type NavSearchHandle } from "@/components/search/NavSearch";
@@ -11,10 +11,10 @@ import { ACCOUNTS_ENABLED } from "@/config";
 import { useTheme } from "@/context/theme";
 
 const navItems = [
-  { to: "/", label: "Home", icon: Globe, match: ["/"] },
-  { to: "/map", label: "Explore", icon: Map, match: ["/map", "/split", "/sync"] },
-  { to: "/trends", label: "Trends", icon: TrendingUp, match: ["/trends"] },
-  { to: "/analysis", label: "Analysis", icon: BarChart3, match: ["/analysis"] },
+  { to: "/", label: "Home", match: ["/"] },
+  { to: "/map", label: "Explore", match: ["/map", "/split", "/sync"] },
+  { to: "/trends", label: "Trends", match: ["/trends"] },
+  { to: "/analysis", label: "Analysis", match: ["/analysis"] },
 ];
 
 export default function Navbar() {
@@ -91,21 +91,21 @@ export default function Navbar() {
           ? "dark border-b border-transparent bg-transparent"
           : overPlanet
             ? "dark border-b border-white/10 bg-black/55 backdrop-blur-xl"
-            : "glass-strong"
+            : "border-b border-border bg-background/80 backdrop-blur-xl"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center gap-2.5 shrink-0" aria-label="TerraScope home">
-          <svg viewBox="0 0 32 32" aria-hidden="true" className="h-7 w-7 text-foreground">
-            <circle cx="16" cy="16" r="12.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            <path d="M3.5 16c4.2 3.4 8.4 5 12.5 5s8.3-1.6 12.5-5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity="0.55" />
+      <div className="mx-auto flex h-16 items-center justify-between gap-3 px-4 md:px-6">
+        <Link to="/" className="flex shrink-0 items-center gap-2.5 pointer-coarse:min-h-11" aria-label="TerraScope home">
+          <svg viewBox="0 0 32 32" aria-hidden="true" className="h-[26px] w-[26px] text-foreground">
+            <circle cx="16" cy="16" r="12.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M3.5 16c4.2 3.4 8.4 5 12.5 5s8.3-1.6 12.5-5" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.55" />
             <circle cx="21.5" cy="10.5" r="2.2" fill="currentColor" />
           </svg>
-          <span className="font-display font-semibold text-[17px] tracking-tight text-foreground">TerraScope</span>
+          <span className="font-editorial text-[1.4rem] leading-none tracking-[-0.005em] text-foreground">TerraScope</span>
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden items-center md:flex">
           {navItems.map((item) => {
             const active = isActive(item.match);
             return (
@@ -113,111 +113,84 @@ export default function Navbar() {
                 key={item.to}
                 to={item.to}
                 aria-current={active ? "page" : undefined}
-                className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`relative flex h-16 items-center px-3.5 text-sm transition-colors ${active ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
-                <span className="relative z-10 flex items-center gap-1.5">
-                  <item.icon className="w-4 h-4" />
-                  {item.label}
-                </span>
-                {active && (
-                  <motion.div
-                    layoutId="nav-indicator"
-                    className="absolute inset-0 rounded-lg bg-primary/10 border border-primary/20"
-                    transition={{ type: "spring", duration: 0.5 }}
-                  />
-                )}
+                {item.label}
+                {active && <motion.span layoutId="nav-indicator" aria-hidden className="absolute inset-x-3.5 bottom-[-1px] h-px bg-foreground" transition={{ type: "spring", duration: 0.5 }} />}
               </Link>
             );
           })}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 pointer-coarse:gap-0">
           {/* Search bar */}
-          <NavSearch ref={navSearchRef} shortcut={isMac ? "⌘K" : "Ctrl K"} className="hidden md:block w-44 lg:w-64 xl:w-72" />
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground"
-            aria-label="Search places and layers"
-          >
-            <Search className="w-5 h-5" />
+          <NavSearch ref={navSearchRef} shortcut={isMac ? "⌘K" : "Ctrl K"} className="hidden w-44 md:block lg:w-64 xl:w-72" />
+          <button type="button" onClick={() => setSearchOpen(true)} className="rounded-full p-2 text-muted-foreground hover:text-foreground md:hidden pointer-coarse:p-3" aria-label="Search places and layers">
+            <Search className="h-5 w-5" strokeWidth={1.5} />
           </button>
 
           {/* Light / dark mode */}
           <button
             type="button"
             onClick={toggleTheme}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+            className="rounded-full p-2 text-muted-foreground transition-colors hover:text-foreground pointer-coarse:p-[13px]"
             aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             title={theme === "dark" ? "Light mode" : "Dark mode"}
           >
-            {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {theme === "dark" ? <Sun className="h-[18px] w-[18px]" strokeWidth={1.5} /> : <Moon className="h-[18px] w-[18px]" strokeWidth={1.5} />}
           </button>
 
           {!ACCOUNTS_ENABLED ? null : signedIn ? (
             <button
               type="button"
               onClick={signOut}
-              className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground md:flex"
               title={user?.name || user?.email}
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" strokeWidth={1.5} />
               Sign Out
             </button>
           ) : (
-            <Link
-              to="/login"
-              className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              <User className="w-4 h-4" />
+            <Link to="/login" className="hidden items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-foreground/85 md:flex">
+              <User className="h-4 w-4" strokeWidth={1.5} />
               Sign In
             </Link>
           )}
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground"
+            className="rounded-full p-2 text-muted-foreground hover:text-foreground md:hidden pointer-coarse:p-3"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
             aria-controls="mobile-menu"
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileOpen ? <X className="h-5 w-5" strokeWidth={1.5} /> : <Menu className="h-5 w-5" strokeWidth={1.5} />}
           </button>
         </div>
       </div>
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <motion.div
-          id="mobile-menu"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="md:hidden glass-strong border-t border-border p-4 space-y-1"
-        >
+        <motion.div id="mobile-menu" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="border-t border-border bg-background/95 px-4 py-3 backdrop-blur-xl md:hidden">
           {navItems.map((item) => (
             <Link
               key={item.to}
               to={item.to}
               onClick={() => setMobileOpen(false)}
               aria-current={isActive(item.match) ? "page" : undefined}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm ${
-                isActive(item.match) ? "text-primary bg-primary/10" : "text-muted-foreground"
-              }`}
+              className={`flex min-h-11 items-center border-b border-border font-editorial text-[1.5rem] last:border-b-0 ${isActive(item.match) ? "text-foreground" : "text-muted-foreground"}`}
             >
-              <item.icon className="w-4 h-4" />
               {item.label}
             </Link>
           ))}
           {!ACCOUNTS_ENABLED ? null : signedIn ? (
-            <button type="button" onClick={signOut} className="flex w-full items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-muted-foreground">
-              <LogOut className="w-4 h-4" />
+            <button type="button" onClick={signOut} className="flex min-h-11 w-full items-center gap-2 text-sm text-muted-foreground">
+              <LogOut className="h-4 w-4" />
               Sign Out
             </button>
           ) : (
-            <Link to="/login" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-primary">
-              <User className="w-4 h-4" />
+            <Link to="/login" onClick={() => setMobileOpen(false)} className="flex min-h-11 items-center gap-2 text-sm text-foreground">
+              <User className="h-4 w-4" />
               Sign In
             </Link>
           )}

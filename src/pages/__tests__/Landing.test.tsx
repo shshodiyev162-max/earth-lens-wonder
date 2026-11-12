@@ -66,10 +66,13 @@ describe("the home page", () => {
   it("lists every measure, says how many there are, and opens each on the Trends page", () => {
     renderPage();
     expect(INDICATOR_ORDER).toHaveLength(29);
-    expect(screen.getByRole("heading", { name: /^Twenty-nine measures/ })).toBeTruthy();
+    const heading = screen.getByRole("heading", { name: /^Twenty-nine measures/ });
+    // All the links at once: finding them one by one, 29 times, failed the time limit on a laptop on battery.
+    const links = within(heading.closest("section") as HTMLElement).getAllByRole("link");
     for (const id of INDICATOR_ORDER) {
-      const link = screen.getByRole("link", { name: new RegExp(`^${INDICATORS[id].label.replace(/[()]/g, "\\$&")}`) });
-      expect(link.getAttribute("href")).toBe(`/trends?ind=${id}`);
+      const matching = links.filter((link) => link.textContent?.startsWith(INDICATORS[id].label));
+      expect(matching, INDICATORS[id].label).toHaveLength(1);
+      expect(matching[0].getAttribute("href")).toBe(`/trends?ind=${id}`);
     }
   });
 
