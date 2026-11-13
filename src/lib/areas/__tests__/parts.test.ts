@@ -68,6 +68,8 @@ describe("adding and taking out", () => {
     expect(placePart({ id: "r", name: "Black Sea", context: "Sea", kind: "water", center: [43, 34], region: "Black Sea", source: "terrascope" })).toEqual({ kind: "region", label: "Black Sea" });
     expect(placePart({ id: "o", name: "Bukhara Region", context: "Uzbekistan", kind: "state", center: [40, 64], osm: { type: "R", id: 196244 }, source: "nominatim" })).toMatchObject({ kind: "osm", osm: "R196244", name: "Bukhara Region" });
     expect(placePart({ id: "n", name: "Muynoq", context: "Uzbekistan", kind: "locality", center: [43.77, 59.02], osm: { type: "N", id: 1 }, source: "photon" })).toMatchObject({ kind: "point", lat: 43.77, lon: 59.02, radiusKm: 10 });
+    // A country found by search is read from the bundled outline, its land only.
+    expect(placePart({ id: "R148838", name: "United States", context: "", kind: "country", center: [39.8, -100.4], osm: { type: "R", id: 148838 }, country: "USA", source: "photon" })).toEqual({ kind: "country", id: "USA", name: "United States" });
   });
 
   it("links a saved area by name when it can, by its outline otherwise", () => {

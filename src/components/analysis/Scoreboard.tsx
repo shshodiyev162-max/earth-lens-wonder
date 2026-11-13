@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, History } from "lucide-react";
+import PossibleCauses from "@/components/causes/PossibleCauses";
 import YearTrendChart from "@/components/trends/YearTrendChart";
+import { analysisCauses } from "@/lib/causes/requests";
 import { TONE_COLOUR, TONE_TEXT, toneOf } from "./tone";
 import { RainChart, SingleSeriesChart, SoilChart, TemperatureChart, VegetationChart } from "./Charts";
 import { levelNote } from "@/lib/analysis/insights";
@@ -56,6 +58,7 @@ function Details({ trend, result, compare }: { trend: MetricTrend; result: Analy
   const unit = metric.unit ? ` ${metric.unit}` : "";
   const level = levelNote(metric, metricValues(result, metric.id));
   const notes = metricNotes(result, metric);
+  const causes = analysisCauses(trend, result);
   return (
     <div className="grid gap-6 pb-6 pl-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
       <div className="space-y-3 text-[13px] leading-relaxed text-muted-foreground">
@@ -102,6 +105,7 @@ function Details({ trend, result, compare }: { trend: MetricTrend; result: Analy
           {metric.source}
           {span ? ` · years tested ${formatSpan(span)} (${yearly.filter((y) => y.value !== null).length})` : ""}
         </p>
+        {causes && <PossibleCauses setup={causes} look="page" className="border-t border-border pt-4" />}
       </div>
       <div className="min-w-0 space-y-5 text-foreground">
         <figure>

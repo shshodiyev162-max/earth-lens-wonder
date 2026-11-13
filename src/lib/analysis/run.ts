@@ -402,7 +402,8 @@ async function runSatellite(
   return base;
 }
 
-function cachedPower(point: [number, number], startYear: number, endYear: number, signal?: AbortSignal) {
+/** NASA POWER monthly weather at a point, shared with every other reader and kept on this device. */
+export function readPowerMonthly(point: [number, number], startYear: number, endYear: number, signal?: AbortSignal) {
   const key = `${point[0].toFixed(3)},${point[1].toFixed(3)}|${startYear}-${endYear}`;
   return powerCache(key, (inner) => cachedValue(`power:${key}`, TTL.series, () => powerLimiter(() => fetchPowerMonthly(point, startYear, endYear, inner), inner)), signal);
 }
@@ -483,7 +484,7 @@ async function runClimate(request: AnalysisRequest, months: string[], signal: Ab
   const endYear = Number(request.end.slice(0, 4));
   try {
     const [monthlyList, normalsList] = await Promise.all([
-      Promise.all(samplePoints.map((p) => cachedPower(p, startYear, endYear, signal).finally(tick))),
+      Promise.all(samplePoints.map((p) => readPowerMonthly(p, startYear, endYear, signal).finally(tick))),
       Promise.all(samplePoints.map((p) => cachedClimatology(p, signal).finally(tick))),
     ]);
     const points = buildClimatePoints(months, averageMonthly(monthlyList), averageClimatology(normalsList));

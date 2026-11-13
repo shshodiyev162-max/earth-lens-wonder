@@ -14,8 +14,7 @@ import { pixelAreaKm2, type GridSpec } from "./hotspots";
 
 export const LAND_COVER_LAYER_ID = "MODIS_Combined_L3_IGBP_Land_Cover_Type_Annual";
 const LEGEND = "MODIS_IGBP_Land_Cover_Type";
-/** First year of the record; the latest is read from NASA. */
-export const FIRST_COVER_YEAR = 2001;
+/** The latest year is read from NASA; this is used when it can't be. */
 const FALLBACK_LATEST = 2024;
 
 export type CoverGroup = "forest" | "grass" | "cropland" | "urban" | "barren" | "snow" | "wetland" | "water";
@@ -130,19 +129,6 @@ export function describeCover(cover: LandCover): string {
   const lead = cover.shares[first] >= 0.5 ? `Mostly ${part(first)}` : `${part(first).charAt(0).toUpperCase()}${part(first).slice(1)}`;
   if (!rest.length) return `${lead}.`;
   return `${lead}, with ${rest.length === 1 ? part(rest[0]) : `${part(rest[0])} and ${part(rest[1])}`}.`;
-}
-
-export interface CoverChange {
-  group: CoverGroup;
-  from: number;
-  to: number;
-}
-
-/** Groups whose share moved by at least one percentage point between two years. */
-export function coverChanges(first: LandCover, last: LandCover, minPoints = 0.01): CoverChange[] {
-  return COVER_GROUPS.map((group) => ({ group, from: first.shares[group], to: last.shares[group] }))
-    .filter((c) => Math.abs(c.to - c.from) >= minPoints)
-    .sort((a, b) => Math.abs(b.to - b.from) - Math.abs(a.to - a.from));
 }
 
 // ---------------------------------------------------------------------------

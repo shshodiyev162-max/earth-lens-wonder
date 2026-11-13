@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   classifyPixels,
   COVER_GROUPS,
-  coverChanges,
   describeCover,
   groupOf,
   measuresForEverything,
@@ -59,11 +58,9 @@ describe("NASA land cover", () => {
     expect(classifyPixels(new Uint8ClampedArray([190, 192, 188, 255]), legend)[0]).toBe(COVER_GROUPS.indexOf("barren"));
   });
 
-  it("describes the place and how it changed", () => {
+  it("describes the place", () => {
     const now = cover({ barren: 0.62, grass: 0.2, cropland: 0.08, urban: 0.02, water: 0.08 });
     expect(describeCover(now)).toBe("Mostly bare ground and desert (62%), with grassland, shrubs and savanna (20%) and cropland (8%).");
-    const then = cover({ barren: 0.6, grass: 0.24, cropland: 0.08, urban: 0.005, water: 0.075 }, 2001);
-    expect(coverChanges(then, now).map((c) => c.group)).toEqual(["grass", "barren", "urban"]);
   });
 });
 

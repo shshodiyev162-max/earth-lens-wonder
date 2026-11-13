@@ -10,7 +10,7 @@ import Trends from "../Trends";
 vi.mock("@/components/map/BaseMap", () => ({ default: () => <div data-testid="map" /> }));
 vi.mock("@/hooks/useExactAreaGeometry", () => ({ useExactAreaGeometry: () => null }));
 vi.mock("@/hooks/usePlaceArea", () => ({ usePlaceArea: () => ({ area: null, error: null, loading: false }) }));
-vi.mock("@/hooks/useLandCover", () => ({ useLandCover: () => ({ status: "idle", cover: null, first: null }) }));
+vi.mock("@/hooks/useLandCover", () => ({ useLandCover: () => ({ status: "idle", cover: null }) }));
 vi.mock("@/hooks/useFrames", () => ({ useFrames: () => ({ frames: [], layer: null, loading: false }) }));
 
 const useTrendScans = vi.fn();
@@ -58,8 +58,14 @@ describe("the Trends panel", () => {
     expect(screen.queryByRole("button", { name: /Back to the results/ })).not.toBeInTheDocument();
   });
 
-  it("opens on the results for a search in the page address, and folds the page title away", () => {
+  it("opens a search in the page address filled in, and scans nothing until Find changes is pressed", () => {
     show(SEARCH);
+    expect(useTrendScans.mock.calls.every(([query]) => query === null)).toBe(true);
+    expect(screen.getByText(/In words:/)).toHaveTextContent("Vegetation change in Uzbekistan since 2015");
+    expect(screen.queryByRole("button", { name: "Change search" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Find changes/ }));
+    expect(useTrendScans.mock.lastCall?.[0]?.indicators).toEqual(["vegetation"]);
     expect(screen.getByRole("button", { name: "Change search" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Find changes/ })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Where is Earth changing?" })).toHaveClass("sr-only");
@@ -67,6 +73,7 @@ describe("the Trends panel", () => {
 
   it("goes to the form and back without running the search again", () => {
     show(SEARCH);
+    fireEvent.click(screen.getByRole("button", { name: /Find changes/ }));
     const searched = useTrendScans.mock.lastCall?.[0];
 
     fireEvent.click(screen.getByRole("button", { name: "Change search" }));
@@ -80,6 +87,7 @@ describe("the Trends panel", () => {
 
   it("shows the results once a search runs from the form", () => {
     show(SEARCH);
+    fireEvent.click(screen.getByRole("button", { name: /Find changes/ }));
     fireEvent.click(screen.getByRole("button", { name: "Change search" }));
     fireEvent.click(screen.getByRole("button", { name: /^Rainfall/ }));
     fireEvent.click(screen.getByRole("button", { name: /Find changes/ }));
@@ -89,6 +97,7 @@ describe("the Trends panel", () => {
 
   it("adds places to the chosen one and lists them, without replacing it", async () => {
     show("/trends?ind=vegetation&dir=vegetation:any&place=Uzbekistan&add=region:Aral+Sea&t=since-2015&season=usual");
+    fireEvent.click(screen.getByRole("button", { name: /Find changes/ }));
     expect(useTrendScans.mock.lastCall?.[0].extra).toEqual([{ kind: "region", label: "Aral Sea" }]);
     fireEvent.click(screen.getByRole("button", { name: "Change search" }));
     expect(screen.getByText(/Vegetation change in Uzbekistan \+ Aral Sea since 2015/)).toBeInTheDocument();

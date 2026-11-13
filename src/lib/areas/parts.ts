@@ -147,6 +147,7 @@ export function togglePart(parts: AreaPart[], part: AreaPart): AreaPart[] {
 /** A place from search: a sea or region by name, a place with a boundary by that boundary, anything else as a circle. */
 export function placePart(place: PlaceResult): AreaPart {
   if (place.region) return { kind: "region", label: place.region };
+  if (place.country) return { kind: "country", id: place.country, name: place.name };
   if (place.osm && hasBoundary(place)) return { kind: "osm", osm: `${place.osm.type}${place.osm.id}`, name: place.name, context: place.context || undefined };
   return { kind: "point", lat: round(place.center[0]), lon: round(place.center[1]), radiusKm: defaultRadiusKm(place.kind), name: place.name, context: place.context || undefined };
 }

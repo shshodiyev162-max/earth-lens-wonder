@@ -131,6 +131,12 @@ describe("rates", () => {
     expect(rateText(small, { unit: "", decimals: 3 })).toEqual({ rate: "−0.012 per decade", range: "95% range −0.020 to −0.005" });
   });
 
+  it("takes its digits from the range when the trend itself is almost nothing", () => {
+    // Real wind near the Aral Sea: the middle estimate is close to zero, the range is not.
+    const v = { ...verdict(0.05, 0, 0), slopePerYear: 0.000093, lowerPerYear: -0.011667, upperPerYear: 0.009083, slopePerDecade: 0.00093 };
+    expect(rateText(v, { unit: "m/s", decimals: 1 })).toEqual({ rate: "0.00 m/s per decade", range: "95% range −0.12 to +0.09" });
+  });
+
   it("reads per year on a record under ten years", () => {
     const v = { ...verdict(1, 0, 0, 6), slopePerYear: 12.4, lowerPerYear: 5, upperPerYear: 20, slopePerDecade: null };
     expect(rateText(v, { unit: "ppb", decimals: 0 })).toEqual({ rate: "+12 ppb per year", range: "95% range +5 to +20" });

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Loader2, X } from "lucide-react";
 import type { PlaceSelection } from "@/hooks/usePlaceSelection";
-import { kindLabel } from "@/lib/geo/geocode";
+import { placeTypeLabel } from "@/lib/geo/geocode";
 import { areaKm2, formatArea, formatLatLng } from "@/lib/geo/geometry";
 import { analysisHrefForPlace } from "@/lib/links";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ export default function SelectedPlaceCard({
     <div className={cn("float-surface pointer-events-auto w-[min(22rem,calc(100vw-1.5rem))] bg-panel/90 p-5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="eyebrow text-panel-muted">{kindLabel(place.kind)}</p>
+          <p className="eyebrow text-panel-muted">{placeTypeLabel(place)}</p>
           <h3 translate="no" className="mt-1.5 truncate font-editorial text-[1.75rem] leading-[1.1] text-panel-foreground">{place.name}</h3>
           <p className="mt-0.5 truncate text-xs text-panel-muted">{place.context || formatLatLng(place.center)}</p>
         </div>

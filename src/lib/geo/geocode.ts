@@ -3,7 +3,9 @@
 // Nominatim, throttled to its 1 request/second usage policy.
 
 import { isPolygonGeometry, type BBox, type LatLng, type PolygonGeometry } from "./geometry";
-import { normalizeName, regionPlace, searchNamedRegions } from "./regions";
+import { countryAlias, matchCountry } from "./countryNames";
+import { loadCountries } from "./countries";
+import { findNamedRegion, normalizeName, regionPlace, searchNamedRegions } from "./regions";
 import { readCache, TTL, writeCache } from "../cache/store";
 
 export type PlaceKind =
@@ -26,11 +28,15 @@ export interface PlaceResult {
   /** Secondary line, e.g. "Bukhara Region, Uzbekistan". */
   context: string;
   kind: PlaceKind;
+  /** A closer word for what it is than the kind ("Village", "Lake", "Airport"), when known. */
+  typeLabel?: string;
   center: LatLng;
   bbox?: BBox;
   osm?: { type: "N" | "W" | "R"; id: number };
   /** A named region, sea or ocean TerraScope knows the shape of (see lib/geo/regions). */
   region?: string;
+  /** A country's code in TerraScope's own outlines (its land, without the sea OpenStreetMap includes). */
+  country?: string;
   source: "photon" | "nominatim" | "coordinates" | "terrascope";
 }
 
@@ -48,14 +54,58 @@ function parseHemisphere(value: string, hemisphere?: string): number {
   return /[SW]/i.test(hemisphere) ? -Math.abs(number) : Math.abs(number);
 }
 
+// Degrees, minutes and seconds: 39°46'30"N 64°25'E, N39°46.5' E64°25', -33°55', 18°25'.
+const DMS_NUMBER = String.raw`([-+]?\d{1,3}(?:[.,]\d+)?)\s*°\s*(?:(\d{1,2}(?:[.,]\d+)?)\s*['′’]\s*)?(?:(\d{1,2}(?:[.,]\d+)?)\s*["″”]\s*)?`;
+/** Hemisphere letters after the numbers (or none). */
+const DMS_AFTER = new RegExp(String.raw`^${DMS_NUMBER}([NSEW])?\s*[,;]?\s*${DMS_NUMBER}([NSEW])?$`, "i");
+/** Hemisphere letters before the numbers. */
+const DMS_BEFORE = new RegExp(String.raw`^([NSEW])\s*${DMS_NUMBER}[,;]?\s*([NSEW])\s*${DMS_NUMBER}$`, "i");
+
+interface DmsValue {
+  value: number;
+  hemisphere?: string;
+}
+
+function dmsValue(degrees: string, minutes?: string, seconds?: string, letter?: string): DmsValue | null {
+  const number = (text?: string) => (text ? parseFloat(text.replace(",", ".")) : 0);
+  const [d, m, s] = [number(degrees), number(minutes), number(seconds)];
+  if (m >= 60 || s >= 60) return null;
+  const size = Math.abs(d) + m / 60 + s / 3600;
+  const hemisphere = letter?.toUpperCase();
+  const negative = hemisphere ? /[SW]/.test(hemisphere) : degrees.trim().startsWith("-");
+  return { value: negative ? -size : size, hemisphere };
+}
+
+function parseDms(text: string): { lat: number; lon: number } | null {
+  const after = text.match(DMS_AFTER);
+  const before = after ? null : text.match(DMS_BEFORE);
+  let a: DmsValue | null = null;
+  let b: DmsValue | null = null;
+  if (after) {
+    a = dmsValue(after[1], after[2], after[3], after[4]);
+    b = dmsValue(after[5], after[6], after[7], after[8]);
+  } else if (before) {
+    a = dmsValue(before[2], before[3], before[4], before[1]);
+    b = dmsValue(before[6], before[7], before[8], before[5]);
+  }
+  if (!a || !b) return null;
+  const aIsLat = a.hemisphere ? /[NS]/.test(a.hemisphere) : b.hemisphere ? /[EW]/.test(b.hemisphere) : true;
+  const bIsLat = b.hemisphere ? /[NS]/.test(b.hemisphere) : !aIsLat;
+  if (aIsLat === bIsLat) return null;
+  return aIsLat ? { lat: a.value, lon: b.value } : { lat: b.value, lon: a.value };
+}
+
 /**
- * Accepts "39.77, 64.42", "39.77 64.42", "39.77N 64.42E", "64.42E 39.77N" and
- * "lat: 39.77 lon: 64.42". Returns null when the text is not a coordinate pair.
+ * Accepts "39.77, 64.42", "39.77 64.42", "39.77N 64.42E", "64.42E 39.77N", "lat: 39.77 lon: 64.42"
+ * and degrees with minutes and seconds ("39°46'30"N 64°25'E"). Returns null when the text is not a
+ * coordinate pair.
  */
 export function parseCoordinates(input: string): PlaceResult | null {
-  const text = input.trim().replace(/[()°]/g, " ").replace(/\s+/g, " ");
+  const raw = input.trim().replace(/\s+/g, " ");
+  const text = raw.replace(/[()°]/g, " ").replace(/\s+/g, " ").trim();
   if (!text) return null;
 
+  const dms = /°/.test(raw) ? parseDms(raw.replace(/[()]/g, "").trim()) : null;
   const labelled = text.match(new RegExp(String.raw`^lat(?:itude)?\s*[:=]?\s*(${DECIMAL})[\s,;]+lo?ng?(?:itude)?\s*[:=]?\s*(${DECIMAL})$`, "i"));
   const hemi = text.match(new RegExp(String.raw`^(${DECIMAL})\s*([NSEW])[\s,;]+(${DECIMAL})\s*([NSEW])$`, "i"));
   const plain = text.match(new RegExp(String.raw`^(${DECIMAL})\s*[,;\s]\s*(${DECIMAL})$`));
@@ -63,7 +113,9 @@ export function parseCoordinates(input: string): PlaceResult | null {
   let lat: number | null = null;
   let lon: number | null = null;
 
-  if (labelled) {
+  if (dms) {
+    ({ lat, lon } = dms);
+  } else if (labelled) {
     lat = parseFloat(labelled[1].replace(",", "."));
     lon = parseFloat(labelled[2].replace(",", "."));
   } else if (hemi) {
@@ -123,12 +175,71 @@ const REGION_PLACES = /^(region|island|archipelago|peninsula|continent)$/;
 const REGION_NATURE = /^(desert|mountain_range|peninsula|plateau|massif|steppe|plain)$/;
 const WATER_PLACES = /^(sea|ocean)$/;
 
+const TOWNS = /^(city|town)$/;
+const VILLAGES = /^(village|hamlet|isolated_dwelling|farm)$/;
+const NEIGHBOURHOODS = /^(suburb|quarter|neighbourhood|borough)$/;
+
+/** What a place is, in a word, from its OpenStreetMap tag (place=village → "Village"). */
+const TYPE_LABELS: Record<string, string> = {
+  town: "Town",
+  village: "Village",
+  hamlet: "Hamlet",
+  isolated_dwelling: "Hamlet",
+  farm: "Farm",
+  suburb: "Neighbourhood",
+  quarter: "Neighbourhood",
+  neighbourhood: "Neighbourhood",
+  borough: "Borough",
+  island: "Island",
+  islet: "Island",
+  archipelago: "Islands",
+  peninsula: "Peninsula",
+  sea: "Sea",
+  ocean: "Ocean",
+  bay: "Bay",
+  strait: "Strait",
+  lake: "Lake",
+  lagoon: "Lagoon",
+  reservoir: "Reservoir",
+  pond: "Pond",
+  river: "River",
+  stream: "Stream",
+  canal: "Canal",
+  desert: "Desert",
+  mountain_range: "Mountains",
+  massif: "Mountains",
+  peak: "Mountain",
+  volcano: "Volcano",
+  glacier: "Glacier",
+  plateau: "Plateau",
+  valley: "Valley",
+  steppe: "Steppe",
+  plain: "Plain",
+  wetland: "Wetland",
+  wood: "Forest",
+  forest: "Forest",
+  beach: "Beach",
+  cape: "Cape",
+  national_park: "National park",
+  protected_area: "Protected area",
+  nature_reserve: "Nature reserve",
+  aerodrome: "Airport",
+};
+
+function typeLabel(value: string | undefined): string | undefined {
+  return value ? TYPE_LABELS[value] : undefined;
+}
+
 function photonKind(props: PhotonFeature["properties"]): PlaceKind {
   const type = props.type ?? "";
   const key = props.osm_key ?? "";
   const value = props.osm_value ?? "";
   if (type === "country") return "country";
   if (type === "state") return "state";
+  // Photon files villages under "city" (the level of the address), so the tag decides.
+  if (key === "place" && TOWNS.test(value)) return "city";
+  if (key === "place" && VILLAGES.test(value)) return "locality";
+  if (key === "place" && NEIGHBOURHOODS.test(value)) return "district";
   if (type === "county") return "county";
   if (type === "city") return "city";
   if (type === "district") return "district";
@@ -138,24 +249,27 @@ function photonKind(props: PhotonFeature["properties"]): PlaceKind {
   if (key === "natural" && REGION_NATURE.test(value)) return "region";
   if (key === "natural" && /water|bay|strait/.test(value)) return "water";
   if (key === "waterway" || key === "water") return "water";
+  // Time zones and postcode areas are lines on a map, not places.
+  if (key === "boundary" && /^(timezone|postal_code)$/.test(value)) return "poi";
   if (key === "natural" || key === "boundary" || /protected_area|national_park|forest|nature_reserve/.test(value)) return "nature";
   if (key === "place") return "locality";
   if (type === "house" || type === "street") return "poi";
   return "other";
 }
 
+// Lakes, rivers, forests and parks matter as much as towns here: they are what changes.
 const KIND_RANK: Record<PlaceKind, number> = {
   coordinates: 0,
   country: 1,
   state: 2,
   region: 2,
   city: 3,
+  water: 3,
   county: 4,
+  nature: 4,
   district: 5,
   locality: 6,
-  nature: 7,
-  water: 8,
-  other: 9,
+  other: 8,
   poi: 10,
 };
 
@@ -180,11 +294,13 @@ export function normalizePhotonFeature(feature: PhotonFeature): PlaceResult | nu
   const context = joinContext([props.district, props.city, props.county, props.state, props.country], name);
   const extent = props.extent;
   const bbox: BBox | undefined = extent ? [Math.min(extent[0], extent[2]), Math.min(extent[1], extent[3]), Math.max(extent[0], extent[2]), Math.max(extent[1], extent[3])] : undefined;
+  const label = props.osm_key === "boundary" && props.osm_value === "administrative" ? undefined : typeLabel(props.osm_value);
   return {
     id: props.osm_type && props.osm_id ? `${props.osm_type}${props.osm_id}` : `photon:${lat},${lon}`,
     name,
     context,
     kind,
+    ...(label ? { typeLabel: label } : {}),
     center: [lat, lon],
     bbox,
     osm: props.osm_type && props.osm_id ? { type: props.osm_type, id: props.osm_id } : undefined,
@@ -221,10 +337,15 @@ function dedupe(results: PlaceResult[]): PlaceResult[] {
   });
 }
 
-/** Gentle re-ranking: administrative areas and cities before shops and buildings. */
-export function rankResults(results: PlaceResult[]): PlaceResult[] {
+/**
+ * Gentle re-ranking: a place named exactly what was typed first ("Dead Sea" before "Dead Sea
+ * Industries"), then countries, regions, towns and lakes before villages, and those before shops.
+ */
+export function rankResults(results: PlaceResult[], query = ""): PlaceResult[] {
+  const key = normalizeName(query);
+  const exact = (result: PlaceResult) => Boolean(key) && normalizeName(result.name) === key;
   return results
-    .map((result, index) => ({ result, score: index + KIND_RANK[result.kind] * 0.6 }))
+    .map((result, index) => ({ result, score: index + KIND_RANK[result.kind] * 0.6 - (exact(result) ? 2.5 : 0) }))
     .sort((a, b) => a.score - b.score)
     .map((item) => item.result);
 }
@@ -292,11 +413,14 @@ function normalizeNominatim(place: NominatimPlace): PlaceResult | null {
   const bb = place.boundingbox?.map(Number);
   const bbox: BBox | undefined = bb && bb.every(Number.isFinite) ? [bb[2], bb[0], bb[3], bb[1]] : undefined;
   const osmType = place.osm_type ? OSM_TYPE[place.osm_type] : undefined;
+  const address = place.addresstype ?? "";
+  const label = /^(town|village|hamlet)$/.test(address) ? typeLabel(address) : place.category === "boundary" && place.type === "administrative" ? undefined : typeLabel(place.type);
   return {
     id: osmType && place.osm_id ? `${osmType}${place.osm_id}` : `nominatim:${lat},${lon}`,
     name,
     context,
     kind: nominatimKind(place),
+    ...(label ? { typeLabel: label } : {}),
     center: [lat, lon],
     bbox,
     osm: osmType && place.osm_id ? { type: osmType, id: place.osm_id } : undefined,
@@ -398,10 +522,42 @@ function reverseGeocodeLive(center: LatLng, options: { signal?: AbortSignal; zoo
 // ---------------------------------------------------------------------------
 // Public helpers
 
+const ADMIN_KINDS: PlaceKind[] = ["country", "state", "county", "city", "district"];
+/** An island, a landmass or its nature area: the same land as a country of that name. */
+const LANDMASS_KINDS: PlaceKind[] = ["region", "nature", "other"];
+
+/**
+ * TerraScope's own regions first, then what OpenStreetMap found, without repeats:
+ * - OpenStreetMap's copy of a region TerraScope knows ("Aral Sea" as a point) is left out, unless
+ *   it is a town or an administrative area of that name;
+ * - so is an island or a landmass named like a country found with it (Greenland);
+ * - shops, buildings and streets are kept only when nothing else is found.
+ * A country or state named exactly what was typed ("Congo") comes before regions that only start
+ * with it (Congo Basin).
+ */
+export function mergePlaceResults(query: string, known: PlaceResult[], found: PlaceResult[]): PlaceResult[] {
+  const key = normalizeName(query);
+  const exactRegion = findNamedRegion(query)?.label;
+  const regionNames = new Set(known.map((p) => normalizeName(p.name)));
+  const countryNames = new Set(found.filter((p) => p.kind === "country").map((p) => normalizeName(p.name)));
+  const kept = found.filter((p) => {
+    const name = normalizeName(p.name);
+    const admin = ADMIN_KINDS.includes(p.kind) && hasBoundary(p);
+    if (regionNames.has(name) && !admin) return false;
+    if (countryNames.has(name) && LANDMASS_KINDS.includes(p.kind)) return false;
+    return true;
+  });
+  const places = kept.filter((p) => p.kind !== "poi");
+  const rest = places.length || known.length ? places : kept;
+  const named = rest.filter((p) => (p.kind === "country" || p.kind === "state") && normalizeName(p.name) === key);
+  const first = known.filter((p) => p.name === exactRegion);
+  return dedupe([...first, ...named, ...known, ...rest]);
+}
+
 /**
  * Search-as-you-type: coordinates first; then the seas, oceans and regions TerraScope knows the
  * shape of (OpenStreetMap only has a point for "Mediterranean Sea"); then Photon, with Nominatim
- * as fallback.
+ * as fallback. A short country name ("USA", "UK") also looks for the country by its full name.
  */
 export async function searchPlaces(
   query: string,
@@ -412,16 +568,36 @@ export async function searchPlaces(
   const coords = parseCoordinates(trimmed);
   if (coords) return [coords];
   const known = (await Promise.all(searchNamedRegions(trimmed).map(regionPlace))).filter((p): p is PlaceResult => p !== null);
+  const alias = countryAlias(trimmed);
+  const fullName = alias && normalizeName(alias.name) !== normalizeName(trimmed) && !findNamedRegion(trimmed) ? alias.name : null;
   let found: PlaceResult[];
   try {
-    found = rankResults(await photonSearch(trimmed, options));
+    const [direct, country] = await Promise.all([
+      photonSearch(trimmed, options),
+      fullName ? photonSearch(fullName, { signal: options.signal, limit: 3 }).then((r) => r.filter((p) => p.kind === "country").slice(0, 1)) : Promise.resolve([]),
+    ]);
+    found = [...country, ...rankResults(direct, trimmed)];
   } catch (error) {
     if ((error as DOMException)?.name === "AbortError") throw error;
-    found = known.length ? [] : await nominatimSearch(trimmed, options);
+    found = known.length ? [] : await nominatimSearch(fullName ?? trimmed, options);
   }
-  // OpenStreetMap's single point for the same sea or region is left out.
-  const names = new Set(known.map((p) => normalizeName(p.name)));
-  return [...known, ...found.filter((p) => !(names.has(normalizeName(p.name)) && (p.kind === "water" || p.kind === "region" || !hasBoundary(p))))];
+  return withCountryCodes(mergePlaceResults(trimmed, known, found));
+}
+
+/**
+ * Countries found by search are read from TerraScope's own outlines, like a country clicked on the
+ * map: their land, the same everywhere, and nothing more to download. OpenStreetMap's boundary also
+ * takes in the sea along the coast.
+ */
+export async function withCountryCodes(results: PlaceResult[]): Promise<PlaceResult[]> {
+  if (!results.some((place) => place.kind === "country" && !place.country)) return results;
+  const index = await loadCountries();
+  if (!index) return results;
+  return results.map((place) => {
+    if (place.kind !== "country" || place.country) return place;
+    const country = matchCountry(index, place.name);
+    return country ? { ...place, country: country.id } : place;
+  });
 }
 
 /** Sensible zoom when a result has no bounding box. */
@@ -475,9 +651,14 @@ export function kindLabel(kind: PlaceKind): string {
   }
 }
 
+/** What a found place is, in a word: "Village", "Lake", "Airport", or else its kind ("City"). */
+export function placeTypeLabel(place: Pick<PlaceResult, "kind" | "typeLabel">): string {
+  return place.typeLabel ?? kindLabel(place.kind);
+}
+
 /** Whether a place represents an area whose boundary is worth loading (named regions and seas always). */
 export function hasBoundary(place: PlaceResult): boolean {
-  if (place.region) return true;
+  if (place.region || place.country) return true;
   return Boolean(place.osm && place.osm.type !== "N" && ["country", "state", "region", "county", "city", "district", "nature", "water", "locality"].includes(place.kind));
 }
 

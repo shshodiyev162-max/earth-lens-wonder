@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analysisHref, applyEdit, areaAnalysisHref, compareHref, decodeTime, editForParts, encodeTime, filterFor, paramsFor, paramsWithPlace, queryFromParams, representativeMonth, resultsHeading, scanKey, sentenceFor, trendParts, type TrendQuery } from "../query";
+import { analysisHref, applyEdit, areaAnalysisHref, compareHref, decodeTime, editForParts, encodeTime, filterFor, paramsFor, paramsWithPlace, queryFromParams, representativeMonth, resultsHeading, scanKey, sentenceFor, trendParts, withDistinctLabels, type TrendQuery } from "../query";
 import { decodeGeometry } from "../../geo/polyline";
 import { INDICATOR_ORDER, type Direction, type IndicatorId } from "../../query/indicators";
 import { bboxPolygon } from "../../geo/geometry";
@@ -255,5 +255,12 @@ describe("places added together", () => {
     const params = paramsFor(both());
     const next = paramsWithPlace(params, { id: "r", name: "Aral Sea", context: "Kazakhstan / Uzbekistan", kind: "water", center: [45, 60], region: "Aral Sea", source: "terrascope" });
     expect(next.getAll("add")).toEqual([]);
+  });
+});
+
+describe("hotspot names", () => {
+  it("tells apart hotspots named after the same place", () => {
+    const named = withDistinctLabels([{ label: "Qońırat rayonı, Uzbekistan" }, { label: "Muynoq district" }, { label: "Qońırat rayonı, Uzbekistan" }, { label: undefined }]);
+    expect(named.map((h) => h.label)).toEqual(["Qońırat rayonı, Uzbekistan", "Muynoq district", "Qońırat rayonı, Uzbekistan (2)", undefined]);
   });
 });

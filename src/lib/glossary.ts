@@ -94,4 +94,8 @@ export const TERMS: Term[] = [
   { term: "t-test", meaning: "Compares the average of two periods, allowing for how much single years vary within each (Welch's version, which doesn't assume both vary equally)." },
   { term: "Hotspot", meaning: "A patch of neighbouring land that changed the same way by at least the chosen amount, where most of the patch shows a steady trend." },
   { term: "Anomaly", meaning: "How far a value is from what's usual for that time of year." },
+  {
+    term: "Possible cause",
+    meaning: "Something that fits the measured evidence for a change, such as drier years, a fire or more people. It isn't proof: the site shows which causes fit NASA's data, not what happened.",
+  },
 ];

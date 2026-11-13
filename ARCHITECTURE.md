@@ -30,10 +30,12 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 
 ### `lib/geo` — places and shapes
 
-- `geocode.ts` turns typed text into results in this order: coordinates (several notations), then the seas, oceans and named regions TerraScope knows the shape of (`regions.ts`; OpenStreetMap only has a point for them, which is left out), then Photon (built for search-as-you-type), then Nominatim as a fallback. Boundaries, OSM lookups and reverse geocoding go through Nominatim, queued to one request per second. Results are classified (country, state, region, city, water, nature…), which decides the icon, the zoom for point-only results and the analysis radius.
+- `geocode.ts` turns typed text into results in this order: coordinates (several notations), then the seas, oceans and named regions TerraScope knows the shape of (`regions.ts`; OpenStreetMap only has a point for them, which is left out), then Photon (built for search-as-you-type), then Nominatim as a fallback. Boundaries, OSM lookups and reverse geocoding go through Nominatim, queued to one request per second. Results are classified (country, state, region, city, water, nature…), which decides the icon, the zoom for point-only results and the analysis radius; villages are told apart from towns by their OpenStreetMap tag (Photon files both as “city”), and `typeLabel` gives the closer word shown (Village, Lake, Airport). A result named exactly what was typed is ranked first. OpenStreetMap's copies of a known region, and islands named like a country found with them, are left out; shops and streets show only when nothing else is found. Short country names (`countryNames.ts`: USA, UK, UAE, Burma…) also search the full name, and every country found gets its code in the bundled outlines, so the Analysis page, Trends and the map read its land, not OpenStreetMap's boundary with its coastal waters.
 - `geometry.ts` covers geodesic area (spherical excess), point-in-polygon with holes, centroids and a guaranteed interior point, geodesic circles, and well-spread sample points for climate averaging.
 
-- `regions.ts` lists named regions (Aral Sea, Pamirs, Central Asia…) and, from `waters.ts`, the seas and oceans. `regionGeometry` gives a region's shape: a sea's water, a box, or its countries together. Search, the Trends form, the Analysis page (`?region=`) and saved areas all refer to them by name.
+- `regions.ts` lists the continents, named regions (Western Europe, Southeast Asia, the Balkans, Central Asia, the Aral Sea, the Pamirs…) and, from `waters.ts`, the seas and oceans. `regionGeometry` gives a region's shape: a sea's water, a box (for mountains and deserts, which have no agreed edge), or its countries together. A region lists country codes, where `"RUS:europe"` keeps only that country's land on that continent, or whole continents less some countries (Sub-Saharan Africa). Each can carry a `note` in plain words on how it was drawn, shown under its name in the Trends form. Search, the Trends form, the Analysis page (`?region=`) and saved areas all refer to them by name.
+- `continents.ts` makes the continents from the bundled country outlines: countries by the UN's list of world regions (M49), lands overseas placed by where they are (`AWAY`: French Guiana, Réunion…), and Russia and Kazakhstan cut along `EUROPE_ASIA_LINE` (the Urals, the Ural River, the Caspian). Land across the 180° line and a few remote islands are left out (`LEFT_OUT`, `AWAY` with no continent), so no continent wraps around the globe. Results are kept per outline set.
+- `clip.ts` cuts one polygon by another (Greiner and Hormann's method), keeping both outlines' points exactly. A corner lying exactly on the cutting line nudges the line by about a centimetre and tries again.
 - `combine.ts` reads several places as one area: their outlines side by side in one shape (`combineGeometries`), their names joined ("Uzbekistan + Kazakhstan", `combinedName`) and their size with shared land counted once (`combinedAreaKm2`: each part's exact size, minus any overlap measured on a fine grid; neighbouring countries only touch, so their sizes simply add up).
 - `waters.ts` keeps rough outlines of seas and oceans. Neighbouring waters share edges drawn through the land between them (the Americas between the Atlantic and the Pacific), so `waterAt` finds the right one under a click. Their water areas — outline minus Natural Earth land, and for oceans minus the enclosed seas — are built by `scripts/build-waters.ts` (`npm run data:waters`, no download) into `public/data/waters.json` (0.2 MB) and loaded when needed. The Pacific comes in two halves because a scan can't wrap around the 180° line.
 
@@ -61,7 +63,7 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
   - the whole-area series and verdict, and the top-of-colour-scale note
   - finer re-reads of the top hotspots for large areas
   - `rebuildHotspots` regroups the pixels for new filters without network.
-- `landcover.ts` reads NASA's yearly MODIS land cover, groups the 17 classes by NASA's own class names, and suggests measures by fixed rules.
+- `landcover.ts` reads NASA's yearly MODIS land cover, groups the 17 classes by NASA's own class names, and suggests measures by fixed rules. It is read one year at a time and never compared across years: NASA's user guide advises against measuring change that way.
 - `place.ts` resolves a place: named regions, seas and oceans, countries from the bundled outlines, otherwise OpenStreetMap (found places are kept for the session, so the preview and the scan ask once). A sea or ocean is its water only: air measures are read over that water, and land measures there are refused with a plain explanation before any map is read (`surfaceFor`, `mismatch` in `scan.ts`).
 
 ### `lib/analysis` — the report
@@ -76,6 +78,19 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 - `insights.ts` writes the answer from the trend tests alone (one hot month or a dry spell can't change it), a note on how far to trust it, the latest months against the 2001–2020 normal, and caveats. It has no randomness and no language model.
 - `export.ts` produces the CSV: one row per month read, blank where there is no data, with the trend results as header lines.
 - `../analysisClient.ts` is optional: when `VITE_AI_ANALYSIS_ENDPOINT` is set, the measured findings are sent there for a short AI-written briefing shown next to the built-in summary.
+
+### `lib/causes` — possible causes
+
+Runs only when someone asks, and only for a clear change in a measure that has causes to test (plants, ground heat, water, snow, dust: `familyOfIndicator`, `familyOfMetric`).
+
+- `model.ts` holds the statistics, all pure functions:
+  - `weatherCheck` fits the measure to two kinds of weather by least squares, scores the fit on years left out one at a time, and splits the measure's trend into the weather's share and what's left (`leftOver` needs a clear trend that is also at least a tenth of the measure's own).
+  - `changeShape` tries every split year and calls a jump when two flat levels beat a straight line by half and differ clearly (Welch's t-test, Bonferroni over the splits).
+  - `judgeFire` and `judgePeople` grade the fire days and the population change.
+- `rules.ts` holds the fixed rules: which weather each kind of measure is tested against (`FAMILY_DRIVERS`), when fires and people apply, the human causes that fit the land (`fitsWith`), and `possibleCauses`, which ranks up to three causes by strength and writes every sentence and check line.
+- `gather.ts` reads the data: NASA POWER through the Analysis page's shared cache (`readPowerMonthly`); fire days from MODIS fire detections in GIBS (one small picture per day, one day in eight then every day around a fire, only after a sudden change); population from SEDAC's maps in GIBS; and land cover for the year before the change. Each check fails on its own without stopping the others, and cancelling stops them all.
+- `requests.ts` builds a request from an Analysis trend or a Trends area or hotspot, or gives the reason it can't run (fewer than 8 years).
+- `hooks/usePossibleCauses.ts` runs a look on request and keeps finished answers for the visit, so the phone and desktop copies of a hotspot card share them. `components/causes/PossibleCauses.tsx` shows the section in the panel and page styles.
 
 ### `lib/demo` and `components/demo`
 
@@ -122,7 +137,7 @@ Every page uses the home page's design, built from a few parts in `src/index.css
 - **The report opens on the planet.** `components/analysis/PlaceCover.tsx` shows NASA's Blue Marble of the place with its real outline. The 404 and error pages use the planet's edge (`components/common/PlanetLimb.tsx`).
 - **Touch.** Controls grow to 44 px on touch screens through the `pointer-coarse:` variant, defined in `tailwind.config.ts`.
 - **Motion.** Keyboard-only focus ring, `prefers-reduced-motion` support, a `skeleton` shimmer for loading placeholders and a fade between pages.
-- **Search** lives in the top navigation bar (`components/search/NavSearch.tsx`). Ctrl/⌘K and "/" focus it; on phones the search icon opens `GlobalSearch`. Both share `useUniversalSearch`.
+- **Search** lives in the top navigation bar (`components/search/NavSearch.tsx`). Ctrl/⌘K and "/" focus it; on phones the search icon opens `GlobalSearch`. Both share `useUniversalSearch`, which puts NASA layers first when the words are a layer's own name (`layerMatchScore`). The Trends “Where” box is a `PlaceSearch` too: the place picked is kept by its OpenStreetMap id or country code, and a place typed into a link is resolved by name, the exact name first (“Samarkand” is the city, not its province).
 - **Light and dark mode.** Every visit starts in dark mode (`class="dark"` on `<html>`); the sun/moon button in the navbar switches, and the choice is not saved. `src/context/ThemeProvider.tsx` holds the state; `useTheme()` comes from `src/context/theme.ts`.
   - Colours are CSS variables: light values in `:root`, dark in `.dark` (`src/index.css`).
   - The planet, the report cover and the home hero keep the `dark` class in both modes, because they show Earth in space.
@@ -131,6 +146,8 @@ Every page uses the home page's design, built from a few parts in `src/index.css
 ## Design decisions
 
 - **Say when it isn't significant.** Every rate comes with its 95% range and a test. "No clear trend" is a result, shown as plainly as a significant one, with a way to test a longer record.
+- **Possible causes, never proof.** The cause finder lists what fits the measured evidence, with how strong it is, every check it ran, and what it can't measure. Its rules are written down and tested; there's no trained model, because there is no worldwide record of true causes to train one on honestly.
+- **Nothing heavy starts by itself.** Reading NASA's maps takes minutes the first time, so the Analysis page reads only after **Start the analysis** (showing the maps it will read and the time first, with Stop while it runs), and a Trends link opens with its search filled in until **Find changes**. Buttons that say they scan (a worked example, "Scan inside", "Test every year since 2000") start straight away.
 - **Measure, don't simulate.** Every number on the Analysis page is decoded from NASA imagery or read from NASA POWER, and gaps stay gaps. A verdict comes from a stated test, never from a fixed threshold on one month's value.
 - **Ask GIBS what exists.** Dates come from the live time domain and zoom limits from the matrix set, so the maps never request tiles that cannot exist.
 - **Keyless and static.** The build is plain static files (Netlify config included). Optional services (accounts, AI briefing) are switched on with environment variables and never need secrets in the browser.

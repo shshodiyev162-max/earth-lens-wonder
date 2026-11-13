@@ -123,7 +123,10 @@ function decimalsFor(value: number, decimals: number): number {
 export function rateText(verdict: TrendVerdict, metric: Pick<MetricDef, "unit" | "decimals">): { rate: string; range: string } {
   const perDecade = verdict.slopePerDecade !== null;
   const scale = perDecade ? 10 : 1;
-  const decimals = decimalsFor(verdict.slopePerYear * scale, metric.decimals);
+  // Sized by the trend or by its range, whichever is bigger: a trend of almost exactly nothing
+  // would otherwise ask for five decimals ("+0.00093, 95% range −0.11667 to +0.09083").
+  const spread = Math.abs(verdict.upperPerYear - verdict.lowerPerYear) / 2;
+  const decimals = decimalsFor(Math.max(Math.abs(verdict.slopePerYear), Number.isFinite(spread) ? spread : 0) * scale, metric.decimals);
   return {
     rate: `${signed(verdict.slopePerYear * scale, decimals)}${metric.unit ? ` ${metric.unit}` : ""} per ${perDecade ? "decade" : "year"}`,
     range: `95% range ${signed(verdict.lowerPerYear * scale, decimals)} to ${signed(verdict.upperPerYear * scale, decimals)}`,

@@ -829,12 +829,29 @@ export function layerLabel(item: GibsLayer): string {
   return `${item.name} · ${item.source.split(" · ").slice(0, 2).join(" · ")}`;
 }
 
+/**
+ * How well a layer matches the typed words: 0 when a word of its name starts with them ("temp" →
+ * Land Surface Temperature, "ndvi" → Vegetation (NDVI)), 1 anywhere in its name, 2 in its source,
+ * group or id, 3 only in its description, and -1 not at all.
+ */
+export function layerMatchScore(item: GibsLayer, query: string): number {
+  const q = query.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!q) return 0;
+  const name = item.name.toLowerCase();
+  if (name.startsWith(q) || name.split(/[^a-z0-9.₂]+/).some((word, index, words) => word.startsWith(q) || words.slice(index).join(" ").startsWith(q))) return 0;
+  if (name.includes(q)) return 1;
+  if ([item.source, CATEGORY_LABELS[item.category], item.id].some((text) => text.toLowerCase().includes(q))) return 2;
+  return item.description.toLowerCase().includes(q) ? 3 : -1;
+}
+
+/** Layers matching the typed words, the closest matches first. */
 export function searchLayers(query: string, layers: GibsLayer[] = MAP_LAYERS): GibsLayer[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return layers;
-  return layers.filter((item) =>
-    [item.name, item.source, item.description, CATEGORY_LABELS[item.category], item.id].some((text) => text.toLowerCase().includes(q)),
-  );
+  if (!query.trim()) return layers;
+  return layers
+    .map((item, index) => ({ item, index, score: layerMatchScore(item, query) }))
+    .filter((entry) => entry.score >= 0)
+    .sort((a, b) => a.score - b.score || a.index - b.index)
+    .map((entry) => entry.item);
 }
 
 export function periodLabel(period: LayerPeriod): string {

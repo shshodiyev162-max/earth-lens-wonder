@@ -4,8 +4,8 @@ import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import TrendChart from "@/components/landing/TrendChart";
-import { areaText, DATA_MAPS, FINDINGS, meanBetween, MEASURED_ON, pText, rangeText, shareText, signedNumber } from "@/components/landing/findings";
-import { INDICATORS, INDICATOR_ORDER, MEASURE_GROUPS, numberInWords, recordTag } from "@/lib/query/indicators";
+import { areaText, DATA_MAPS, FINDINGS, meanBetween, pText, rangeText, shareText, signedNumber } from "@/components/landing/findings";
+import { INDICATORS, INDICATOR_ORDER, MEASURE_GROUPS, numberInWords } from "@/lib/query/indicators";
 
 // The WebGL planet is the heaviest part of the app, so it loads after the page.
 const CinematicEarth = lazy(() => import("@/components/CinematicEarth"));
@@ -13,8 +13,6 @@ const CinematicEarth = lazy(() => import("@/components/CinematicEarth"));
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 }
-
-const measuredDate = new Date(`${MEASURED_ON}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
 /** The main button: one solid, quiet shape on every screen. */
 function PrimaryLink({ to, children }: { to: string; children: ReactNode }) {
@@ -186,12 +184,8 @@ export default function Landing() {
           {/* Opening */}
           <section data-stop className="relative flex min-h-[100svh] flex-col landscape:justify-center portrait:pt-24">
             <div className="mx-auto w-full max-w-[1400px] px-6 md:px-12">
-              <motion.div
-                initial={reducedMotion ? false : { opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1.2, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="max-w-[35rem] portrait:mx-auto portrait:text-center"
-              >
+              {/* A CSS fade, not a script one: it plays as soon as the page paints, while the globe is still loading. */}
+              <div className="max-w-[35rem] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-6 motion-safe:fill-mode-both motion-safe:delay-150 motion-safe:duration-1000 portrait:mx-auto portrait:text-center">
                 <Eyebrow>NASA satellite records, tested</Eyebrow>
                 <h1 className="mt-6 font-editorial text-[clamp(3rem,5.7vw,5.4rem)] leading-[0.98] tracking-[-0.015em] text-white">
                   What is changing <br />
@@ -205,7 +199,7 @@ export default function Landing() {
                   <PrimaryLink to="/trends">Find changes</PrimaryLink>
                   <QuietLink to="/trends?demo=choose">Watch a demo</QuietLink>
                 </div>
-              </motion.div>
+              </div>
             </div>
             <div className="absolute inset-x-0 bottom-7 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 font-mono text-[11px] uppercase tracking-[0.18em] text-white/75 md:px-12 portrait:justify-center">
               <span className="portrait:rounded-sm portrait:bg-black/70 portrait:px-2.5 portrait:py-1.5 portrait:text-white">Scroll for three real findings</span>
@@ -226,7 +220,7 @@ export default function Landing() {
                 <h2 className="font-editorial text-[clamp(2.5rem,4.8vw,4.5rem)] leading-[1.04] tracking-[-0.01em] text-white">
                   We asked it three questions. It answered <em>yes</em>, <em>no</em> and <em>barely</em>.
                 </h2>
-                <p className="mt-6 text-[15px] leading-relaxed text-white/75">Every number below was measured by this app on {measuredDate}. You can run each test again yourself.</p>
+                <p className="mt-6 text-[15px] leading-relaxed text-white/75">Every number below was measured by this app from NASA data. You can run each test again yourself.</p>
               </motion.div>
             </div>
           </section>
@@ -384,7 +378,6 @@ export default function Landing() {
                           <span>
                             <span className="block text-[15px] text-foreground">
                               {indicator.label}
-                              {recordTag(indicator.id) && <span className="ml-2 font-mono text-[11px] text-muted-foreground">{recordTag(indicator.id)}</span>}
                             </span>
                             <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{indicator.product}</span>
                           </span>

@@ -24,8 +24,9 @@ export interface AnalysisWindow {
 }
 
 /**
- * Runs the analysis whenever the target, period or datasets change. With `enabled` false (a very
- * large request waiting for a click, or a period that can't be analysed) nothing is fetched.
+ * Runs the analysis for the target, period and datasets while `enabled` (the page turns it on when
+ * "Start the analysis" is pressed for these choices). Turned off, nothing is fetched and a run under
+ * way stops; the last result is kept, so the page can show it as the report for earlier choices.
  */
 export function useAnalysisRun(target: AnalysisTarget | null, window: AnalysisWindow, datasets: DatasetId[], enabled = true): AnalysisRunState {
   const [status, setStatus] = useState<AnalysisRunState["status"]>("idle");
@@ -46,11 +47,18 @@ export function useAnalysisRun(target: AnalysisTarget | null, window: AnalysisWi
 
   useEffect(() => {
     const { target: current, window: chosen } = latest.current;
-    if (!current || !datasetKey || start > end || !enabled || (chosen.months && !chosen.months.length)) {
+    if (!current) {
       controller.current?.abort();
       setStatus("idle");
       setResult(null);
       setProgress(null);
+      return;
+    }
+    if (!datasetKey || start > end || !enabled || (chosen.months && !chosen.months.length)) {
+      controller.current?.abort();
+      setStatus("idle");
+      setProgress(null);
+      setCurrent(false);
       return;
     }
     const ac = new AbortController();

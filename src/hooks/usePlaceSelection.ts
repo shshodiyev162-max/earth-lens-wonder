@@ -1,7 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { fetchBoundary, hasBoundary, zoomForKind, type PlaceResult } from "@/lib/geo/geocode";
 import type { PolygonGeometry } from "@/lib/geo/geometry";
+import { findCountry, loadCountries } from "@/lib/geo/countries";
 import { findNamedRegion, regionGeometry } from "@/lib/geo/regions";
+
+/** A country's land from the bundled outlines. */
+const countryGeometry = (code: string) => loadCountries().then((index) => (index ? (findCountry(index, code)?.geometry ?? null) : null));
 import type { FlyTarget } from "@/components/map/FlyTo";
 
 export interface PlaceSelection {
@@ -25,9 +29,15 @@ export function usePlaceSelection() {
         ? { bbox: place.bbox, key: `${place.id}-${counter.current}` }
         : { center: place.center, zoom: zoomForKind(place.kind), key: `${place.id}-${counter.current}` },
     );
-    // A sea or named region has its shape bundled; other places ask OpenStreetMap for their boundary.
+    // A sea, named region or country has its shape bundled; other places ask OpenStreetMap for their boundary.
     const region = place.region ? findNamedRegion(place.region) : null;
-    const boundary = region ? regionGeometry(region) : wantsBoundary && place.osm ? fetchBoundary(place.osm, { kind: place.kind }) : null;
+    const boundary = region
+      ? regionGeometry(region)
+      : place.country
+        ? countryGeometry(place.country)
+        : wantsBoundary && place.osm
+          ? fetchBoundary(place.osm, { kind: place.kind })
+          : null;
     boundary
       ?.then((geometry) => setSelection((current) => (current?.place.id === place.id ? { ...current, geometry, loadingBoundary: false } : current)))
       .catch(() => setSelection((current) => (current?.place.id === place.id ? { ...current, loadingBoundary: false } : current)));

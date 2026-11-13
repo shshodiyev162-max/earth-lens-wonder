@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import { usePlaceSearch } from "@/hooks/usePlaceSearch";
-import { kindLabel, type PlaceResult } from "@/lib/geo/geocode";
+import { placeTypeLabel, type PlaceResult } from "@/lib/geo/geocode";
 import type { LatLng } from "@/lib/geo/geometry";
 import { cn } from "@/lib/utils";
 import { KIND_ICON } from "./placeIcons";
@@ -154,7 +154,7 @@ export default function PlaceSearch({
                     <span className="min-w-0 flex-1">
                       <span translate="no" className="block truncate text-sm font-medium text-foreground">{place.name}</span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {kindLabel(place.kind)}
+                        {placeTypeLabel(place)}
                         {place.context ? ` · ${place.context}` : ""}
                       </span>
                     </span>

@@ -1,8 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import AreaPicker from "../AreaPicker";
 import { usePlaceArea } from "@/hooks/usePlaceArea";
 import { queryFromParams } from "@/lib/trends/query";
+
+const { SAMARKAND } = vi.hoisted(() => ({
+  SAMARKAND: {
+    id: "R15589846",
+    name: "Samarkand",
+    context: "Samarkand Province, Uzbekistan",
+    kind: "city" as const,
+    center: [39.65, 66.96] as [number, number],
+    osm: { type: "R" as const, id: 15589846 },
+    source: "photon" as const,
+  },
+}));
+
+// Place search answers without the network.
+vi.mock("@/lib/geo/geocode", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/geo/geocode")>();
+  return { ...actual, searchPlaces: vi.fn(async (text: string) => (text.toLowerCase().startsWith("samar") ? [SAMARKAND] : [])) };
+});
 
 const query = (params: string) => queryFromParams(new URLSearchParams(params));
 
@@ -30,6 +48,23 @@ describe("AreaPicker", () => {
     expect((screen.getByLabelText("Or choose a known region, sea or ocean") as HTMLSelectElement).value).toBe("Mediterranean Sea");
   });
 
+  it("lists continents on their own, and says how a continent's land was drawn", () => {
+    setup("ind=dust&place=Europe");
+    const continents = screen.getByRole("group", { name: "Continents" });
+    expect(within(continents).getByRole("option", { name: "Europe" })).toBeInTheDocument();
+    expect(within(continents).getByRole("option", { name: "Asia" })).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Regions" })).getByRole("option", { name: "Western Europe" })).toBeInTheDocument();
+    expect(screen.getByText("Continent")).toBeInTheDocument();
+    expect(screen.getByText(/only west of the Ural Mountains, the Ural River and the Bosporus/)).toBeInTheDocument();
+    expect((screen.getByLabelText("Or choose a known region, sea or ocean") as HTMLSelectElement).value).toBe("Europe");
+  });
+
+  it("drops the note when the region's surroundings are added", () => {
+    setup("ind=dust&place=Europe&near=1");
+    expect(screen.getByText("Continent, with its surroundings")).toBeInTheDocument();
+    expect(screen.queryByText(/Ural Mountains/)).toBeNull();
+  });
+
   it("offers to click a country or a sea on the map", () => {
     const { onDraw } = setup("ind=sst&place=");
     fireEvent.click(screen.getByRole("button", { name: "Country or sea" }));
@@ -39,6 +74,21 @@ describe("AreaPicker", () => {
   it("says why a place couldn't be found", () => {
     setup("ind=sst&place=Pacific", "The Pacific crosses the 180° line.");
     expect(screen.getByRole("alert")).toHaveTextContent("180° line");
+  });
+
+  it("suggests places as you type, and picks the one chosen with its real outline", async () => {
+    const { onEdit } = setup("ind=vegetation&place=");
+    fireEvent.change(screen.getByRole("combobox", { name: "Search a place to scan" }), { target: { value: "Samarkand" } });
+    const option = await screen.findByRole("option", { name: /Samarkand/ });
+    expect(option).toHaveTextContent("City · Samarkand Province, Uzbekistan");
+    fireEvent.click(option);
+    expect(onEdit).toHaveBeenCalledWith({ place: null, area: { osm: "R15589846", name: "Samarkand" }, near: false, extra: [] });
+  });
+
+  it("says that a region drawn as a box takes in land at its edges", () => {
+    setup("ind=dust&place=Sahara");
+    expect(screen.getByText("Region: North Africa")).toBeInTheDocument();
+    expect(screen.getByText(/box around it/)).toBeInTheDocument();
   });
 });
 
@@ -108,15 +158,14 @@ describe("AreaPicker with places added together", () => {
     expect(screen.queryByRole("button", { name: "Add another place" })).not.toBeInTheDocument();
   });
 
-  it("adds a listed sea or a typed place instead of replacing the area", () => {
+  it("adds a listed sea or a searched place instead of replacing the area", async () => {
     const { onAdd, onEdit } = adding("ind=vegetation&place=Uzbekistan", true, rows.slice(0, 1));
-    expect(screen.getByRole("status")).toHaveTextContent("Adding places.");
+    expect(screen.getByText("Adding places.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Or add a known region, sea or ocean"), { target: { value: "Aral Sea" } });
     expect(onAdd).toHaveBeenCalledWith({ kind: "region", label: "Aral Sea" });
-    const typed = screen.getByPlaceholderText("Or type a place to add");
-    fireEvent.change(typed, { target: { value: "Bukhara Region" } });
-    fireEvent.keyDown(typed, { key: "Enter" });
-    expect(onAdd).toHaveBeenLastCalledWith({ kind: "place", text: "Bukhara Region" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Search a place to add to the area" }), { target: { value: "Samarkand" } });
+    fireEvent.click(await screen.findByRole("option", { name: /Samarkand/ }));
+    expect(onAdd).toHaveBeenLastCalledWith({ kind: "osm", osm: "R15589846", name: "Samarkand", context: "Samarkand Province, Uzbekistan" });
     expect(onEdit).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Map view" })).not.toBeInTheDocument();
   });

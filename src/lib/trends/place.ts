@@ -3,9 +3,10 @@
 // the current map view when no place is chosen.
 
 import { createSharedCache } from "../async";
-import { findCountry, loadCountries, type Country, type CountryIndex } from "../geo/countries";
+import { matchCountry } from "../geo/countryNames";
+import { loadCountries, type CountryIndex } from "../geo/countries";
 import { defaultRadiusKm, fetchBoundary, hasBoundary, nominatimSearch, searchPlaces, type PlaceResult } from "../geo/geocode";
-import { bboxOf, bboxPolygon, centroidOf, circlePolygon, clampBBox, padBBox, type BBox, type LatLng, type PolygonGeometry } from "../geo/geometry";
+import { areaKm2, bboxOf, bboxPolygon, centroidOf, circlePolygon, clampBBox, padBBox, type BBox, type LatLng, type PolygonGeometry } from "../geo/geometry";
 import { findNamedRegion, normalizeName, regionBBox, regionGeometry } from "../geo/regions";
 import { WHOLE_PACIFIC, type WaterKind } from "../geo/waters";
 
@@ -28,50 +29,9 @@ export interface ScanArea {
 
 export class AreaError extends Error {}
 
-const COUNTRY_ALIASES: Record<string, string> = {
-  usa: "USA",
-  us: "USA",
-  "u.s.": "USA",
-  "united states": "USA",
-  america: "USA",
-  uk: "GBR",
-  britain: "GBR",
-  "great britain": "GBR",
-  "united kingdom": "GBR",
-  russia: "RUS",
-  "russian federation": "RUS",
-  drc: "COD",
-  "dr congo": "COD",
-  "congo kinshasa": "COD",
-  "ivory coast": "CIV",
-  "czech republic": "CZE",
-  "south korea": "KOR",
-  korea: "KOR",
-  "north korea": "PRK",
-  uae: "ARE",
-  burma: "MMR",
-  holland: "NLD",
-  "the netherlands": "NLD",
-  turkey: "TUR",
-  turkiye: "TUR",
-  "türkiye": "TUR",
-  swaziland: "SWZ",
-  "east timor": "TLS",
-};
-
 const normalize = normalizeName;
 
-/** A country from the bundled outlines by name, alias or 3-letter code. */
-export function matchCountry(index: CountryIndex, text: string): Country | null {
-  const key = normalize(text);
-  const alias = COUNTRY_ALIASES[key];
-  if (alias) return findCountry(index, alias);
-  if (/^[a-z]{3}$/.test(key)) {
-    const byCode = findCountry(index, key);
-    if (byCode) return byCode;
-  }
-  return index.countries.find((country) => normalize(country.name) === key) ?? null;
-}
+export { matchCountry };
 
 function area(name: string, context: string | undefined, geometry: PolygonGeometry, kind: ScanArea["kind"]): ScanArea {
   return { name, context, geometry, bbox: bboxOf(geometry), center: centroidOf(geometry), kind };
@@ -161,14 +121,26 @@ export async function resolveArea(text: string | null, options: ResolveOptions =
 
 const foundPlaces = createSharedCache<ScanArea>();
 
+/** How closely a found name matches what was typed: exactly, one starting the other ("Samarkand City"), or not. */
+function nameMatch(name: string, typed: string): number {
+  const found = normalize(name);
+  const asked = normalize(typed);
+  if (found === asked) return 0;
+  if (found.startsWith(`${asked} `) || asked.startsWith(`${found} `)) return 1;
+  return 2;
+}
+
 /** A place from OpenStreetMap search, with its real boundary when it has one. */
 async function findPlace(text: string, options: Pick<ResolveOptions, "search" | "boundary" | "signal">): Promise<ScanArea> {
   const { signal } = options;
   const search = options.search ?? defaultSearch;
   const results = (await search(text, signal)).filter((r) => r.kind !== "poi");
   if (!results.length) throw new AreaError(`Couldn't find “${text}” on the map. Try a country, a region or a city.`);
-  // Areas are scanned, so administrative areas beat towns, and towns beat single buildings.
-  const place = [...results].sort((a, b) => AREA_RANK[a.kind] - AREA_RANK[b.kind] || Number(hasBoundary(b)) - Number(hasBoundary(a)))[0];
+  // The place named what was typed comes first ("Samarkand" is the city, not its province); among
+  // the rest, areas are scanned, so administrative areas beat towns, and towns beat single buildings.
+  const place = [...results].sort(
+    (a, b) => nameMatch(a.name, text) - nameMatch(b.name, text) || AREA_RANK[a.kind] - AREA_RANK[b.kind] || Number(hasBoundary(b)) - Number(hasBoundary(a)),
+  )[0];
   let geometry: PolygonGeometry | null = null;
   if (hasBoundary(place)) {
     try {
@@ -177,6 +149,11 @@ async function findPlace(text: string, options: Pick<ResolveOptions, "search" | 
       if ((error as { name?: string }).name === "AbortError") throw error;
     }
   }
-  if (!geometry) geometry = place.bbox ? bboxPolygon(place.bbox) : circlePolygon(place.center, Math.max(25, defaultRadiusKm(place.kind)));
+  if (!geometry) {
+    // A place known only as a point comes with a tiny box: a circle around it is read instead.
+    const circle = circlePolygon(place.center, Math.max(25, defaultRadiusKm(place.kind)));
+    const box = place.bbox ? bboxPolygon(place.bbox) : null;
+    geometry = box && areaKm2(box) > areaKm2(circle) ? box : circle;
+  }
   return { name: place.name, context: place.context, geometry, bbox: bboxOf(geometry), center: place.center, kind: "place" };
 }

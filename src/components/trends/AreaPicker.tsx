@@ -1,15 +1,18 @@
-import { useEffect, useId, useState } from "react";
-import { Circle, Flag, Hexagon, Layers, MapPin, Plus, Search, Square, X } from "lucide-react";
+import { useId } from "react";
+import { Circle, Flag, Hexagon, Layers, MapPin, Plus, Square, X } from "lucide-react";
 import StepLabel from "@/components/common/StepLabel";
 import type { DrawMode } from "@/components/map/DrawTools";
+import PlaceSearch from "@/components/search/PlaceSearch";
 import type { SavedArea } from "@/context/WorkspaceContext";
-import { partKey, savedAreaPart, type AreaPart } from "@/lib/areas/parts";
+import { partKey, placePart, savedAreaPart, type AreaPart } from "@/lib/areas/parts";
 import { togetherLabel } from "@/lib/areas/resolve";
 import { combinedName } from "@/lib/geo/combine";
+import type { PlaceResult } from "@/lib/geo/geocode";
 import { formatArea } from "@/lib/geo/geometry";
 import { encodeGeometryForLink } from "@/lib/geo/polyline";
+import { isContinent, regionNote } from "@/lib/geo/regions";
 import { findNamedRegion, NAMED_REGIONS, type NamedRegion } from "@/lib/trends/place";
-import type { QueryEdit, TrendQuery } from "@/lib/trends/query";
+import { editForParts, type QueryEdit, type TrendQuery } from "@/lib/trends/query";
 import { cn } from "@/lib/utils";
 
 const TOOLS: { mode: DrawMode; label: string; icon: typeof Square; title: string }[] = [
@@ -20,9 +23,11 @@ const TOOLS: { mode: DrawMode; label: string; icon: typeof Square; title: string
 ];
 
 const byLabel = (a: NamedRegion, b: NamedRegion) => a.label.localeCompare(b.label);
+const continental = (r: NamedRegion) => Boolean(r.continents?.length && !r.except);
 /** Places TerraScope knows the outline of, for the "known places" list. */
 const KNOWN: { group: string; regions: NamedRegion[] }[] = [
-  { group: "Regions", regions: NAMED_REGIONS.filter((r) => !r.water).sort(byLabel) },
+  { group: "Continents", regions: NAMED_REGIONS.filter(continental).sort(byLabel) },
+  { group: "Regions", regions: NAMED_REGIONS.filter((r) => !r.water && !continental(r)).sort(byLabel) },
   { group: "Seas", regions: NAMED_REGIONS.filter((r) => r.water === "sea").sort(byLabel) },
   { group: "Oceans", regions: NAMED_REGIONS.filter((r) => r.water === "ocean").sort(byLabel) },
 ];
@@ -61,7 +66,7 @@ interface AreaPickerProps {
 
 const WATER_WORD = { sea: "Sea", ocean: "Ocean" } as const;
 
-function describe(query: TrendQuery, foundName: string | null, parts: PartRow[]): { title: string; detail: string } {
+function describe(query: TrendQuery, foundName: string | null, parts: PartRow[]): { title: string; detail: string; note?: string } {
   if (parts.length > 1) return { title: combinedName(parts.map((part) => part.label)), detail: togetherLabel(parts.length) };
   if (query.area?.country) return { title: query.area.name ?? "Country", detail: "Country picked on the map" };
   if (query.area?.poly) return { title: query.area.name ?? "Selected area", detail: "Area outlined on the map" };
@@ -69,7 +74,9 @@ function describe(query: TrendQuery, foundName: string | null, parts: PartRow[])
   const region = query.place ? findNamedRegion(query.place) : null;
   if (region) {
     const around = query.near ? ", with its surroundings" : "";
-    return { title: region.label, detail: region.water ? `${WATER_WORD[region.water]}: its water only${around}` : `Region: ${region.context}${around}` };
+    const detail = region.water ? `${WATER_WORD[region.water]}: its water only${around}` : isContinent(region) ? `Continent${around}` : `Region: ${region.context}${around}`;
+    // "With its surroundings" is a box around the region, so how its land was drawn no longer applies.
+    return { title: region.label, detail, note: query.near ? undefined : regionNote(region) };
   }
   if (query.place) return { title: query.place, detail: foundName && foundName !== query.place ? `Found: ${foundName}` : `Place found by name${query.near ? ", with its surroundings" : ""}` };
   return { title: "The map view", detail: "Whatever the map shows when you find changes" };
@@ -91,22 +98,15 @@ export default function AreaPicker({
   onAdd,
   onRemovePart,
 }: AreaPickerProps) {
-  const inputId = useId();
   const knownId = useId();
   const combined = parts.length > 1;
   const known = query.area || combined || adding ? "" : (findNamedRegion(query.place ?? "")?.label ?? "");
-  const typed = query.area || combined || adding ? "" : (query.place ?? "");
-  const [text, setText] = useState(typed);
-  useEffect(() => setText(typed), [typed]);
   const included = new Set(parts.map((part) => part.key));
-  const commit = () => {
-    const next = text.trim() || null;
-    if (!next) return;
-    if (adding && onAdd) {
-      const region = findNamedRegion(next);
-      onAdd(region ? { kind: "region", label: region.label } : { kind: "place", text: next });
-      setText("");
-    } else if (next !== query.place) onEdit({ place: next });
+  /** A place picked from the search: its real outline when OpenStreetMap has one. */
+  const pickFound = (place: PlaceResult) => {
+    const part = placePart(place);
+    if (adding && onAdd) onAdd(part);
+    else onEdit(editForParts([part]));
   };
   const pickKnown = (label: string) => {
     if (!label) return;
@@ -127,6 +127,7 @@ export default function AreaPicker({
             {chosen.title}
           </p>
           <p className="text-[11px] text-panel-muted">{chosen.detail}</p>
+          {chosen.note && <p className="mt-1 text-[11px] leading-relaxed text-panel-muted">{chosen.note}</p>}
           {placeError && (
             <p role="alert" className="mt-1 text-[11px] leading-relaxed text-tone-warn">
               {placeError}
@@ -208,22 +209,36 @@ export default function AreaPicker({
         </div>
       </div>
 
+      <PlaceSearch
+        onSelect={pickFound}
+        placeholder={adding ? "Or search a place to add" : "Or search a country, region or city"}
+        ariaLabel={adding ? "Search a place to add to the area" : "Search a place to scan"}
+        clearOnSelect
+      />
+
       <div>
         <label htmlFor={knownId} className="mb-1.5 block text-[11px] text-panel-muted">
           {adding ? "Or add a known region, sea or ocean" : "Or choose a known region, sea or ocean"}
         </label>
-        <select id={knownId} value={known} onChange={(event) => pickKnown(event.target.value)} className="field">
-          <option value="">Choose a place…</option>
-          {KNOWN.map(({ group, regions }) => (
-            <optgroup key={group} label={group}>
-              {regions.map((region) => (
-                <option key={region.label} value={region.label}>
-                  {region.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        <div className="flex gap-1.5">
+          <select id={knownId} value={known} onChange={(event) => pickKnown(event.target.value)} className="field min-w-0 flex-1">
+            <option value="">Choose a place…</option>
+            {KNOWN.map(({ group, regions }) => (
+              <optgroup key={group} label={group}>
+                {regions.map((region) => (
+                  <option key={region.label} value={region.label}>
+                    {region.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {!adding && (
+            <button type="button" aria-pressed={isMapView} onClick={() => onEdit({ place: null })} className={cn(tile, "shrink-0", isMapView ? on : off)}>
+              <MapPin className="h-3.5 w-3.5" aria-hidden /> Map view
+            </button>
+          )}
+        </div>
       </div>
 
       {savedAreas.length > 0 && (
@@ -251,36 +266,6 @@ export default function AreaPicker({
           </div>
         </div>
       )}
-
-      <div className="flex gap-1.5">
-        <label htmlFor={inputId} className="sr-only">
-          Type a place
-        </label>
-        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-panel-line-strong px-2.5 transition-colors focus-within:border-panel-foreground/70">
-          <Search className="h-3.5 w-3.5 shrink-0 text-panel-muted" aria-hidden />
-          <input
-            id={inputId}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onBlur={commit}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                commit();
-              }
-            }}
-            placeholder={adding ? "Or type a place to add" : "Or type a country, region or city"}
-            autoComplete="off"
-            translate="no"
-            className="min-w-0 flex-1 bg-transparent py-2 text-sm text-panel-foreground outline-none placeholder:text-panel-muted pointer-coarse:min-h-11"
-          />
-        </div>
-        {!adding && (
-          <button type="button" aria-pressed={isMapView} onClick={() => onEdit({ place: null })} className={cn(tile, "shrink-0", isMapView ? on : off)}>
-            <MapPin className="h-3.5 w-3.5" aria-hidden /> Map view
-          </button>
-        )}
-      </div>
     </div>
   );
 }

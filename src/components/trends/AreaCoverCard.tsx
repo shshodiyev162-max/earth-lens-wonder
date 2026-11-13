@@ -1,7 +1,7 @@
 import { Loader2, Plus } from "lucide-react";
 import { demoAttr } from "@/lib/demo/scripts";
 import { INDICATORS, type IndicatorId } from "@/lib/query/indicators";
-import { COVER_COLOR, COVER_GROUPS, COVER_LABEL, coverChanges, describeCover, type LandCover, type Suggestion } from "@/lib/trends/landcover";
+import { COVER_COLOR, COVER_GROUPS, COVER_LABEL, describeCover, type LandCover, type Suggestion } from "@/lib/trends/landcover";
 import { cn } from "@/lib/utils";
 
 interface AreaCoverCardProps {
@@ -9,7 +9,6 @@ interface AreaCoverCardProps {
   name: string;
   status: "idle" | "loading" | "done" | "error";
   cover: LandCover | null;
-  first: LandCover | null;
   suggestions: Suggestion[];
   /** Measures in the search now. */
   selected: IndicatorId[];
@@ -20,10 +19,9 @@ interface AreaCoverCardProps {
 const pct = (share: number) => (share > 0 && share < 0.005 ? "<1%" : `${Math.round(share * 100)}%`);
 
 /** What the place is like (NASA land cover) and the measures that suit it. */
-export default function AreaCoverCard({ name, status, cover, first, suggestions, selected, onAdd, onUseAll }: AreaCoverCardProps) {
+export default function AreaCoverCard({ name, status, cover, suggestions, selected, onAdd, onUseAll }: AreaCoverCardProps) {
   if (status === "idle") return null;
   const groups = cover ? COVER_GROUPS.filter((g) => cover.shares[g] > 0.004).sort((a, b) => cover.shares[b] - cover.shares[a]) : [];
-  const changes = cover && first ? coverChanges(first, cover).slice(0, 3) : [];
   const allChosen = suggestions.length > 0 && suggestions.every((s) => selected.includes(s.indicator)) && selected.length === suggestions.length;
 
   return (
@@ -59,12 +57,6 @@ export default function AreaCoverCard({ name, status, cover, first, suggestions,
               </li>
             ))}
           </ul>
-          {changes.length > 0 && first && (
-            <p className="text-[11px] leading-relaxed text-panel-muted">
-              Since {first.year}: {changes.map((c) => `${COVER_LABEL[c.group].toLowerCase()} ${pct(c.from)} → ${pct(c.to)}`).join("; ")}. Land cover is classified by computer, so
-              small shifts can be noise.
-            </p>
-          )}
 
           {suggestions.length > 0 && (
             <div className="space-y-1.5">

@@ -10,6 +10,8 @@ import { percentChangeMeansSomething, type Indicator } from "@/lib/query/indicat
 import type { PeriodPlan } from "@/lib/query/period";
 import type { ResultFilter } from "@/lib/trends/query";
 import type { AreaSummary, YearValue } from "@/lib/trends/scan";
+import PossibleCauses from "@/components/causes/PossibleCauses";
+import type { CauseSetup } from "@/lib/causes/requests";
 import YearTrendChart from "./YearTrendChart";
 
 interface AreaSummaryCardProps {
@@ -35,6 +37,8 @@ interface AreaSummaryCardProps {
   /** "No clear trend" on a short record: offer the whole record. */
   hint?: LongerPeriodHint | null;
   onTryAllYears?: () => void;
+  /** What may be behind the change (null: not for this measure, or no clear change). */
+  causes?: CauseSetup | null;
 }
 
 function share(part: number, whole: number): string {
@@ -54,7 +58,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 /** The answer for the whole area first, told the way the home page tells a finding, then the numbers behind it. */
 export default function AreaSummaryCard(props: AreaSummaryCardProps) {
-  const { name, kind, summary, verdict, series, indicator, plan, filter, seasonSubject, hotspotCount, hotspotKm2, analysisHref, compareHref, onZoom, hint, onTryAllYears } = props;
+  const { name, kind, summary, verdict, series, indicator, plan, filter, seasonSubject, hotspotCount, hotspotKm2, analysisHref, compareHref, onZoom, hint, onTryAllYears, causes } = props;
   const surface = props.surface ?? indicator.surface;
   const value = (v: number) => `${v.toFixed(indicator.decimals)} ${indicator.unit}`;
   const percent = summary.change !== null && summary.baselineMean && percentChangeMeansSomething(indicator) && Math.abs(summary.baselineMean) > 1e-6 ? (summary.change / Math.abs(summary.baselineMean)) * 100 : null;
@@ -148,6 +152,8 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
           ? `“Fell” and “rose” count ${groundWord} whose own yearly trend agrees${filter.strict ? " clearly (p < 0.05)" : ""}, including small patches too scattered to be listed as hotspots.`
           : `“Fell” and “rose” count ${groundWord} by the change between the two seasons, including small patches too scattered to be listed as hotspots.`}
       </p>
+
+      {causes && <PossibleCauses setup={causes} className="mt-5 border-t border-panel-line pt-4" />}
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <Link to={analysisHref} className="btn-solid group w-full">

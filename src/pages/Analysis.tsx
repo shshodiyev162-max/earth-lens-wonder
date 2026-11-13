@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowRight, FileText, Loader2, Map as MapIcon, Plus, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, FileText, Loader2, Map as MapIcon, Plus, RefreshCw, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import LocationPicker from "@/components/analysis/LocationPicker";
 import AnalysisMap from "@/components/analysis/AnalysisMap";
@@ -17,6 +17,7 @@ import { useAnalysisTarget } from "@/hooks/useAnalysisTarget";
 import { DATASETS, DEFAULT_DATASETS, countClimateRequests, countMaps } from "@/lib/analysis/run";
 import {
   LARGE_RUN_MAPS,
+  describePeriod,
   estimateSeconds,
   formatEstimate,
   periodHints,
@@ -67,6 +68,48 @@ function ReportSkeleton() {
   );
 }
 
+/** What will be read and how long it takes, with the one button that starts it. */
+function ReadyToStart({
+  mode,
+  large,
+  period,
+  measures,
+  maps,
+  estimate,
+  onStart,
+}: {
+  /** "changed": a report for earlier choices is shown below. "stopped": the run for these choices was stopped. */
+  mode: "new" | "changed" | "stopped";
+  large: boolean;
+  period: string;
+  measures: string[];
+  maps: number;
+  estimate: string;
+  onStart: () => void;
+}) {
+  const reading = maps > 0 ? `${maps.toLocaleString("en-US")} monthly NASA maps` : "NASA's climate records for this place";
+  const eyebrow = mode === "stopped" ? "Stopped" : mode === "changed" ? "Your choices changed" : large ? "A big request" : "Ready to start";
+  const heading = mode === "stopped" ? "Stopped before the end." : mode === "changed" ? "The report below is for your earlier choices." : period;
+  return (
+    <section aria-labelledby="ready-heading" className="space-y-3">
+      <p className="eyebrow">{eyebrow}</p>
+      <h3 id="ready-heading" className="max-w-3xl font-editorial text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] text-foreground">
+        {heading}
+      </h3>
+      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        {mode === "stopped" ? "Maps already read are kept on this device, so starting again picks up where it stopped. " : ""}
+        {mode === "changed" ? `Start again to read ${period}: ` : ""}
+        {measures.join(", ")}. {reading}: {estimate} the first time, depending on how busy NASA's service is, and seconds after that, as they are kept on this device.
+        {large ? " Fewer years, months or measures make it faster." : ""}
+      </p>
+      <button type="button" onClick={onStart} className="btn-solid group">
+        {mode === "new" ? "Start the analysis" : "Start the analysis again"}
+        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
+      </button>
+    </section>
+  );
+}
+
 export default function Analysis() {
   const [params, setParams] = useSearchParams();
   const workspace = useWorkspace();
@@ -91,15 +134,40 @@ export default function Analysis() {
   /** While on, each place picked joins the area; nothing is read until adding is done. */
   const [adding, setAdding] = useState(false);
 
-  // Very large requests wait for a click instead of starting by themselves.
+  // Nothing is read until "Start the analysis" is pressed, and a new place, period or set of
+  // measures waits for it again: reading NASA's maps takes minutes the first time.
   const maps = countMaps({ start, end, months, datasets });
   const climateRequests = target ? countClimateRequests({ datasets, target }) : 0;
-  const runKey = `${target ? target.bbox.join(",") : ""}|${months.length}|${months[0]}|${months[months.length - 1]}|${datasets.join(",")}|${JSON.stringify(analysisPeriod)}`;
-  const [confirmedRun, setConfirmedRun] = useState<string | null>(null);
+  const runKey = `${target ? `${target.bbox.join(",")}|${Math.round(target.areaKm2)}` : ""}|${months.length}|${months[0]}|${months[months.length - 1]}|${datasets.join(",")}|${JSON.stringify(analysisPeriod)}`;
+  const [startedRun, setStartedRun] = useState<string | null>(null);
+  const [stoppedRun, setStoppedRun] = useState<string | null>(null);
+  const started = Boolean(target) && startedRun === runKey;
+  const stopped = !started && stoppedRun === runKey;
   const large = maps > LARGE_RUN_MAPS;
-  const waiting = Boolean(target) && !problems.length && large && confirmedRun !== runKey;
-  const run = useAnalysisRun(target, { start, end, months, period: analysisPeriod }, datasets, !problems.length && !waiting && !adding);
-  const trends = useMemo(() => (run.result ? analysisTrends(run.result) : []), [run.result]);
+  const run = useAnalysisRun(target, { start, end, months, period: analysisPeriod }, datasets, started && !problems.length && !adding);
+  // The last report stays, faded, while the same place waits for a new start with other choices.
+  const samePlace = Boolean(run.result && target && run.result.target.bbox.join(",") === target.bbox.join(",") && Math.round(run.result.target.areaKm2) === Math.round(target.areaKm2));
+  const shownResult = samePlace && !stopped ? run.result : null;
+  const stale = Boolean(shownResult) && !started;
+  const ready = Boolean(target) && !started && !problems.length && !adding;
+  const startAnalysis = () => {
+    setStartedRun(runKey);
+    setStoppedRun(null);
+    setView("report");
+    revealResults();
+  };
+  const stopAnalysis = () => {
+    setStoppedRun(runKey);
+    setStartedRun(null);
+  };
+  // "Test every year since 2000" changes the period and starts straight away: the button says what it does.
+  const startOnNextChoice = useRef(false);
+  useEffect(() => {
+    if (!startOnNextChoice.current || !target) return;
+    startOnNextChoice.current = false;
+    setStartedRun(runKey);
+  }, [runKey, target]);
+  const trends = useMemo(() => (shownResult ? analysisTrends(shownResult) : []), [shownResult]);
   const sizeNote = maps
     ? `${maps.toLocaleString("en-US")} monthly NASA maps to read: ${formatEstimate(estimateSeconds(maps, climateRequests))} the first time, seconds after that.${datasets.includes("climate") ? " Climate results come first." : ""}`
     : undefined;
@@ -352,8 +420,8 @@ export default function Analysis() {
                   </button>
                 ) : (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={() => setView("report")} className="btn-solid group">
-                      See the report
+                    <button type="button" onClick={ready ? startAnalysis : () => setView("report")} className="btn-solid group">
+                      {ready ? "Start the analysis" : "See the report"}
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
                     </button>
                     <button type="button" onClick={() => changeAdding(true)} className="btn-line">
@@ -378,22 +446,19 @@ export default function Analysis() {
 
         {showing === "report" && target && (
           <>
-            <ResultsHeader target={target} result={run.result} running={running} shareUrl={shareUrl} />
+            <ResultsHeader target={target} result={stale ? null : shownResult} running={running} shareUrl={shareUrl} />
 
             <div className="space-y-10 px-6 py-9 md:px-10">
-              {waiting && (
-                <div className="space-y-3" role="status">
-                  <p className="eyebrow">A big request</p>
-                  <p className="max-w-3xl font-editorial text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] text-foreground">About {maps.toLocaleString("en-US")} monthly NASA maps.</p>
-                  <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                    Reading them takes {formatEstimate(estimateSeconds(maps, climateRequests))} the first time, depending on how busy NASA's map service is, and seconds after that, as the maps are kept on this device. Fewer years, months or measures
-                    make it faster.
-                  </p>
-                  <button type="button" onClick={() => setConfirmedRun(runKey)} className="btn-solid group">
-                    Start the analysis
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
-                  </button>
-                </div>
+              {ready && (
+                <ReadyToStart
+                  mode={stopped ? "stopped" : stale ? "changed" : "new"}
+                  large={large}
+                  period={describePeriod(selection, calendarMonths, "long")}
+                  measures={DATASETS.filter((d) => datasets.includes(d.id)).map((d) => d.label)}
+                  maps={maps}
+                  estimate={formatEstimate(estimateSeconds(maps, climateRequests))}
+                  onStart={startAnalysis}
+                />
               )}
 
               {running && (
@@ -403,8 +468,11 @@ export default function Analysis() {
                       <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
                       Reading NASA data{run.progress?.label && run.progress.label !== "Starting" ? ` · ${run.progress.label}` : ""}
                     </span>
-                    <span>
+                    <span className="flex items-center gap-3">
                       {run.progress?.done ?? 0}/{run.progress?.total ?? "…"}
+                      <button type="button" onClick={stopAnalysis} className="btn-line px-2.5 py-1 font-sans text-xs">
+                        <X className="h-3 w-3" aria-hidden /> Stop
+                      </button>
                     </span>
                   </div>
                   <div className="h-px overflow-hidden bg-border">
@@ -424,23 +492,30 @@ export default function Analysis() {
                 </div>
               )}
 
-              {running && !run.result && <ReportSkeleton />}
+              {running && !shownResult && <ReportSkeleton />}
 
-              {run.result && run.report && (
-                // Results from the run before stay faintly visible until this run's first results arrive.
-                <div className={cn("space-y-12 transition-opacity", running && !run.current && "pointer-events-none opacity-50")}>
-                  <AnswerPanel report={run.report} result={run.result} running={running} />
+              {shownResult && run.report && (
+                // The report for earlier choices stays faintly visible until a new run's first results arrive.
+                <div className={cn("space-y-12 transition-opacity", ((running && !run.current) || stale) && "pointer-events-none opacity-50")}>
+                  <AnswerPanel report={run.report} result={shownResult} running={running} />
                   <Scoreboard
-                    result={run.result}
+                    result={shownResult}
                     trends={trends}
-                    compare={run.result.period?.compare ?? null}
+                    compare={shownResult.period?.compare ?? null}
                     running={running}
                     progress={run.progress}
-                    onTryAllYears={selection.kind === "all" ? undefined : () => onPeriod({ kind: "all" })}
+                    onTryAllYears={
+                      selection.kind === "all"
+                        ? undefined
+                        : () => {
+                            startOnNextChoice.current = true;
+                            onPeriod({ kind: "all" });
+                          }
+                    }
                   />
                   {run.report.recent && <RecentPanel recent={run.report.recent} />}
                   <div className="space-y-2.5">
-                    <Methodology report={run.report} result={run.result} />
+                    <Methodology report={run.report} result={shownResult} />
                     <Glossary look="line" />
                   </div>
                 </div>

@@ -333,7 +333,10 @@ export function paramsWithPlace(params: URLSearchParams, place: PlaceResult): UR
   const next = new URLSearchParams(params);
   for (const key of ["place", "near", "country", "osm", "poly", "name", "add"]) next.delete(key);
   if (place.region) next.set("place", place.region);
-  else if (place.osm && hasBoundary(place)) {
+  else if (place.country) {
+    next.set("country", place.country);
+    next.set("name", place.name);
+  } else if (place.osm && hasBoundary(place)) {
     next.set("osm", `${place.osm.type}${place.osm.id}`);
     next.set("name", place.name);
   } else next.set("place", place.name);
@@ -487,6 +490,17 @@ export function seasonAverage(months: number[]): string {
 
 export function hotspotTitle(hotspot: Hotspot): string {
   return hotspot.label ?? `Area ${hotspot.rank}`;
+}
+
+/** Hotspots named after the same place ("Qońırat rayonı" twice) are told apart by a number: "(2)", "(3)". */
+export function withDistinctLabels<T extends Pick<Hotspot, "label">>(hotspots: T[]): T[] {
+  const seen = new Map<string, number>();
+  return hotspots.map((hotspot) => {
+    if (!hotspot.label) return hotspot;
+    const count = (seen.get(hotspot.label) ?? 0) + 1;
+    seen.set(hotspot.label, count);
+    return count === 1 ? hotspot : { ...hotspot, label: `${hotspot.label} (${count})` };
+  });
 }
 
 /** The month shown in "then vs now" comparisons: the middle of the season. */

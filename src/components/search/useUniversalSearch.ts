@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { usePlaceSearch } from "@/hooks/usePlaceSearch";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import type { PlaceResult } from "@/lib/geo/geocode";
-import { MAP_LAYERS, searchLayers, type GibsLayer } from "@/lib/gibs/catalog";
+import { layerMatchScore, MAP_LAYERS, searchLayers, type GibsLayer } from "@/lib/gibs/catalog";
 import { analysisHrefForPlace } from "@/lib/links";
 import { paramsWithPlace } from "@/lib/trends/query";
 
@@ -13,17 +13,26 @@ const MAP_PATHS = ["/map", "/split", "/sync"];
 
 /**
  * Places (seas and named regions first, then OpenStreetMap) and NASA layers for one query — shared
- * by the top search bar and the Ctrl/⌘K window.
+ * by the top search bar and the Ctrl/⌘K window. When the words name a layer ("NDVI", "snow
+ * cover"), the layers come first: OpenStreetMap only finds lookalike place names for them.
  */
 export function useUniversalSearch(query: string, enabled: boolean) {
   const { view } = useWorkspace();
   const places = usePlaceSearch(query, { near: view.center, enabled });
   const layers = useMemo(() => (query.trim().length >= 2 ? searchLayers(query, MAP_LAYERS).slice(0, 4) : []), [query]);
-  const items: SearchItem[] = useMemo(
-    () => [...places.results.map((place) => ({ type: "place" as const, place })), ...layers.map((layer) => ({ type: "layer" as const, layer }))],
-    [places.results, layers],
-  );
+  const items = useMemo(() => orderSearchItems(places.results, layers, query), [places.results, layers, query]);
   return { ...places, layers, items };
+}
+
+/**
+ * Places and layers in one list. When the words name a layer ("NDVI", "snow cover"), the layers come
+ * first and shops or streets of that name are left out.
+ */
+export function orderSearchItems(places: PlaceResult[], layers: GibsLayer[], query: string): SearchItem[] {
+  const layersFirst = layers.some((layer) => layerMatchScore(layer, query) === 0);
+  const placeItems = places.filter((place) => !layersFirst || place.kind !== "poi").map((place) => ({ type: "place" as const, place }));
+  const layerItems = layers.map((layer) => ({ type: "layer" as const, layer }));
+  return layersFirst ? [...layerItems, ...placeItems] : [...placeItems, ...layerItems];
 }
 
 /**

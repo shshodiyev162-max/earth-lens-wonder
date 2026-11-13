@@ -9,6 +9,8 @@ import type { Indicator } from "@/lib/query/indicators";
 import type { PeriodPlan } from "@/lib/query/period";
 import type { HotspotDetail } from "@/lib/trends/scan";
 import { cn } from "@/lib/utils";
+import PossibleCauses from "@/components/causes/PossibleCauses";
+import type { CauseSetup } from "@/lib/causes/requests";
 import YearTrendChart from "./YearTrendChart";
 
 interface HotspotCardProps {
@@ -20,12 +22,14 @@ interface HotspotCardProps {
   compareHref: string;
   /** Scan inside this hotspot for every chosen measure. */
   onScanHere?: () => void;
+  /** What may be behind the change (null: not for this measure). */
+  causes?: CauseSetup | null;
   onClose: () => void;
   className?: string;
 }
 
 /** Details of one hotspot, with links to the full analysis and the then-vs-now swipe. */
-export default function HotspotCard({ hotspot, title, indicator, plan, analysisHref, compareHref, onScanHere, onClose, className }: HotspotCardProps) {
+export default function HotspotCard({ hotspot, title, indicator, plan, analysisHref, compareHref, onScanHere, causes, onClose, className }: HotspotCardProps) {
   const verdict = hotspot.verdict;
   const rate = verdict ? rateText(verdict, { unit: indicator.unit, decimals: indicator.decimals }) : null;
   const compared = plan.kind === "comparison" ? `${plan.baseline[0]} → ${plan.recent[0]}` : `${plan.baseline[0]}–${plan.baseline[1]} → ${plan.recent[0]}–${plan.recent[1]}`;
@@ -80,6 +84,8 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
           </div>
         )}
       </dl>
+
+      {causes && <PossibleCauses setup={causes} className="mt-3 border-t border-panel-line pt-3" />}
 
       <div className="mt-3 flex flex-wrap gap-2">
         <Link to={analysisHref} className="btn-solid group w-full">

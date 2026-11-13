@@ -22,7 +22,7 @@ export default function HotspotList({ hotspots, labels, indicator, plan, selecte
     <ol className="border-t border-panel-line" aria-label="Hotspots, largest change first">
       {hotspots.map((hotspot) => {
         const selected = hotspot.id === selectedId;
-        const title = hotspotTitle({ ...hotspot, label: labels[hotspot.id] });
+        const title = hotspotTitle({ ...hotspot, label: hotspot.label ?? labels[hotspot.id] });
         return (
           <li key={hotspot.id} className="border-b border-panel-line">
             <button
@@ -38,7 +38,7 @@ export default function HotspotList({ hotspots, labels, indicator, plan, selecte
                 </span>
                 <span className="mt-0.5 block font-mono text-[10.5px] leading-snug tabular-nums text-panel-muted">
                   {formatArea(hotspot.areaKm2)} · {signed(hotspot.meanChange, indicator.decimals)} {indicator.unit}
-                  {plan.kind === "trend" && hotspot.significantShare > 0 ? ` · ${Math.round(hotspot.significantShare * 100)}% sig.` : ""}
+                  {plan.kind === "trend" && hotspot.significantShare > 0 ? ` · ${Math.round(hotspot.significantShare * 100)}% clear trend` : ""}
                 </span>
               </span>
               <span className="text-panel-soft">

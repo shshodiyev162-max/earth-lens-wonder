@@ -110,7 +110,7 @@ export function recentConditions(points: ClimatePoint[], count = 12): RecentCond
   const soil = latest.filter((p) => p.soil !== null && p.soilNormal !== null);
   if (soil.length) {
     const gap = mean(soil.map((p) => (p.soil as number) - (p.soilNormal as number)));
-    figures.push({ id: "soil", label: "Soil wetness", value: `${signed(gap, 0)} points`, note: Math.abs(gap) < 0.5 ? "same as normal" : gap > 0 ? "wetter than normal" : "drier than normal" });
+    figures.push({ id: "soil", label: "Soil wetness", value: `${signed(gap, 0)} ${Math.abs(Math.round(gap)) === 1 ? "point" : "points"}`, note: Math.abs(gap) < 0.5 ? "same as normal" : gap > 0 ? "wetter than normal" : "drier than normal" });
   }
   const solar = latest.filter((p) => p.solar !== null && p.solarNormal !== null);
   const solarNormal = sum(solar.map((p) => p.solarNormal as number));

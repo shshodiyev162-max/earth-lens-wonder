@@ -6,6 +6,8 @@ export function analysisHrefForPlace(place: PlaceResult, radiusKm = defaultRadiu
   const params = new URLSearchParams();
   if (place.region) {
     params.set("region", place.region);
+  } else if (place.country) {
+    params.set("country", place.country);
   } else if (place.osm && hasBoundary(place)) {
     params.set("osm", `${place.osm.type}${place.osm.id}`);
   } else {

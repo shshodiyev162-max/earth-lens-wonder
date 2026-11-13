@@ -19,7 +19,6 @@ export interface Verdict {
   slopePerDecade: number | null;
 }
 
-export const MEASURED_ON = MEASURED.measuredOn;
 export const FINDINGS = MEASURED.findings;
 
 /** Colours for the measured maps on the planet. The interface stays neutral so only data has colour. */

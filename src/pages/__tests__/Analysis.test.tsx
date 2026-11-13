@@ -24,7 +24,7 @@ vi.mock("@/lib/geo/geocode", async (original) => {
   return { ...actual, reverseGeocode: vi.fn().mockResolvedValue(null) };
 });
 
-type RunOptions = { onPartial?: (result: AnalysisResult) => void };
+type RunOptions = { onPartial?: (result: AnalysisResult) => void; signal?: AbortSignal };
 
 const runAnalysis = vi.fn(async (request: AnalysisRequest, _options?: RunOptions): Promise<AnalysisResult> => {
   const months = request.months ?? monthRange(request.start, request.end);
@@ -89,6 +89,9 @@ function renderAt(url: string) {
 
 const BUKHARA = "/analysis?lat=39.77&lon=64.42&r=10&name=Bukhara";
 const board = () => screen.getByRole("region", { name: "Every measure tested" });
+/** Nothing is read until this is pressed. */
+const start = async (name: RegExp = /^Start the analysis$/) => fireEvent.click(await screen.findByRole("button", { name }));
+const pause = () => new Promise((resolve) => setTimeout(resolve, 450));
 
 describe("Analysis page", () => {
   beforeEach(() => {
@@ -110,6 +113,11 @@ describe("Analysis page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Click Samarkand on the map" }));
     expect(await screen.findByRole("heading", { name: "39.650°N, 66.960°E" })).toBeInTheDocument();
     expect(screen.queryByTestId("analysis-map")).not.toBeInTheDocument();
+    // Picking a place reads nothing: the report says what will be read, with the button that starts it.
+    expect(screen.getByText("Ready to start")).toBeInTheDocument();
+    await pause();
+    expect(runAnalysis).not.toHaveBeenCalled();
+    await start();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByRole("button", { name: /Map/ }));
@@ -123,6 +131,7 @@ describe("Analysis page", () => {
 
   it("adds places on the map, and reads nothing until adding is done", async () => {
     renderAt(BUKHARA);
+    await start();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: /Map/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add another place" }));
@@ -137,13 +146,17 @@ describe("Analysis page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Done adding" }));
     expect(await screen.findByRole("heading", { name: "Bukhara + 39.65°N, 66.96°E" })).toBeInTheDocument();
+    await start();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(2));
     expect(runAnalysis.mock.calls[1][0].target.parts).toHaveLength(2);
   });
 
-  it("runs a real analysis for the place in the URL and answers from the tests", async () => {
+  it("reads the place in the URL only once started, and answers from the tests", async () => {
     renderAt(BUKHARA);
     expect(screen.getByRole("heading", { name: "Bukhara" })).toBeInTheDocument();
+    await pause();
+    expect(runAnalysis).not.toHaveBeenCalled();
+    await start();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
     const request = runAnalysis.mock.calls[0][0];
     expect(request.target.center).toEqual([39.77, 64.42]);
@@ -156,6 +169,7 @@ describe("Analysis page", () => {
   it("reads places added together as one area, named together", async () => {
     renderAt("/analysis?bbox=60,40,64,44&name=West&add=bbox:62,42,66,46!East&ds=climate");
     expect(await screen.findByRole("heading", { name: "West + East" })).toBeInTheDocument();
+    await start();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
     const { target } = runAnalysis.mock.calls[0][0];
     expect(target.parts?.map((part) => part.name)).toEqual(["West", "East"]);
@@ -165,6 +179,7 @@ describe("Analysis page", () => {
 
   it("starts with twenty years, climate and the two land measures", async () => {
     renderAt(BUKHARA);
+    await start();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
     const request = runAnalysis.mock.calls[0][0];
     expect(request.datasets).toEqual(["climate", "vegetation", "surfaceHeat"]);
@@ -174,6 +189,7 @@ describe("Analysis page", () => {
 
   it("puts every measure on one line, with all six climate measures from one request", async () => {
     renderAt(BUKHARA);
+    await start();
     await screen.findByRole("heading", { name: "Is it changing?" });
     for (const label of ["Air temperature", "Rainfall", "Soil moisture", "Humidity", "Wind", "Sunshine", "Vegetation (NDVI)"]) {
       expect(within(board()).getByText(label)).toBeInTheDocument();
@@ -184,6 +200,7 @@ describe("Analysis page", () => {
 
   it("opens one measure's details at a time, in place", async () => {
     renderAt(BUKHARA);
+    await start();
     await screen.findByRole("heading", { name: "Is it changing?" });
     // The top row starts open; the others keep their definitions out of the way.
     expect(screen.getByText(/What a thermometer in the shade would read/i)).toBeInTheDocument();
@@ -196,12 +213,12 @@ describe("Analysis page", () => {
 
   it("offers the whole record once when there's no clear trend", async () => {
     renderAt(BUKHARA);
+    await start();
     await screen.findByRole("heading", { name: "Is it changing?" });
     const buttons = screen.getAllByRole("button", { name: /Test every year since 2000/ });
     expect(buttons).toHaveLength(1);
+    // The button says it tests, so it starts straight away.
     fireEvent.click(buttons[0]);
-    // The whole record is a big request, so its size is shown before anything is read.
-    fireEvent.click(await screen.findByRole("button", { name: /Start the analysis/ }));
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(2));
     expect(runAnalysis.mock.calls[1][0].start).toBe("2000-03");
   });
@@ -228,6 +245,7 @@ describe("Analysis page", () => {
       return new Promise<AnalysisResult>((resolve) => (finish = resolve));
     });
     renderAt(BUKHARA);
+    await start();
     expect(await screen.findByText("So far:")).toBeInTheDocument();
     expect(within(board()).getByText("Air temperature")).toBeInTheDocument();
     // What's still being read has its own line, and the data can't be downloaded half done.
@@ -251,18 +269,21 @@ describe("Analysis page", () => {
       },
     }));
     renderAt(`${BUKHARA}&ds=salinity`);
+    await start();
     expect(await screen.findByText(/This area has no sea/)).toBeInTheDocument();
     expect(screen.getByText("No NASA readings for this area and period.")).toBeInTheDocument();
   });
 
   it("no longer gives a concern score", async () => {
     renderAt(BUKHARA);
+    await start();
     await screen.findByRole("heading", { name: "Is it changing?" });
     expect(screen.queryByText(/concern/i)).not.toBeInTheDocument();
   });
 
   it("compares the latest months with the normal, as a figure apart from the trend", async () => {
     renderAt(BUKHARA);
+    await start();
     expect(await screen.findByRole("heading", { name: /Latest 12 months vs the 2001–2020 normal/ })).toBeInTheDocument();
     expect(screen.getByText("+1.0 °C")).toBeInTheDocument();
     expect(screen.getByText("80%")).toBeInTheDocument();
@@ -270,6 +291,7 @@ describe("Analysis page", () => {
 
   it("reads only the chosen months", async () => {
     renderAt(`${BUKHARA}&season=summer`);
+    await start();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
     const months = runAnalysis.mock.calls[0][0].months ?? [];
     expect(months.length).toBeGreaterThan(20);
@@ -279,6 +301,7 @@ describe("Analysis page", () => {
 
   it("compares two periods with a t-test", async () => {
     renderAt(`${BUKHARA}&period=compare&base=2001-2010&recent=2016-2025&ds=vegetation,climate`);
+    await start();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
     const request = runAnalysis.mock.calls[0][0];
     expect(request.period?.compare).toEqual({ baseline: [2001, 2010], recent: [2016, 2025] });
@@ -289,13 +312,44 @@ describe("Analysis page", () => {
     expect(screen.getAllByText("No clear difference").length).toBeGreaterThan(0);
   });
 
-  it("waits for a click before reading a very large number of maps", async () => {
+  it("says when a request is big, and still waits for the click", async () => {
     renderAt(`${BUKHARA}&period=all`);
-    const start = await screen.findByRole("button", { name: /Start the analysis/ });
-    expect(screen.getByText("A big request")).toBeInTheDocument();
-    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(await screen.findByText("A big request")).toBeInTheDocument();
+    expect(screen.getByText(/Fewer years, months or measures make it faster/)).toBeInTheDocument();
+    await pause();
     expect(runAnalysis).not.toHaveBeenCalled();
-    fireEvent.click(start);
+    await start();
     await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps the report faded when the choices change, until it is started again", async () => {
+    renderAt(BUKHARA);
+    await start();
+    await screen.findByRole("heading", { name: "Is it changing?" });
+    fireEvent.click(screen.getByRole("radio", { name: "5 years" }));
+    expect(await screen.findByText("Your choices changed")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Is it changing?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Download CSV/i })).toBeDisabled();
+    await pause();
+    expect(runAnalysis).toHaveBeenCalledTimes(1);
+    await start(/^Start the analysis again$/);
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(2));
+    expect(runAnalysis.mock.calls[1][0].months?.length).toBe(60);
+  });
+
+  it("stops a run when asked, and can start it again", async () => {
+    let signal: AbortSignal | undefined;
+    runAnalysis.mockImplementationOnce((_request, options) => {
+      signal = options?.signal;
+      return new Promise<AnalysisResult>(() => {});
+    });
+    renderAt(BUKHARA);
+    await start();
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(signal?.aborted).toBe(true);
+    expect(await screen.findByText("Stopped before the end.")).toBeInTheDocument();
+    await start(/^Start the analysis again$/);
+    await waitFor(() => expect(runAnalysis).toHaveBeenCalledTimes(2));
   });
 });

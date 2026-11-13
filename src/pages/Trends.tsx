@@ -50,6 +50,7 @@ import { clearOfHotspotCard } from "@/lib/trends/cardRoom";
 import { PIXEL_SIGNIFICANCE, STRICT_P } from "@/lib/trends/hotspots";
 import {
   analysisHref,
+  withDistinctLabels,
   applyEdit,
   areaAnalysisHref,
   compareHref,
@@ -70,7 +71,11 @@ import {
 } from "@/lib/trends/query";
 import { changeImage, changeScale } from "@/lib/trends/render";
 import { rebuildHotspots, summarizeArea, type HotspotDetail } from "@/lib/trends/scan";
+import { trendCauses } from "@/lib/causes/requests";
 import { cn } from "@/lib/utils";
+
+/** No scan yet: one shared empty list, so memoised values do not change on every render. */
+const NO_MONTHS: number[] = [];
 
 /** Reports the map's current bounds (for searches that name no place). */
 function BoundsTracker({ onChange }: { onChange: (bbox: BBox) => void }) {
@@ -127,8 +132,11 @@ export default function Trends() {
   const [initialView] = useState(() => initialViewFrom(params, workspace.view));
   /** The choices as they stand (they are the page address). A fresh page starts from an empty form. */
   const draft = useMemo(() => queryFromParams(params), [params]);
-  /** The choices the results were found for. */
-  const [applied, setApplied] = useState<TrendQuery | null>(() => (draft?.understood ? draft : null));
+  /**
+   * The choices the results were found for. Nothing is scanned until "Find changes" (or a button
+   * that says it scans) is pressed: a link opens with its search filled in, ready to run.
+   */
+  const [applied, setApplied] = useState<TrendQuery | null>(null);
   const [mapBounds, setMapBounds] = useState<BBox | null>(null);
   const [scanView, setScanView] = useState<BBox | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
@@ -199,7 +207,7 @@ export default function Trends() {
   const measure = active ? scan.measures[active] : undefined;
   const result = measure?.result ?? null;
   const plan = measure?.plan ?? null;
-  const months = measure?.months ?? [];
+  const months = measure?.months ?? NO_MONTHS;
   const indicator = active ? INDICATORS[active] : null;
   const filterOf = useCallback(
     (id: IndicatorId): ResultFilter => (draft?.filters[id] ? filterFor(draft, id) : applied?.filters[id] ? filterFor(applied, id) : { direction: "any", ...DEFAULT_FILTER }),
@@ -222,7 +230,7 @@ export default function Trends() {
   useEffect(() => {
     if (activeHotspots?.length) requestNames(activeHotspots);
   }, [activeHotspots, requestNames]);
-  const hotspots = useMemo(() => (activeHotspots ?? []).map((h) => ({ ...h, label: scan.labels[h.id] ?? h.label })), [activeHotspots, scan.labels]);
+  const hotspots = useMemo(() => withDistinctLabels((activeHotspots ?? []).map((h) => ({ ...h, label: scan.labels[h.id] ?? h.label }))), [activeHotspots, scan.labels]);
 
   // Fly to the area once it is known, and start fresh with each new result or tab.
   useEffect(() => {
@@ -398,6 +406,39 @@ export default function Trends() {
   const minChange = indicator && filter ? indicator.minChange * filter.minFactor : 0;
   const shownKm2 = hotspots.reduce((sum, h) => sum + h.areaKm2, 0);
   const summary = useMemo(() => (result && filter ? summarizeArea(result, filter) : null), [result, filter]);
+  // What may be behind the change, for the whole area and for the hotspot that's open (measures with causes to test only).
+  const areaCauses = useMemo(
+    () =>
+      result && area && indicator && summary
+        ? trendCauses({
+            indicator: indicator.id,
+            noun: indicator.noun,
+            series: result.region.series,
+            direction: result.region.verdict?.direction ?? "none",
+            months,
+            geometry: area.geometry,
+            bbox: area.bbox,
+            areaKm2: summary.scannedKm2,
+          })
+        : null,
+    [result, area, indicator, summary, months],
+  );
+  const hotspotCauses = useMemo(
+    () =>
+      selected && indicator
+        ? trendCauses({
+            indicator: indicator.id,
+            noun: indicator.noun,
+            series: selected.series,
+            direction: selected.sign < 0 ? "decline" : "increase",
+            months,
+            geometry: selected.geometry,
+            bbox: selected.bbox,
+            areaKm2: selected.areaKm2,
+          })
+        : null,
+    [selected, indicator, months],
+  );
   const areaName = area ? (area.kind === "view" ? "The map view" : area.name) : "";
   const areaKind = !area
     ? ""
@@ -475,6 +516,7 @@ export default function Trends() {
                 analysisHref={areaAnalysisHref(area, applied.area, active, plan, latest, linkParts)}
                 compareHref={compareHref({ center: area.center, areaKm2: summary.scannedKm2 }, active, plan, months)}
                 hint={plan.kind === "trend" ? longerPeriodHint(result.region.verdict, plan.startYear) : null}
+                causes={areaCauses}
                 onTryAllYears={tryAllYears}
                 onZoom={() => {
                   setFlyTarget({ bbox: area.bbox, key: `whole-${Date.now()}` });
@@ -611,7 +653,6 @@ export default function Trends() {
                 name={coverName}
                 status={landCover.status}
                 cover={landCover.cover}
-                first={landCover.first}
                 suggestions={suggestions}
                 selected={draft.everything ? scanned : draft.indicators}
                 onAdd={(id) => edit({ indicators: [...(draft.everything ? scanned : draft.indicators), id] })}
@@ -697,6 +738,7 @@ export default function Trends() {
               analysisHref={analysisHref(selected, active, area, plan, latest)}
               compareHref={compareHref(selected, active, plan, months)}
               onScanHere={() => scanHere(selected)}
+              causes={hotspotCauses}
               onClose={() => setSelectedId(null)}
               className="max-h-[calc(100dvh-14.5rem)] overflow-y-auto"
             />
@@ -710,6 +752,7 @@ export default function Trends() {
               analysisHref={analysisHref(selected, active, area, plan, latest)}
               compareHref={compareHref(selected, active, plan, months)}
               onScanHere={() => scanHere(selected)}
+              causes={hotspotCauses}
               onClose={() => setSelectedId(null)}
               className="max-h-[45dvh] overflow-y-auto"
             />

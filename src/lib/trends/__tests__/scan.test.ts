@@ -4,7 +4,7 @@ import { scanGrid, decodeGrid } from "../grid";
 import { AreaError, matchCountry, resolveArea, widen, type ScanArea } from "../place";
 import { planPeriod, type PeriodPlan } from "../../query/period";
 import { buildCountryIndex, type CountryCollection } from "../../geo/countries";
-import { bboxPolygon, polygonsOf, type PolygonGeometry } from "../../geo/geometry";
+import { areaKm2, bboxPolygon, polygonsOf, type PolygonGeometry } from "../../geo/geometry";
 import { decodeGeometry, encodeGeometry } from "../../geo/polyline";
 import type { PlaceResult } from "../../geo/geocode";
 import type { GibsLayer } from "../../gibs/catalog";
@@ -347,6 +347,21 @@ describe("resolveArea", () => {
     ];
     const found = await resolveArea("Bukhara region", { countries, search: async () => results, boundary: async () => bboxPolygon([62, 39, 65, 41]) });
     expect(found.name).toBe("Buxoro Viloyati");
+  });
+
+  it("takes the place named what was typed: the city, not its province", async () => {
+    // Nominatim's real answers for "Samarkand" and "Bukhara" (November 2026).
+    const boundary = async () => bboxPolygon([66.8, 39.6, 67.1, 39.7]);
+    const samarkand = [place({ id: "R15589846", name: "Samarkand City", kind: "city", osm: { type: "R", id: 15589846 } }), place({ id: "R196249", name: "Samarqand Region", kind: "state", osm: { type: "R", id: 196249 } })];
+    expect((await resolveArea("Samarkand", { countries, search: async () => samarkand, boundary })).name).toBe("Samarkand City");
+    const bukhara = [place({ id: "R1670973", name: "Bukhara Region", kind: "state" }), place({ id: "R13070474", name: "Bukhara", kind: "city", osm: { type: "R", id: 13070474 } })];
+    expect((await resolveArea("Bukhara", { countries, search: async () => bukhara, boundary })).name).toBe("Bukhara");
+  });
+
+  it("reads a circle around a place known only as a point, not its tiny box", async () => {
+    const point = place({ id: "N1", name: "Muynoq", kind: "city", osm: { type: "N", id: 1 }, center: [43.77, 59.02], bbox: [59.0, 43.75, 59.04, 43.79] });
+    const found = await resolveArea("Muynoq", { countries, search: async () => [point], boundary: async () => null });
+    expect(areaKm2(found.geometry)).toBeGreaterThan(1900);
   });
 
   it("widens the area for 'near'", async () => {
