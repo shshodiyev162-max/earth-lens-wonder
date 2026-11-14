@@ -19,7 +19,7 @@ interface MapPageShellProps {
   onPanelOpenChange: (open: boolean) => void;
 }
 
-/** Shared layout for Explore, Split, Sync and Trends: a side panel, the map full-bleed beside it, and the view ribbon. */
+/** Shared layout for Explore, Split, Sync, Trends and Atlas: a side panel, the map full-bleed beside it, and the view ribbon. */
 export default function MapPageShell({ eyebrow, title, description, compactHeader = false, sidebar, children, topRight, overlay, panelOpen, onPanelOpenChange }: MapPageShellProps) {
   useEffect(() => {
     if (!panelOpen) return;

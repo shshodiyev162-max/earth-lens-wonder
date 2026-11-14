@@ -39,3 +39,7 @@ coverage
 
 # Disabled git metadata backup
 .git_disabled/
+
+# Browser test results
+test-results
+playwright-report

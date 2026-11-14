@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { cloudImagePath, dayImagePath, DETAIL_IMAGE, FIRST_IMAGE, pictureBox, sharpCloudImageSize, sharpDayImageSize, wantsDetailImage } from "../earthTextures";
+import { cloudImagePath, dayImagePath, DETAIL_IMAGE, FIRST_IMAGE, openingDayImageSize, pictureBox, sharpCloudImageSize, sharpDayImageSize, wantsDetailImage } from "../earthTextures";
 import { FINDINGS } from "../findings";
 
 const desktop = { screenWidth: 1440, touch: false, maxTextureSize: 16384, saveData: false };
@@ -88,5 +88,15 @@ describe("the sharper picture of Central Asia", () => {
     expect(wantsDetailImage(1.5, false)).toBe(true);
     expect(wantsDetailImage(4, false)).toBe(true);
     expect(wantsDetailImage(4, true)).toBe(false);
+  });
+});
+
+describe("openingDayImageSize", () => {
+  it("opens with the middle image, keeping the sharpest for when the story zooms in", () => {
+    expect(openingDayImageSize(desktop)).toBe(4096);
+    expect(sharpDayImageSize(desktop)).toBe(8192);
+    expect(openingDayImageSize(phone)).toBe(4096);
+    expect(openingDayImageSize({ ...desktop, maxTextureSize: 2048 })).toBe(FIRST_IMAGE);
+    expect(openingDayImageSize({ ...desktop, saveData: true })).toBe(FIRST_IMAGE);
   });
 });

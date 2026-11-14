@@ -37,11 +37,20 @@ Set **Show** to *Declines* and click hotspot 1. Then switch **Show** to *Both*:
 Open preset 3 (or press **Open full analysis** on the whole-area card and choose *Compare two periods*):
 > "For any place: the answer in one sentence, then one line per measure with its verdict and rate. Here it's a then-versus-now comparison, with Welch's t-test on the yearly averages. Open a line for its charts and explanation."
 
+Scroll to **Checked against the ground** (for a city such as Tashkent or Paris):
+> "NASA's air temperature is checked against the nearest NOAA weather station, over the years both have. Here the two trends agree. Where they don't, or there's no station, it says so."
+
+**Save as PDF** prints the report on white paper.
+
 **2:10 – Beyond land (sea and ozone)**
 Back on Trends, press **Country or sea** and click the Mediterranean — the whole sea lights up, not a dot. (Searching for "Mediterranean" at the top, or choosing it from **Or choose a known region, sea or ocean**, does the same.) Pick **Sea temperature**, *since 2003*, and find changes:
-> "Only the water is scanned. About +0.6 °C per decade, with a range well above zero: significant warming."
+> "Only the water is scanned. About +0.6 °C per decade, and the range stays above zero even after allowing for the sea's warmth carrying over from one year to the next: significant warming."
 
 Optionally: the ozone layer over Antarctica since 2005.
+
+**2:25 – The whole world (Atlas)**
+Open **Atlas** in the navigation bar:
+> "The same tests, run over the whole world for six measures, every month since 2003. Each list shows where a measure changed most. Pick one and press *Look closer* to open it on the Trends page."
 
 **2:40 – Honesty and learning**
 Open **Words used here**:
@@ -54,4 +63,4 @@ Open **Words used here**:
 
 - **Slow first answer:** NASA's map service is busy. Show the progress bar ("Reading NASA maps: 40 of 66") and move on to a pre-warmed example.
 - **"NASA GIBS didn't answer":** press **Try again**; requests are retried automatically.
-- **No internet:** TerraScope needs NASA's live services. Use the pre-warmed tabs (cached results still open) or screenshots.
+- **No internet:** TerraScope needs NASA's live services. Use the pre-warmed tabs (cached results still open) or screenshots. The Atlas's change maps and lists are bundled, so they still show (without the satellite picture underneath).

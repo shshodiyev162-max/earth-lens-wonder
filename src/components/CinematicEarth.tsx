@@ -3,7 +3,7 @@ import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { TextureLoader } from "three";
 import { browserTimeZone, findHome, formatLocalClock, latLonToSphere, type Home } from "./landing/home";
-import { cloudImagePath, dayImagePath, DETAIL_IMAGE, FIRST_IMAGE, pictureBox, sharpCloudImageSize, sharpDayImageSize, wantsDetailImage } from "./landing/earthTextures";
+import { cloudImagePath, dayImagePath, DETAIL_IMAGE, FIRST_IMAGE, openingDayImageSize, pictureBox, sharpCloudImageSize, sharpDayImageSize, wantsDetailImage, type ImageSize } from "./landing/earthTextures";
 import { AIR_FRAGMENT, AIR_VERTEX, CLOUD_FRAGMENT, PLANET_FRAGMENT, PLANET_VERTEX, STAR_FRAGMENT, STAR_VERTEX } from "./landing/planetShaders";
 import { CAMERA_DISTANCE, EDGE_ON_MIDDLE_PLANE, flickSpeed, HORIZON_HEIGHT, lensFor, onScreen, orientationFacing, turnGlobe, type DragSample } from "./landing/globeDrag";
 import { fitRadius, poseAt, stopAt, type DataId } from "./landing/story";
@@ -146,6 +146,17 @@ function PlanetScene({ controls, reducedMotion, home, centres, homeLabel, homeTi
   );
 
   // The first images are small so the planet appears quickly; sharper ones replace them once loaded.
+  // The sharpest surface waits until the story starts to zoom in (see useFrame).
+  const surface = useRef({ shown: FIRST_IMAGE as ImageSize, sharpest: FIRST_IMAGE as ImageSize, requested: false, stop: undefined as (() => void) | undefined });
+  const showSurface = useCallback(
+    (size: ImageSize, texture: THREE.Texture) => {
+      // A slower, smaller image never replaces a sharper one already shown.
+      if (size < surface.current.shown) return;
+      surface.current.shown = size;
+      planetUniforms.uDay.value = texture;
+    },
+    [planetUniforms],
+  );
   useEffect(() => {
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     const device = {
@@ -154,14 +165,14 @@ function PlanetScene({ controls, reducedMotion, home, centres, homeLabel, homeTi
       maxTextureSize: gl.capabilities.maxTextureSize,
       saveData: connection?.saveData === true,
     };
-    const daySize = sharpDayImageSize(device);
+    const whole = surface.current;
+    const daySize = openingDayImageSize(device);
+    whole.sharpest = sharpDayImageSize(device);
     const cloudSize = sharpCloudImageSize(device);
     const stopDay =
       daySize === FIRST_IMAGE
         ? undefined
-        : loadSharper(dayImagePath(daySize), THREE.SRGBColorSpace, (texture) => {
-            planetUniforms.uDay.value = texture;
-          });
+        : loadSharper(dayImagePath(daySize), THREE.SRGBColorSpace, (texture) => showSurface(daySize, texture));
     const stopClouds =
       cloudSize === FIRST_IMAGE
         ? undefined
@@ -171,8 +182,9 @@ function PlanetScene({ controls, reducedMotion, home, centres, homeLabel, homeTi
     return () => {
       stopDay?.();
       stopClouds?.();
+      whole.stop?.();
     };
-  }, [gl, planetUniforms]);
+  }, [gl, planetUniforms, showSurface]);
 
   // The sharper picture of Central Asia, fetched once the story heads that way, then faded in.
   const detail = useRef({ requested: false, texture: null as THREE.Texture | null, stop: undefined as (() => void) | undefined });
@@ -346,6 +358,12 @@ function PlanetScene({ controls, reducedMotion, home, centres, homeLabel, homeTi
     scratch.inverse.copy(scratch.quaternion).invert();
     planetUniforms.uSunLocal.value.copy(SUN).applyQuaternion(scratch.inverse).normalize();
 
+    const whole = surface.current;
+    if (!whole.requested && whole.sharpest > whole.shown && wantsDetailImage(s.place, saveData)) {
+      whole.requested = true;
+      const size = whole.sharpest;
+      whole.stop = loadSharper(dayImagePath(size), THREE.SRGBColorSpace, (texture) => showSurface(size, texture));
+    }
     const sharp = detail.current;
     if (!sharp.requested && wantsDetailImage(s.place, saveData)) {
       sharp.requested = true;

@@ -8,10 +8,11 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "data:borders": "node scripts/build-borders.mjs",
     "data:earth": "node scripts/build-earth-textures.mjs",
     "data:timezones": "node scripts/build-timezones.mjs",
@@ -19,7 +20,9 @@
     "data:waters": "vite-node scripts/build-waters.ts"
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.10.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -75,11 +78,11 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.185.1",
-    "vaul": "^0.9.9",
-    "zod": "^3.25.76"
+    "vaul": "^0.9.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",

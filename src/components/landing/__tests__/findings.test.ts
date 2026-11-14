@@ -5,11 +5,12 @@ import { STOPS, type DataId } from "../story";
 
 describe("the page's answers agree with what was measured", () => {
   // The page says these answers in words. If a new measurement disagrees, this fails rather than the page lying.
-  it('"Yes. Clearly." for the Mediterranean', () => {
+  it('"Yes." for the Mediterranean: significant once year-to-year carry-over is allowed for, with a range above zero', () => {
     const { verdict, overlay } = FINDINGS.mediterranean;
     expect(verdict.direction).toBe("increase");
-    expect(verdict.p).toBeLessThan(0.001);
+    expect(verdict.p).toBeLessThan(0.05);
     expect(verdict.lowerPerYear).toBeGreaterThan(0);
+    expect(verdict.carryOver).toBeGreaterThan(0.4);
     expect(overlay.rising).toBe(1);
   });
 

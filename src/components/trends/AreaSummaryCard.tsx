@@ -149,7 +149,7 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
       </dl>
       <p className="mt-2 border-t border-panel-line pt-2 text-[11px] leading-relaxed text-panel-muted">
         {plan.kind === "trend"
-          ? `“Fell” and “rose” count ${groundWord} whose own yearly trend agrees${filter.strict ? " clearly (p < 0.05)" : ""}, including small patches too scattered to be listed as hotspots.`
+          ? `“Fell” and “rose” count ${groundWord} whose own yearly trend agrees${filter.strict ? " clearly, allowing for thousands of pixels tested at once" : ""}, including small patches too scattered to be listed as hotspots.`
           : `“Fell” and “rose” count ${groundWord} by the change between the two seasons, including small patches too scattered to be listed as hotspots.`}
       </p>
 

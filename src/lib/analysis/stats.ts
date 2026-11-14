@@ -337,8 +337,59 @@ function senInterval(slopes: number[], varS: number, confidence: number): { lowe
   };
 }
 
+/**
+ * How much a year tends to follow the year before, once the trend line is taken out: the lag-1
+ * autocorrelation of the residuals (Yue, Pilon, Phinney & Cavadias 2002). Values in time order;
+ * null with fewer than 6 of them.
+ */
+export function lag1Autocorrelation(xs: ArrayLike<number>, ys: ArrayLike<number>, n: number, slope: number, intercept: number): number | null {
+  if (n < 6 || !Number.isFinite(slope) || !Number.isFinite(intercept)) return null;
+  let meanResidual = 0;
+  for (let i = 0; i < n; i++) meanResidual += ys[i] - (intercept + slope * xs[i]);
+  meanResidual /= n;
+  let numerator = 0;
+  let denominator = 0;
+  for (let i = 0; i < n; i++) {
+    const r = ys[i] - (intercept + slope * xs[i]) - meanResidual;
+    denominator += r * r;
+    if (i > 0) numerator += r * (ys[i - 1] - (intercept + slope * xs[i - 1]) - meanResidual);
+  }
+  return denominator > 0 ? numerator / denominator : null;
+}
+
+/**
+ * How much year-to-year carry-over widens the spread of Mann–Kendall's S, for a lag-1 process
+ * (Yue & Wang 2004): 1 + 2 Σ (1 − k/n) r^k. Used only when the carry-over is positive and clearly
+ * there (r above 1.96/√n): it then makes the test stricter. Otherwise 1, the plain test.
+ */
+export function carryOverFactor(r: number | null, n: number): number {
+  if (r === null || n < 6 || r <= 1.96 / Math.sqrt(n)) return 1;
+  const rho = Math.min(r, 0.95);
+  let factor = 1;
+  for (let k = 1; k < n; k++) factor += 2 * (1 - k / n) * rho ** k;
+  return factor;
+}
+
+/**
+ * Years of records needed to tell a trend of this size from the year-to-year ups and downs around
+ * it, with a 90% chance at the 5% level: Weatherhead et al. (1998), for one value a year,
+ * n = (3.3 · √12 · σ / |slope| · √((1 + φ) / (1 − φ)))^(2/3), where σ is the spread of the values
+ * around the trend line and φ their year-to-year carry-over. Infinity for a flat trend.
+ */
+export function yearsToDetect(xs: number[], ys: number[], slope: number, intercept: number, carryOver: number | null): number | null {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 4 || !Number.isFinite(slope) || !Number.isFinite(intercept)) return null;
+  const residuals = xs.slice(0, n).map((x, i) => ys[i] - (intercept + slope * x));
+  const m = mean(residuals);
+  const sigma = Math.sqrt(residuals.reduce((total, r) => total + (r - m) ** 2, 0) / (n - 1));
+  if (!(sigma > 0)) return null;
+  if (slope === 0) return Infinity;
+  const phi = Math.max(-0.5, Math.min(0.9, carryOver ?? 0));
+  return ((3.3 * Math.sqrt(12) * sigma) / Math.abs(slope) * Math.sqrt((1 + phi) / (1 - phi))) ** (2 / 3);
+}
+
 /** Sen's slope with a confidence interval. Pairs with non-finite values are skipped. */
-export function senSlope(xs: number[], ys: number[], confidence = 0.95): SenSlopeResult | null {
+export function senSlope(xs: number[], ys: number[], confidence = 0.95, varianceFactor = 1): SenSlopeResult | null {
   const points: { x: number; y: number }[] = [];
   for (let i = 0; i < Math.min(xs.length, ys.length); i++) if (Number.isFinite(xs[i]) && Number.isFinite(ys[i])) points.push({ x: xs[i], y: ys[i] });
   if (points.length < 3) return null;
@@ -353,7 +404,7 @@ export function senSlope(xs: number[], ys: number[], confidence = 0.95): SenSlop
   slopes.sort((a, b) => a - b);
   const slope = median(slopes);
   const intercept = median(points.map((p) => p.y - slope * p.x).sort((a, b) => a - b));
-  const { lower, upper } = senInterval(slopes, mannKendallVariance(points.map((p) => p.y)), confidence);
+  const { lower, upper } = senInterval(slopes, mannKendallVariance(points.map((p) => p.y)) * varianceFactor, confidence);
   return { slope, intercept, lower, upper, confidence, n: points.length };
 }
 
@@ -495,6 +546,10 @@ export interface TrendVerdict {
   slopePerDecade: number | null;
   years: number;
   method: "seasonal Mann–Kendall + seasonal Sen's slope" | "Mann–Kendall + Sen's slope";
+  /** Year-to-year carry-over the test allowed for (lag-1 autocorrelation), when it was clearly there. */
+  carryOver?: number | null;
+  /** Years of records needed to tell a trend this size from the ups and downs around it (Weatherhead et al. 1998). */
+  yearsNeeded?: number | null;
 }
 
 export const SIGNIFICANCE = 0.05;
@@ -528,18 +583,43 @@ export function monthlyTrendVerdict(series: MonthlyValue[]): TrendVerdict | null
   return verdictFrom(mk.p, sen, years, "seasonal Mann–Kendall + seasonal Sen's slope");
 }
 
-/** Verdict for one value per year (x = year). */
+/**
+ * Verdict for one value per year (x = year). When years clearly follow the year before, the test
+ * and the 95% range allow for it (Yue & Wang 2004), so a run of similar years can't pass for a trend.
+ */
 export function annualTrendVerdict(years: number[], values: number[]): TrendVerdict | null {
   const pairs = years.map((year, i) => [year, values[i]] as const).filter(([, v]) => Number.isFinite(v));
   if (pairs.length < 4) return null;
-  const mk = mannKendall(pairs.map(([, v]) => v));
-  const sen = senSlope(
-    pairs.map(([year]) => year),
-    pairs.map(([, v]) => v),
-  );
-  if (!mk || !sen) return null;
+  const xs = pairs.map(([year]) => year);
+  const ys = pairs.map(([, v]) => v);
+  const mk = mannKendall(ys);
+  const plain = senSlope(xs, ys);
+  if (!mk || !plain) return null;
+  const r1 = lag1Autocorrelation(xs, ys, xs.length, plain.slope, plain.intercept);
+  const factor = carryOverFactor(r1, xs.length);
+  const p = factor > 1 ? twoSidedP(mannKendallZ(mk.s, mk.varS * factor)) : mk.p;
+  const sen = factor > 1 ? (senSlope(xs, ys, 0.95, factor) ?? plain) : plain;
   const span = pairs[pairs.length - 1][0] - pairs[0][0] + 1;
-  return verdictFrom(mk.p, sen, span, "Mann–Kendall + Sen's slope");
+  return {
+    ...verdictFrom(p, sen, span, "Mann–Kendall + Sen's slope"),
+    carryOver: factor > 1 ? r1 : null,
+    yearsNeeded: yearsToDetect(xs, ys, sen.slope, sen.intercept, r1),
+  };
+}
+
+/**
+ * Benjamini–Hochberg: the largest p-value that still keeps the expected share of false finds among
+ * all the pixels called clear at `q`, when thousands are tested at once. 0 when none passes.
+ */
+export function falseDiscoveryThreshold(pValues: ArrayLike<number>, q = 0.05): number {
+  const valid: number[] = [];
+  for (let i = 0; i < pValues.length; i++) if (Number.isFinite(pValues[i])) valid.push(pValues[i]);
+  if (!valid.length) return 0;
+  valid.sort((a, b) => a - b);
+  const m = valid.length;
+  let threshold = 0;
+  for (let i = 0; i < m; i++) if (valid[i] <= ((i + 1) / m) * q) threshold = valid[i];
+  return threshold;
 }
 
 /** "p < 0.001", "p = 0.03" */
@@ -571,6 +651,32 @@ export function answerInWords(verdict: Pick<TrendVerdict, "direction" | "p" | "s
  * A run this consistent would appear by chance in fewer than 1 in 100 records without a real trend (p = 0.004)."
  */
 export function explainVerdict(verdict: TrendVerdict, subject: string, unit: string, decimals: number): string {
+  const extra = [carryOverText(verdict), detectabilityText(verdict)].filter(Boolean).join(" ");
+  const text = explainTest(verdict, subject, unit, decimals);
+  return extra ? `${text} ${extra}` : text;
+}
+
+/** When the test allowed for years that follow the year before, in words. */
+export function carryOverText(verdict: Pick<TrendVerdict, "carryOver">): string | null {
+  if (verdict.carryOver === null || verdict.carryOver === undefined) return null;
+  return `Years here tend to follow the year before (carry-over ${verdict.carryOver.toFixed(2)}), so the test allowed for it and asked for stronger evidence.`;
+}
+
+/**
+ * For a trend that isn't clear: how many years of records it would take to tell one this size from
+ * the ups and downs around it, when that's more than the record has.
+ */
+export function detectabilityText(verdict: Pick<TrendVerdict, "direction" | "yearsNeeded" | "years">): string | null {
+  const needed = verdict.yearsNeeded;
+  if (verdict.direction !== "none" || needed === null || needed === undefined) return null;
+  if (!Number.isFinite(needed) || needed > 100) return "At this rate, it would take more than a century of records to tell a change this small from the normal ups and downs.";
+  const years = Math.ceil(needed);
+  const have = Math.round(verdict.years);
+  if (years <= have) return null;
+  return `At this rate, telling it from the normal ups and downs would take about ${years} years of records; this one has ${have}.`;
+}
+
+function explainTest(verdict: TrendVerdict, subject: string, unit: string, decimals: number): string {
   const fmt = (value: number) => `${signed(value, decimals)}${unit ? ` ${unit}` : ""}`;
   const rate = verdict.slopePerDecade !== null ? `${fmt(verdict.slopePerYear)} per year (${fmt(verdict.slopePerDecade)} per decade)` : `${fmt(verdict.slopePerYear)} per year`;
   const range = `95% range ${fmt(verdict.lowerPerYear)} to ${fmt(verdict.upperPerYear)} per year`;

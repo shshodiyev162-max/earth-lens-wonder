@@ -50,9 +50,17 @@ function firstYearOf(metric: MetricDef): number {
 export function longerPeriodHint(verdict: TrendVerdict | null, firstYear: number, earliestYear = EARLIEST_YEAR): LongerPeriodHint | null {
   if (verdict && verdict.direction !== "none") return null;
   if (firstYear - earliestYear < 3) return null;
-  const text = verdict
-    ? `No clear trend over ${Math.round(verdict.years)} years. A trend this small can hide among normal ups and downs in a short record — testing every year since ${earliestYear} may give a clearer answer.`
-    : `Too few years to test for a trend. Testing every year since ${earliestYear} gives the test enough years to work with.`;
+  if (!verdict) return { text: `Too few years to test for a trend. Testing every year since ${earliestYear} gives the test enough years to work with.`, startYear: earliestYear };
+  const years = Math.round(verdict.years);
+  // How long a record would tell a trend this size from the ups and downs (Weatherhead et al. 1998).
+  const needed = verdict.yearsNeeded;
+  const whole = firstYear + years - earliestYear;
+  let text = `No clear trend over ${years} years. A trend this small can hide among normal ups and downs in a short record — testing every year since ${earliestYear} may give a clearer answer.`;
+  if (needed !== null && needed !== undefined && (!Number.isFinite(needed) || needed > 100)) {
+    text = `No clear trend over ${years} years, and at this rate even a century of records couldn't tell it from the normal ups and downs. Testing every year since ${earliestYear} shows whether the longer record says otherwise.`;
+  } else if (needed !== null && needed !== undefined && Math.ceil(needed) > whole) {
+    text = `No clear trend over ${years} years. At this rate it would take about ${Math.ceil(needed)} years of records to tell it from the normal ups and downs, so even every year since ${earliestYear} (${whole}) may not settle it.`;
+  }
   return { text, startYear: earliestYear };
 }
 

@@ -72,6 +72,10 @@ const runAnalysis = vi.fn(async (request: AnalysisRequest, _options?: RunOptions
   };
 });
 
+// The nearest weather station, without asking NOAA: twenty years of steady 20 °C and 30 mm a month.
+const stationRecords = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/stations/ncei", async (original) => ({ ...((await original()) as object), nearbyStationRecords: stationRecords }));
+
 vi.mock("@/lib/analysis/run", async (original) => {
   const actual = (await original()) as object;
   return { ...actual, runAnalysis: (request: AnalysisRequest, options?: RunOptions) => runAnalysis(request, options) };
@@ -96,6 +100,26 @@ const pause = () => new Promise((resolve) => setTimeout(resolve, 450));
 describe("Analysis page", () => {
   beforeEach(() => {
     runAnalysis.mockClear();
+    stationRecords.mockReset();
+    const months = Array.from({ length: 26 * 12 }, (_, i) => `${2000 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`);
+    stationRecords.mockResolvedValue([
+      {
+        station: { id: "UZM00038683", name: "Buhara, UZ", center: [39.717, 64.617], distanceKm: 17 },
+        temperature: months.map((month) => ({ month, value: 20 })),
+        rainfall: months.map((month) => ({ month, value: 30 })),
+      },
+    ]);
+  });
+
+  it("checks NASA's temperature and rainfall against the nearest weather station", async () => {
+    renderAt(BUKHARA);
+    await start();
+    expect(await screen.findByRole("heading", { name: "Checked against the ground" })).toBeInTheDocument();
+    const ground = screen.getByRole("region", { name: "Checked against the ground" });
+    await waitFor(() => expect(within(ground).getAllByText("Agrees")).toHaveLength(2));
+    expect(within(ground).getAllByText(/Over \d{4}–\d{4}, the Buhara, UZ weather station, 17 km away/)).toHaveLength(2);
+    expect(stationRecords).toHaveBeenCalledTimes(1);
+    expect(stationRecords.mock.calls[0][0]).toEqual([39.77, 64.42]);
   });
 
   it("asks for a place instead of showing preset regions", () => {

@@ -24,6 +24,7 @@ import { MEASURE_DEFINITIONS } from "@/lib/glossary";
 import GridImageLayer from "@/components/trends/GridImageLayer";
 import HotspotLayer from "@/components/trends/HotspotLayer";
 import HotspotList from "@/components/trends/HotspotList";
+import FirstLook from "@/components/trends/FirstLook";
 import HotspotCard from "@/components/trends/HotspotCard";
 import MeasureTabs from "@/components/trends/MeasureTabs";
 import ResultFilters from "@/components/trends/ResultFilters";
@@ -469,6 +470,7 @@ export default function Trends() {
               <div className="h-full bg-panel-foreground transition-all duration-300 motion-reduce:transition-none" style={{ width: `${Math.max(2, progressPct)}%` }} />
             </div>
             <p className="mt-2 font-mono text-[11px] tabular-nums text-panel-soft">{measure.progress?.message ?? "Scanning…"}</p>
+            {measure.progress?.preview && <FirstLook preview={measure.progress.preview} indicator={indicator} total={Math.max(1, measure.progress.total - 1)} />}
             <p className="mt-3 text-xs leading-relaxed text-panel-muted">
               {scanned.length > 1 ? `Measure ${position} of ${scanned.length}. ` : ""}
               {measureMaps > 0 && `About ${measureMaps} monthly maps, ${timeRange(measureMaps)} the first time, depending on how busy NASA's map service is. Seconds after that, as they are kept on this device.`}
@@ -556,7 +558,12 @@ export default function Trends() {
                 </li>
                 <li>
                   Hotspots: neighbouring pixels whose {monthsLabel(months)} average changed by at least {minChange} {indicator.unit}
-                  {plan.kind === "trend" ? `, with their own yearly trend pointing the same way (Mann–Kendall p < ${filter.strict ? STRICT_P : PIXEL_SIGNIFICANCE})` : ""}. Ranked by area × size of change.
+                  {plan.kind === "trend"
+                    ? filter.strict
+                      ? `, with their own yearly trend pointing the same way and clear after allowing for every pixel tested at once (Mann–Kendall, Benjamini–Hochberg false discovery rate ${STRICT_P * 100}%)`
+                      : `, with their own yearly trend pointing the same way (Mann–Kendall p < ${PIXEL_SIGNIFICANCE})`
+                    : ""}
+                  . Ranked by area × size of change.
                 </li>
                 {plan.kind === "trend" && <li>Each pixel's yearly values are tested with Mann–Kendall; the slope is Sen's slope (robust to outliers).</li>}
                 <li>Changing what is shown re-groups the pixels already read — no new maps are needed.</li>

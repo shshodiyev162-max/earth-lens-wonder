@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, Copy, Download, ExternalLink, Loader2, Map as MapIcon, Sparkles } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, Loader2, Map as MapIcon, Printer, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import PlaceCover from "./PlaceCover";
 import { describeResultPeriod, type InsightReport, type RecentConditions } from "@/lib/analysis/insights";
 import type { AnalysisResult, AnalysisTarget } from "@/lib/analysis/types";
-import { buildCsv, downloadText, slugify } from "@/lib/analysis/export";
+import { buildCsv, downloadText, printReport, slugify } from "@/lib/analysis/export";
 import { isAiConfigured, requestAiNarrative, type AiNarrative } from "@/lib/analysisClient";
 import { formatArea, formatLatLng } from "@/lib/geo/geometry";
 import { formatMonth } from "@/lib/gibs/time";
@@ -41,7 +41,7 @@ export function ResultsHeader({ target, result, running, shareUrl }: { target: A
       </PlaceCover>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5 border-b border-border px-6 py-3 md:px-10">
         <p className="font-mono text-[11px] tabular-nums text-muted-foreground">{result ? describeResultPeriod(result).text : ""}</p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 print:hidden">
           <button
             type="button"
             disabled={!result || running}
@@ -49,6 +49,9 @@ export function ResultsHeader({ target, result, running, shareUrl }: { target: A
             className="btn-line px-3 py-1.5"
           >
             <Download className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Download CSV
+          </button>
+          <button type="button" disabled={!result || running} onClick={printReport} className="btn-line px-3 py-1.5">
+            <Printer className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Save as PDF
           </button>
           <button type="button" onClick={copy} className="btn-line px-3 py-1.5">
             {copied ? <Check className="h-3.5 w-3.5 text-tone-good" aria-hidden /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />} {copied ? "Copied" : "Copy link"}

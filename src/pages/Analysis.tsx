@@ -6,12 +6,14 @@ import LocationPicker from "@/components/analysis/LocationPicker";
 import AnalysisMap from "@/components/analysis/AnalysisMap";
 import { DatasetPicker, MonthsPicker, PeriodPicker } from "@/components/analysis/AnalysisControls";
 import Scoreboard from "@/components/analysis/Scoreboard";
+import GroundCheck from "@/components/analysis/GroundCheck";
 import Glossary from "@/components/common/Glossary";
 import StepLabel from "@/components/common/StepLabel";
 import { AnswerPanel, Methodology, RecentPanel, ResultsHeader } from "@/components/analysis/ResultsPanels";
 import { useWorkspace, type AreaKind } from "@/context/WorkspaceContext";
 import { ANALYSIS_AREA_KEYS, analysisParts, partKey, partLabel, placePart, savedAreaPart, togglePart, writeAnalysisParts, type AreaPart } from "@/lib/areas/parts";
 import type { PickedCountry } from "@/components/map/DrawTools";
+import { useGroundCheck } from "@/hooks/useGroundCheck";
 import { useAnalysisRun } from "@/hooks/useAnalysisRun";
 import { useAnalysisTarget } from "@/hooks/useAnalysisTarget";
 import { DATASETS, DEFAULT_DATASETS, countClimateRequests, countMaps } from "@/lib/analysis/run";
@@ -168,6 +170,8 @@ export default function Analysis() {
     setStartedRun(runKey);
   }, [runKey, target]);
   const trends = useMemo(() => (shownResult ? analysisTrends(shownResult) : []), [shownResult]);
+  // NASA's temperature and rainfall trends beside the nearest weather station's, once they're in.
+  const groundCheck = useGroundCheck(shownResult, trends, Boolean(shownResult) && !stale);
   const sizeNote = maps
     ? `${maps.toLocaleString("en-US")} monthly NASA maps to read: ${formatEstimate(estimateSeconds(maps, climateRequests))} the first time, seconds after that.${datasets.includes("climate") ? " Climate results come first." : ""}`
     : undefined;
@@ -283,8 +287,8 @@ export default function Analysis() {
   const progressPct = run.progress ? Math.round((run.progress.done / Math.max(run.progress.total, 1)) * 100) : 0;
 
   return (
-    <div className="lg:flex lg:items-start">
-      <aside aria-label="Analysis controls" className="border-b border-border bg-panel px-6 pb-6 pt-7 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:w-[24rem] lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+    <div className="lg:flex lg:items-start print:block">
+      <aside aria-label="Analysis controls" className="print:hidden border-b border-border bg-panel px-6 pb-6 pt-7 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:w-[24rem] lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
         <p className="eyebrow">Analysis</p>
         <h1 className="mt-3 font-editorial text-[2.75rem] leading-[1.03] tracking-[-0.012em] text-foreground">Read any place on Earth.</h1>
         {/* On phones, once there is a report, the controls fold away so the report comes first. */}
@@ -340,7 +344,7 @@ export default function Analysis() {
 
       <section ref={resultsRef} aria-label={showing === "map" ? "Map" : "Report"} className="min-w-0 flex-1 scroll-mt-16">
         {hasArea && (
-          <div className="sticky top-16 z-[1100] flex h-[3.25rem] items-center justify-between gap-3 border-b border-border bg-background/90 px-4 backdrop-blur-md md:px-6">
+          <div className="sticky top-16 z-[1100] flex h-[3.25rem] items-center justify-between gap-3 border-b border-border bg-background/90 px-4 backdrop-blur-md print:hidden md:px-6">
             <div className="segmented" role="group" aria-label="Show the map or the report">
               <button type="button" aria-pressed={showing === "map"} onClick={() => setView("map")} className={cn("inline-flex items-center gap-1.5", showing === "map" ? "segment-on" : "segment")}>
                 <MapIcon className="h-3.5 w-3.5" aria-hidden /> Map
@@ -513,6 +517,7 @@ export default function Analysis() {
                           }
                     }
                   />
+                  <GroundCheck state={groundCheck} />
                   {run.report.recent && <RecentPanel recent={run.report.recent} />}
                   <div className="space-y-2.5">
                     <Methodology report={run.report} result={shownResult} />

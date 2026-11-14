@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { canDraw3d } from "@/lib/webgl";
 import TrendChart from "@/components/landing/TrendChart";
 import { areaText, DATA_MAPS, FINDINGS, meanBetween, pText, rangeText, shareText, signedNumber } from "@/components/landing/findings";
 import { INDICATORS, INDICATOR_ORDER, MEASURE_GROUPS, numberInWords } from "@/lib/query/indicators";
@@ -127,6 +128,7 @@ const MEASURE_COUNT = numberInWords(INDICATOR_ORDER.length).replace(/^./, (first
 
 const TOOLS = [
   { to: "/trends", name: "Trends", text: "Choose a measure, a place and the years. Get the tested answer and the places that changed most." },
+  { to: "/atlas", name: "Atlas", text: "Where six NASA records changed most across the world since 2003, already tested pixel by pixel. Pick a change to look closer." },
   { to: "/analysis", name: "Analysis", text: "A full measured report on any place, with a trend test for every measure, or then against now." },
   { to: "/map", name: "Explore", text: "Browse NASA's satellite layers on a map, for any date they have published, and read real values." },
   { to: "/split", name: "Compare", text: "Swipe between two dates on one map, or watch them side by side." },
@@ -134,7 +136,7 @@ const TOOLS = [
 
 const LIMITS = [
   { title: "Why it changed", text: "It measures change. It doesn't prove what caused it." },
-  { title: "Everything", text: "Sea level, lake and river levels, groundwater, burned area, NO₂, CO₂, methane and ground-level ozone aren't measured." },
+  { title: "Everything", text: "Sea level, lake and river levels, river flow, burned area, NO₂, CO₂ and ground-level ozone aren't measured." },
   { title: "Finer than the colours", text: "Values come from the colour steps of NASA's maps, so they are only as precise as that scale." },
   { title: "Beyond doubt", text: "Testing many pixels at once throws up some false alarms, so a hotspot also needs a connected patch, a minimum change and a minimum area." },
 ];
@@ -145,6 +147,19 @@ const DATA_SOURCES = [
   { href: "https://www.openstreetmap.org/copyright", name: "OpenStreetMap" },
   { href: "https://www.naturalearthdata.com/", name: "Natural Earth" },
 ];
+
+/** The planet as a picture, where the 3D one can't be drawn (an old device, or 3D switched off). */
+function EarthStill() {
+  return (
+    <img
+      src={`${import.meta.env.BASE_URL}textures/earth_still.jpg`}
+      alt=""
+      aria-hidden="true"
+      data-testid="earth-still"
+      className="absolute inset-0 h-full w-full object-cover object-[78%_50%] portrait:object-[62%_70%]"
+    />
+  );
+}
 
 function SectionHeading({ eyebrow, children }: { eyebrow: string; children: ReactNode }) {
   return (
@@ -158,6 +173,7 @@ function SectionHeading({ eyebrow, children }: { eyebrow: string; children: Reac
 export default function Landing() {
   const [reducedMotion] = useState(prefersReducedMotion);
   const storyRef = useRef<HTMLDivElement>(null);
+  const [threeD] = useState(canDraw3d);
 
   const med = FINDINGS.mediterranean;
   const uzb = FINDINGS.uzbekistan;
@@ -171,10 +187,14 @@ export default function Landing() {
       {/* The planet stays pinned while the story scrolls over it. This part is always dark: it's space. */}
       <div ref={storyRef} id="planet-story" className="dark relative bg-space text-white">
         <div className="sticky top-0 h-[100svh] w-full overflow-hidden">
-          <ErrorBoundary fallback={null}>
-            <Suspense fallback={null}>
-              <CinematicEarth reducedMotion={reducedMotion} story={storyRef} />
-            </Suspense>
+          <ErrorBoundary fallback={<EarthStill />}>
+            {threeD ? (
+              <Suspense fallback={null}>
+                <CinematicEarth reducedMotion={reducedMotion} story={storyRef} />
+              </Suspense>
+            ) : (
+              <EarthStill />
+            )}
           </ErrorBoundary>
         </div>
 
@@ -227,7 +247,7 @@ export default function Landing() {
             number="01"
             place={med.area}
             question="Is the Mediterranean warming?"
-            answer="Yes. Clearly."
+            answer="Yes."
             figure={`${signedNumber(med.verdict.slopePerDecade, 2)} °C`}
             unit="per decade"
             evidence={`${rangeText(med.verdict.lowerPerYear * 10, med.verdict.upperPerYear * 10, 2)} · ${pText(med.verdict.p)}`}
@@ -246,6 +266,12 @@ export default function Landing() {
             reducedMotion={reducedMotion}
           >
             Of the {med.overlay.measuredPixels.toLocaleString("en-US")} pixels of sea tested, every one is warming, and {shareText(med.overlay.significantRising)} pass the test on their own.
+            {med.verdict.carryOver !== null && (
+              <>
+                {" "}
+                The sea's warmth carries over from one year to the next (carry-over {med.verdict.carryOver.toFixed(2)}), which can make a run of warm years look surer than it is, so the test allowed for it and asked for stronger evidence. The warming still passes.
+              </>
+            )}
           </Chapter>
 
           <Chapter

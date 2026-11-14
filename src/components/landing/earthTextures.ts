@@ -27,6 +27,15 @@ export function sharpDayImageSize({ screenWidth, touch, maxTextureSize, saveData
   return maxTextureSize >= 4096 ? 4096 : FIRST_IMAGE;
 }
 
+/**
+ * The surface shown at the opening, before any zoom. The planet fills less than half the screen
+ * there, so the middle image is as sharp as it looks; the sharpest (3 MB) waits for the story.
+ */
+export function openingDayImageSize(device: Device): ImageSize {
+  const sharpest = sharpDayImageSize(device);
+  return sharpest > 4096 ? 4096 : sharpest;
+}
+
 /** Cloud detail makes large files, so large screens get the sharper clouds and everyone else keeps the first. */
 export function sharpCloudImageSize({ screenWidth, touch, maxTextureSize, saveData }: Device): ImageSize {
   if (saveData || touch || screenWidth < 1024 || maxTextureSize < 4096) return FIRST_IMAGE;

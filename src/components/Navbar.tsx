@@ -14,6 +14,7 @@ const navItems = [
   { to: "/", label: "Home", match: ["/"] },
   { to: "/map", label: "Explore", match: ["/map", "/split", "/sync"] },
   { to: "/trends", label: "Trends", match: ["/trends"] },
+  { to: "/atlas", label: "Atlas", match: ["/atlas"] },
   { to: "/analysis", label: "Analysis", match: ["/analysis"] },
 ];
 
@@ -86,7 +87,7 @@ export default function Navbar() {
   return (
     <nav
       aria-label="Main"
-      className={`fixed top-0 left-0 right-0 z-[2000] transition-colors duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-[2000] transition-colors duration-300 print:hidden ${
         overPlanet === "top" && !mobileOpen
           ? "dark border-b border-transparent bg-transparent"
           : overPlanet

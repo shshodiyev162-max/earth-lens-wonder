@@ -1,6 +1,7 @@
 // Turns a per-pixel change map into ranked hotspots: neighbouring pixels that changed the same
 // way are grouped (8-connected), outlined exactly along pixel edges, measured and ranked.
 
+import { falseDiscoveryThreshold } from "../analysis/stats";
 import type { BBox, LatLng, PolygonGeometry, Position } from "../geo/geometry";
 import type { Direction } from "../query/indicators";
 import type { PixelTrends } from "./pixels";
@@ -284,17 +285,34 @@ export interface HotspotFilter {
   minFactor: number;
   /** Smallest hotspot, km² (0 = any size). */
   minAreaKm2: number;
-  /** Only pixels whose yearly trend passes p < 0.05 (instead of 0.1). */
+  /**
+   * Only pixels whose yearly trend is clear once thousands of pixels tested at once are allowed for:
+   * a false discovery rate of 5% (Benjamini–Hochberg), instead of each pixel at p < 0.1.
+   */
   strict: boolean;
 }
 
+/** The false discovery rate "Only clear trends" holds pixels to. */
 export const STRICT_P = 0.05;
 
-export function hotspotOptions(filter: HotspotFilter, minChange: number, coarse: boolean): HotspotOptions {
+/**
+ * The p-value a pixel's trend must be under. "Only clear trends" uses the Benjamini–Hochberg cut-off
+ * across every pixel tested (never above 0.05), so among the pixels it calls clear, about 1 in 20 at
+ * most is expected to be a false alarm, however many were tested.
+ */
+export function pixelCutoff(filter: Pick<HotspotFilter, "strict">, trends?: Pick<PixelTrends, "p">): number {
+  if (!filter.strict) return PIXEL_SIGNIFICANCE;
+  if (!trends) return STRICT_P;
+  const threshold = falseDiscoveryThreshold(trends.p, STRICT_P);
+  // Pixels pass when p is below the cut-off; the pixel at the threshold itself passes too.
+  return threshold > 0 ? threshold * (1 + 1e-9) + 1e-15 : 0;
+}
+
+export function hotspotOptions(filter: HotspotFilter, minChange: number, coarse: boolean, trends?: Pick<PixelTrends, "p">): HotspotOptions {
   return {
     direction: filter.direction,
     minChange: minChange * filter.minFactor,
-    maxP: filter.strict ? STRICT_P : PIXEL_SIGNIFICANCE,
+    maxP: pixelCutoff(filter, trends),
     minAreaKm2: filter.minAreaKm2,
     maxHotspots: 10,
     minPixels: coarse ? 3 : 4,

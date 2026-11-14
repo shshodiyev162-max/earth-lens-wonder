@@ -8,7 +8,9 @@
 // https://web.archive.org/web/20261018141030id_/https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_8192.tif
 //
 // The Central Asia image is a sharper piece of the same picture, for the home page's close look at
-// Uzbekistan and the Aral Sea shore (the whole-world image is about 5 km a pixel there).
+// Uzbekistan and the Aral Sea shore (the whole-world image is about 5 km a pixel there). The Blue
+// Marble shows the Aral Sea as it was in 2004, so scripts/compose-aral.browser.js then puts a
+// cloud-free MODIS picture of 18 August 2025 over it.
 //
 // Run: npm run data:earth (all images), or name the files: npm run data:earth -- earth_day_central_asia.jpg
 import { writeFileSync } from "node:fs";

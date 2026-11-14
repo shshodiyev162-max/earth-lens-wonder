@@ -8,6 +8,9 @@ import Landing from "../Landing";
 
 vi.mock("@/components/CinematicEarth", () => ({ default: () => <div data-testid="planet" /> }));
 
+const webgl = vi.hoisted(() => ({ ok: true }));
+vi.mock("@/lib/webgl", () => ({ canDraw3d: () => webgl.ok }));
+
 beforeAll(() => {
   class Observer {
     observe() {}
@@ -26,6 +29,19 @@ function renderPage() {
 }
 
 describe("the home page", () => {
+  it("draws the 3D planet where it can, and shows it as a picture where it can't", async () => {
+    webgl.ok = true;
+    const first = renderPage();
+    expect(await screen.findByTestId("planet")).toBeInTheDocument();
+    expect(screen.queryByTestId("earth-still")).toBeNull();
+    first.unmount();
+    webgl.ok = false;
+    renderPage();
+    expect(screen.getByTestId("earth-still").getAttribute("src")).toMatch(/textures\/earth_still\.jpg$/);
+    expect(screen.queryByTestId("planet")).toBeNull();
+    webgl.ok = true;
+  });
+
   it("asks its question and offers one main action", () => {
     renderPage();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("What is changing on Earth, and is it real?");
@@ -41,11 +57,13 @@ describe("the home page", () => {
 
   it("answers yes, no and barely, with the numbers measured", () => {
     renderPage();
-    for (const answer of ["Yes. Clearly.", "As a whole, no.", "There, yes.", "Barely. Maybe."]) {
+    for (const answer of ["Yes.", "As a whole, no.", "There, yes.", "Barely. Maybe."]) {
       expect(screen.getByRole("heading", { name: answer })).toBeTruthy();
     }
     expect(screen.getByText("+0.61 °C")).toBeTruthy();
-    expect(screen.getByText(/95% range \+0\.43 to \+0\.93 · p < 0\.001/)).toBeTruthy();
+    expect(screen.getByText(/95% range \+0\.2[01] to \+1\.45 · p = 0\.02$/)).toBeTruthy();
+    // Why the Mediterranean answer is "Yes." and not "Yes, clearly": the years carry over.
+    expect(screen.getByText(/carries over from one year to the next \(carry-over 0\.57\)/)).toBeTruthy();
     expect(screen.getByText("No clear trend")).toBeTruthy();
     expect(screen.getByText(/p = 0\.80/)).toBeTruthy();
     expect(screen.getByText(/p = 0\.0478/)).toBeTruthy();
@@ -84,6 +102,13 @@ describe("the home page", () => {
     expect(words).not.toMatch(/powered by nasa/i);
     expect(words).toMatch(/isn't affiliated with or endorsed by NASA/);
     expect(words).toMatch(/doesn't prove what caused it/);
+  });
+
+  it("doesn't list as unmeasured anything the app now measures", () => {
+    const { container } = renderPage();
+    const unmeasured = (container.textContent ?? "").match(/[^.]*aren't measured/)?.[0] ?? "";
+    expect(unmeasured).toMatch(/Sea level/);
+    for (const measured of ["groundwater", "methane", "salinity", "ozone layer", "snowfall"]) expect(unmeasured, measured).not.toMatch(new RegExp(measured, "i"));
   });
 
   it("has a footer with real links", () => {

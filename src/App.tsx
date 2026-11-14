@@ -21,6 +21,7 @@ const SplitView = lazy(() => import("./pages/SplitView"));
 const SyncView = lazy(() => import("./pages/SyncView"));
 const Analysis = lazy(() => import("./pages/Analysis"));
 const Trends = lazy(() => import("./pages/Trends"));
+const Atlas = lazy(() => import("./pages/Atlas"));
 const Login = lazy(() => import("./pages/Login"));
 
 const queryClient = new QueryClient();
@@ -104,6 +105,7 @@ const App = () => (
                 <Route path="/sync" element={<Page protectedRoute><SyncView /></Page>} />
                 <Route path="/analysis" element={<Page protectedRoute><Analysis /></Page>} />
                 <Route path="/trends" element={<Page protectedRoute><Trends /></Page>} />
+                <Route path="/atlas" element={<Page protectedRoute><Atlas /></Page>} />
                 {ACCOUNTS_ENABLED && <Route path="/login" element={<Page><Login /></Page>} />}
                 <Route path="*" element={<NotFound />} />
               </Route>

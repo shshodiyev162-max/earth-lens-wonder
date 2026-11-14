@@ -1,10 +1,10 @@
 // Real results, measured by this app's own scanner (runScan in lib/trends/scan.ts) from NASA's monthly
 // maps, the same way the Trends page does when each finding's `link` is opened. Not edited by hand.
 // The per-pixel maps are in public/data/findings: red = rate per decade (0-255 maps to
-// -scalePerDecade..+scalePerDecade), green = significant at p < 0.05, blue = measured.
+// -scalePerDecade..+scalePerDecade), green = significant at p < 0.05 (allowing for year-to-year carry-over), blue = measured.
 
 export const MEASURED = {
-  "measuredOn": "2026-11-09",
+  "measuredOn": "2026-11-14",
   "findings": {
     "mediterranean": {
       "id": "mediterranean",
@@ -106,19 +106,21 @@ export const MEASURED = {
       "verdict": {
         "label": "Significant increase",
         "direction": "increase",
-        "p": 4.95e-05,
+        "p": 0.0236,
         "slopePerYear": 0.0614,
-        "lowerPerYear": 0.0434,
-        "upperPerYear": 0.0928,
+        "lowerPerYear": 0.0205,
+        "upperPerYear": 0.145,
         "slopePerDecade": 0.6135,
         "years": 23,
-        "method": "Mann–Kendall + Sen's slope"
+        "method": "Mann–Kendall + Sen's slope",
+        "carryOver": 0.57,
+        "yearsNeeded": 24
       },
       "hotspot": {
         "name": null,
         "center": [
-          36.797,
-          16.786
+          36.799,
+          16.788
         ],
         "bbox": [
           -5.536,
@@ -126,32 +128,32 @@ export const MEASURED = {
           36.136,
           45.638
         ],
-        "areaKm2": 2316352,
-        "meanChange": 1.2577,
+        "areaKm2": 2312892,
+        "meanChange": 1.2579,
         "series": [
           {
             "year": 2003,
-            "value": 20.2102
+            "value": 20.2095
           },
           {
             "year": 2004,
-            "value": 19.7447
+            "value": 19.7442
           },
           {
             "year": 2005,
-            "value": 19.6963
+            "value": 19.6957
           },
           {
             "year": 2006,
-            "value": 19.867
+            "value": 19.8661
           },
           {
             "year": 2007,
-            "value": 19.986
+            "value": 19.9854
           },
           {
             "year": 2009,
-            "value": 19.9864
+            "value": 19.986
           },
           {
             "year": 2011,
@@ -159,47 +161,49 @@ export const MEASURED = {
           },
           {
             "year": 2014,
-            "value": 20.3569
+            "value": 20.3567
           },
           {
             "year": 2017,
-            "value": 20.3439
+            "value": 20.3436
           },
           {
             "year": 2019,
-            "value": 20.3341
+            "value": 20.334
           },
           {
             "year": 2021,
-            "value": 20.5012
+            "value": 20.5009
           },
           {
             "year": 2022,
-            "value": 20.7105
+            "value": 20.71
           },
           {
             "year": 2023,
-            "value": 21.285
+            "value": 21.2846
           },
           {
             "year": 2024,
-            "value": 21.6831
+            "value": 21.6826
           },
           {
             "year": 2025,
-            "value": 21.613
+            "value": 21.6124
           }
         ],
         "verdict": {
           "label": "Significant increase",
           "direction": "increase",
-          "p": 4.95e-05,
+          "p": 0.0236,
           "slopePerYear": 0.0612,
-          "lowerPerYear": 0.0434,
-          "upperPerYear": 0.0928,
-          "slopePerDecade": 0.6122,
+          "lowerPerYear": 0.0206,
+          "upperPerYear": 0.1448,
+          "slopePerDecade": 0.6125,
           "years": 23,
-          "method": "Mann–Kendall + Sen's slope"
+          "method": "Mann–Kendall + Sen's slope",
+          "carryOver": 0.57,
+          "yearsNeeded": 24
         }
       },
       "hotspotCount": 2,
@@ -215,12 +219,11 @@ export const MEASURED = {
         "height": 61,
         "scalePerDecade": 0.8891,
         "measuredPixels": 3417,
-        "significantShare": 0.997,
-        "rising": 1.0,
-        "significantRising": 0.9974,
-        "significantFalling": 0.0
-      },
-      "measuredOn": "2026-11-09"
+        "significantShare": 0.978,
+        "rising": 1,
+        "significantRising": 0.9783,
+        "significantFalling": 0
+      }
     },
     "uzbekistan": {
       "id": "uzbekistan",
@@ -375,142 +378,146 @@ export const MEASURED = {
         "upperPerYear": 0.00072,
         "slopePerDecade": -0.00276,
         "years": 27,
-        "method": "Mann–Kendall + Sen's slope"
+        "method": "Mann–Kendall + Sen's slope",
+        "carryOver": null,
+        "yearsNeeded": 74
       },
       "hotspot": {
         "name": "Muynoq district, Uzbekistan",
         "center": [
-          43.487,
-          59.22
+          43.51,
+          59.33
         ],
         "bbox": [
-          58.443,
-          42.868,
+          58.657,
+          43.191,
           60.266,
           44.265
         ],
-        "areaKm2": 4633,
-        "meanChange": -0.099,
+        "areaKm2": 3218,
+        "meanChange": -0.09743,
         "series": [
           {
             "year": 2000,
-            "value": 0.26806
+            "value": 0.25166
           },
           {
             "year": 2001,
-            "value": 0.20548
+            "value": 0.19756
           },
           {
             "year": 2002,
-            "value": 0.26157
+            "value": 0.25988
           },
           {
             "year": 2003,
-            "value": 0.29036
+            "value": 0.28179
           },
           {
             "year": 2004,
-            "value": 0.30613
+            "value": 0.29049
           },
           {
             "year": 2005,
-            "value": 0.28291
+            "value": 0.26936
           },
           {
             "year": 2006,
-            "value": 0.27778
+            "value": 0.26311
           },
           {
             "year": 2007,
-            "value": 0.2441
+            "value": 0.21936
           },
           {
             "year": 2008,
-            "value": 0.2136
+            "value": 0.19774
           },
           {
             "year": 2009,
-            "value": 0.17126
+            "value": 0.16576
           },
           {
             "year": 2010,
-            "value": 0.23821
+            "value": 0.22226
           },
           {
             "year": 2011,
-            "value": 0.24161
+            "value": 0.2286
           },
           {
             "year": 2012,
-            "value": 0.22619
+            "value": 0.20838
           },
           {
             "year": 2013,
-            "value": 0.24921
+            "value": 0.2283
           },
           {
             "year": 2014,
-            "value": 0.19918
+            "value": 0.17442
           },
           {
             "year": 2015,
-            "value": 0.21882
+            "value": 0.19258
           },
           {
             "year": 2016,
-            "value": 0.25623
+            "value": 0.23168
           },
           {
             "year": 2017,
-            "value": 0.23667
+            "value": 0.21848
           },
           {
             "year": 2018,
-            "value": 0.22452
+            "value": 0.20428
           },
           {
             "year": 2019,
-            "value": 0.19678
+            "value": 0.16365
           },
           {
             "year": 2020,
-            "value": 0.20195
+            "value": 0.16698
           },
           {
             "year": 2021,
-            "value": 0.16768
+            "value": 0.14486
           },
           {
             "year": 2022,
-            "value": 0.15633
+            "value": 0.13827
           },
           {
             "year": 2023,
-            "value": 0.14481
+            "value": 0.13056
           },
           {
             "year": 2024,
-            "value": 0.16982
+            "value": 0.15937
           },
           {
             "year": 2025,
-            "value": 0.16251
+            "value": 0.14638
           },
           {
             "year": 2026,
-            "value": 0.19058
+            "value": 0.18467
           }
         ],
         "verdict": {
           "label": "Significant decline",
           "direction": "decline",
-          "p": 2.54e-05,
-          "slopePerYear": -0.0044,
-          "lowerPerYear": -0.00601,
-          "upperPerYear": -0.00298,
-          "slopePerDecade": -0.04397,
+          "p": 3.67e-05,
+          "slopePerYear": -0.00487,
+          "lowerPerYear": -0.00665,
+          "upperPerYear": -0.00302,
+          "slopePerDecade": -0.04873,
           "years": 27,
-          "method": "Mann–Kendall + Sen's slope"
+          "method": "Mann–Kendall + Sen's slope",
+          "carryOver": null,
+          "yearsNeeded": 22
         }
       },
       "hotspotCount": 10,
@@ -524,12 +531,12 @@ export const MEASURED = {
         ],
         "width": 160,
         "height": 78,
-        "scalePerDecade": 0.04559,
+        "scalePerDecade": 0.0456,
         "measuredPixels": 4135,
-        "significantShare": 0.22,
-        "rising": 0.4155,
-        "significantRising": 0.1337,
-        "significantFalling": 0.0861,
+        "significantShare": 0.205,
+        "rising": 0.3787,
+        "significantRising": 0.1258,
+        "significantFalling": 0.0788,
         "picture": {
           "file": "uzbekistan-fine.png",
           "bbox": [
@@ -541,8 +548,7 @@ export const MEASURED = {
           "width": 700,
           "height": 342
         }
-      },
-      "measuredOn": "2026-11-09"
+      }
     },
     "antarctica": {
       "id": "antarctica",
@@ -649,7 +655,9 @@ export const MEASURED = {
         "upperPerYear": 0.0234,
         "slopePerDecade": 0.0938,
         "years": 21,
-        "method": "Mann–Kendall + Sen's slope"
+        "method": "Mann–Kendall + Sen's slope",
+        "carryOver": null,
+        "yearsNeeded": 25
       },
       "hotspot": {
         "name": null,
@@ -736,7 +744,9 @@ export const MEASURED = {
           "upperPerYear": 0.0236,
           "slopePerDecade": 0.1056,
           "years": 21,
-          "method": "Mann–Kendall + Sen's slope"
+          "method": "Mann–Kendall + Sen's slope",
+          "carryOver": null,
+          "yearsNeeded": 21
         }
       },
       "hotspotCount": 1,
@@ -756,8 +766,7 @@ export const MEASURED = {
         "rising": 0.9994,
         "significantRising": 0.6846,
         "significantFalling": 0
-      },
-      "measuredOn": "2026-11-09"
+      }
     }
   }
 } as const;

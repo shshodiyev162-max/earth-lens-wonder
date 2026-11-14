@@ -162,7 +162,7 @@ export default function Explore() {
       onPanelOpenChange={setPanelOpen}
     >
       <BaseMap initialView={initialView} onViewChange={onViewChange}>
-        <LayerStack layer={layer} date={dateState.date} onStatus={setTileStatus} />
+        <LayerStack layer={layer} date={dateState.date} waiting={dateState.waiting} onStatus={setTileStatus} />
         <ReferenceOverlays />
         <AreasLayer areas={workspace.areas} activeId={workspace.activeAreaId} onSelect={workspace.setActiveAreaId} interactive={!drawMode} />
         {selection && <PlaceOutline place={selection.place} geometry={selection.geometry} />}

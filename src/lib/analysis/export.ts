@@ -109,3 +109,19 @@ export function slugify(text: string): string {
     .replace(/[\s_-]+/g, "-")
     .slice(0, 60) || "area";
 }
+
+/**
+ * Saves the report as a PDF through the browser's own print dialog ("Save as PDF"), on white paper:
+ * the page is switched to the light colours while the dialog is open, then back.
+ */
+export function printReport(): void {
+  const root = document.documentElement;
+  const dark = root.classList.contains("dark");
+  if (dark) root.classList.remove("dark");
+  const restore = () => {
+    if (dark) root.classList.add("dark");
+    window.removeEventListener("afterprint", restore);
+  };
+  window.addEventListener("afterprint", restore);
+  window.print();
+}

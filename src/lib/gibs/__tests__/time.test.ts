@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, availableMonths, clipDomain, completeDaysAgoUtc, defaultDateFor, firstDateInMonth, formatLayerDate, monthRange, monthsInDomain, parseDomainXml, parsePeriod, provisionalDate, resolveForLayer, resolveInDomain } from "../time";
+import { addMonths, availableMonths, clipDomain, completeDaysAgoUtc, defaultDateFor, firstDateInMonth, formatLayerDate, monthRange, monthsInDomain, parseDomainXml, parsePeriod, provisionalDate, resolveForLayer, resolveInDomain, waitsForDates } from "../time";
 import { getLayer, type GibsLayer } from "../catalog";
 
 const DAILY = `<Domains><DimensionDomain><ows:Identifier>time</ows:Identifier><Domain>2000-06-01/2025-10-22/P1D,2025-10-30/2026-01-07/P1D,2026-01-09/2026-09-30/P1D</Domain><Size>3</Size></DimensionDomain></Domains>`;
@@ -153,5 +153,15 @@ describe("monthly records on the map pages", () => {
     expect(formatLayerDate({ period: "daily" }, "2026-11-04")).toBe("Nov 4, 2026");
     expect(provisionalDate(merra, "2025-03-17")).toBe("2025-03-01");
     expect(provisionalDate({ ...merra, period: "yearly" }, "2012-06-30")).toBe("2012-01-01");
+  });
+});
+
+describe("waitsForDates", () => {
+  it("lets daily maps draw their first guess, and makes monthly and yearly maps wait for NASA's dates", () => {
+    expect(waitsForDates({ period: "daily" })).toBe(false);
+    expect(waitsForDates({ period: "static" })).toBe(false);
+    expect(waitsForDates({ period: "monthly" })).toBe(true);
+    expect(waitsForDates({ period: "yearly" })).toBe(true);
+    expect(waitsForDates({ period: "16-day" })).toBe(true);
   });
 });

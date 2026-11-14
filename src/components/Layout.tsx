@@ -9,6 +9,7 @@ const TITLES: Record<string, string> = {
   "/sync": "Side by side · TerraScope",
   "/analysis": "Area analysis · TerraScope",
   "/trends": "Trends · TerraScope",
+  "/atlas": "Atlas · TerraScope",
 };
 
 export default function Layout() {
@@ -29,7 +30,7 @@ export default function Layout() {
       </a>
       <Navbar />
       {/* On the home page the planet runs up behind the navigation bar. */}
-      <main id="main" tabIndex={-1} className={`relative min-h-screen bg-background outline-none ${pathname === "/" ? "" : "pt-16"}`}>
+      <main id="main" tabIndex={-1} className={`relative min-h-screen bg-background outline-none print:min-h-0 print:pt-0 ${pathname === "/" ? "" : "pt-16"}`}>
         <div key={pathname} className="animate-page-in">
           <Outlet />
         </div>

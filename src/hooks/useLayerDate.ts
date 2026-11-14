@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { isTimeEnabled, type GibsLayer } from "@/lib/gibs/catalog";
-import { defaultDateFor, fetchTimeDomain, provisionalDate, resolveForLayer, type DateResolution, type TimeDomain } from "@/lib/gibs/time";
+import { defaultDateFor, fetchTimeDomain, provisionalDate, resolveForLayer, waitsForDates, type DateResolution, type TimeDomain } from "@/lib/gibs/time";
 
 export interface LayerDateState {
   /** Date to request tiles for (null for static layers). */
@@ -14,6 +14,8 @@ export interface LayerDateState {
   defaultDate: string | null;
   loading: boolean;
   error: boolean;
+  /** Still waiting for NASA's list of dates before the map may draw (monthly and yearly layers). */
+  waiting: boolean;
 }
 
 /**
@@ -41,7 +43,7 @@ export function useLayerDate(layer: GibsLayer, requested: string | null): LayerD
 
   return useMemo<LayerDateState>(() => {
     if (!timeEnabled) {
-      return { date: null, resolution: "static", domain: null, latest: null, earliest: null, defaultDate: null, loading: false, error: false };
+      return { date: null, resolution: "static", domain: null, latest: null, earliest: null, defaultDate: null, loading: false, error: false, waiting: false };
     }
     const current = domainState && domainState.layerId === layer.id ? domainState : null;
     if (!current) {
@@ -54,6 +56,7 @@ export function useLayerDate(layer: GibsLayer, requested: string | null): LayerD
         defaultDate: null,
         loading: true,
         error: false,
+        waiting: waitsForDates(layer),
       };
     }
     if (!current.domain) {
@@ -66,6 +69,7 @@ export function useLayerDate(layer: GibsLayer, requested: string | null): LayerD
         defaultDate: null,
         loading: false,
         error: current.error,
+        waiting: false,
       };
     }
     const defaultDate = defaultDateFor(layer, current.domain);
@@ -79,6 +83,7 @@ export function useLayerDate(layer: GibsLayer, requested: string | null): LayerD
       defaultDate,
       loading: false,
       error: false,
+      waiting: false,
     };
   }, [domainState, layer, requested, timeEnabled]);
 }

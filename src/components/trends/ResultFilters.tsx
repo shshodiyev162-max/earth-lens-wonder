@@ -86,7 +86,8 @@ export default function ResultFilters({ indicator, filter, tested, onChange }: R
         {tested && (
           <label htmlFor={strictId} className="flex items-center gap-1.5">
             <input id={strictId} type="checkbox" checked={filter.strict} onChange={(event) => set({ strict: event.target.checked })} className="h-3.5 w-3.5 accent-panel-foreground pointer-coarse:h-5 pointer-coarse:w-5" />
-            Only clear trends (p &lt; 0.05)
+            Only clear trends
+            <span className="sr-only"> (allowing for thousands of pixels tested at once)</span>
           </label>
         )}
       </div>

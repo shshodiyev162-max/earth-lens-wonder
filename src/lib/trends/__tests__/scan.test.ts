@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { cappedShare, flooredShare, rebuildHotspots, runScan, ScanError, summarizeArea, WrongPlaceError, type ScanLoaders } from "../scan";
+import { cappedShare, firstLookMonths, flooredShare, readingOrder, rebuildHotspots, runScan, ScanError, summarizeArea, WrongPlaceError, type ScanLoaders, type ScanProgress } from "../scan";
 import { scanGrid, decodeGrid } from "../grid";
 import { AreaError, matchCountry, resolveArea, widen, type ScanArea } from "../place";
 import { planPeriod, type PeriodPlan } from "../../query/period";
@@ -42,6 +42,54 @@ function loaders(fail?: (month: string) => boolean): ScanLoaders {
     },
   };
 }
+
+describe("the first look", () => {
+  it("picks the middle month of each year's season, or the nearest one NASA has", () => {
+    const p = plan();
+    const all = p.years.flatMap((year) => GROWING.map((m) => `${year}-${String(m).padStart(2, "0")}`));
+    const look = firstLookMonths(p, all);
+    expect(look.size).toBe(11);
+    // April–September: the middle falls between June and July; June comes first.
+    expect(look.get(2015)).toBe("2015-06");
+    expect(firstLookMonths(p, all.filter((m) => m !== "2016-06" && m !== "2016-07")).get(2016)).toBe("2016-05");
+    // Nothing to gain with one month a year, or a short record.
+    expect(firstLookMonths({ ...p, months: [7] }, all).size).toBe(0);
+    expect(firstLookMonths({ ...p, years: p.years.slice(0, 4) }, all).size).toBe(0);
+  });
+
+  it("is read first, and shows the whole area's trend before the rest of the maps", async () => {
+    const order: string[] = [];
+    const updates: ScanProgress[] = [];
+    const base = loaders();
+    await runScan({
+      indicator: "vegetation",
+      direction: "decline",
+      area: AREA,
+      plan: plan(),
+      availability: { window: { earliest: "2000-03", latest: "2026-08" }, available: null },
+      loaders: {
+        ...base,
+        monthGrid: async (layer, grid, month, signal) => {
+          order.push(month);
+          return base.monthGrid(layer, grid, month, signal);
+        },
+      },
+      maxSize: 20,
+      onProgress: (progress) => updates.push(progress),
+    });
+    expect(order.slice(0, 11)).toEqual(Array.from({ length: 11 }, (_, k) => `${2015 + k}-06`));
+    expect(readingOrder(["2015-04", "2015-06", "2016-06"], new Map([[2015, "2015-06"]]))).toEqual(["2015-06", "2015-04", "2016-06"]);
+    const firstWithPreview = updates.findIndex((u) => u.preview);
+    expect(firstWithPreview).toBeGreaterThan(-1);
+    // It arrives while maps are still being read, and stays on every update after it.
+    expect(updates[firstWithPreview].done).toBeLessThan(66);
+    expect(updates.slice(firstWithPreview).every((u) => u.preview)).toBe(true);
+    const { preview } = updates[firstWithPreview];
+    expect(preview?.maps).toBe(11);
+    expect(preview?.series).toHaveLength(11);
+    expect(preview?.verdict).not.toBeNull();
+  });
+});
 
 describe("runScan", () => {
   it("finds the declining block, measures it and tests its trend", async () => {

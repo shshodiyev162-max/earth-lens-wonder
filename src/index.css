@@ -546,3 +546,24 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* A report saved as a PDF: white paper, colours kept, nothing split across pages that needn't be. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  article,
+  figure,
+  svg,
+  dl {
+    break-inside: avoid;
+  }
+}

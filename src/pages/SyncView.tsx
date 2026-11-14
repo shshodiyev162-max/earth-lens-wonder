@@ -257,7 +257,7 @@ export default function SyncView() {
       <div className="absolute inset-0 grid grid-rows-2 sm:grid-cols-2 sm:grid-rows-1">
         <div className="relative min-h-0 min-w-0">
           <BaseMap initialView={initialView} onViewChange={workspace.setView} onReady={setLeftMap} zoomControl={false} attribution={false}>
-            <LayerStack layer={leftLayer} date={leftDate.date} />
+            <LayerStack layer={leftLayer} date={leftDate.date} waiting={leftDate.waiting} />
             <ReferenceOverlays />
             <AreasLayer areas={workspace.areas} activeId={workspace.activeAreaId} onSelect={workspace.setActiveAreaId} interactive={!drawMode} />
             {selection && <PlaceOutline place={selection.place} geometry={selection.geometry} />}
@@ -270,7 +270,7 @@ export default function SyncView() {
         </div>
         <div className="relative min-h-0 min-w-0 border-t border-panel-line-strong sm:border-l sm:border-t-0">
           <BaseMap initialView={initialView} onReady={setRightMap}>
-            <LayerStack layer={rightLayer} date={rightDate.date} />
+            <LayerStack layer={rightLayer} date={rightDate.date} waiting={rightDate.waiting} />
             <ReferenceOverlays />
             <AreasLayer areas={workspace.areas} activeId={workspace.activeAreaId} onSelect={workspace.setActiveAreaId} interactive={!drawMode} />
             {selection && <PlaceOutline place={selection.place} geometry={selection.geometry} />}

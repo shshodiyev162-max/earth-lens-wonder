@@ -12,6 +12,26 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# Every page: no guessing file types, links to other sites carry only the domain, no camera or
+# microphone, and location only for "Use my location" on the Analysis page.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), payment=(), geolocation=(self)"
+
+# The globe's pictures and the bundled outlines change rarely; their names carry no hash, so a month.
+[[headers]]
+  for = "/textures/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
 # Single-page app: every route (/map, /analysis, …) is served by index.html.
 [[redirects]]
   from = "/*"

@@ -249,6 +249,15 @@ export function resolveForLayer(layer: Pick<GibsLayer, "period" | "continuousDom
   return { requested, date, resolution };
 }
 
+/**
+ * Whether a map should wait for NASA's list of dates before drawing. A daily layer's first guess
+ * (yesterday or so) is almost always published; a monthly or yearly one is often a month NASA
+ * hasn't published yet, which would fill the screen with failed requests.
+ */
+export function waitsForDates(layer: Pick<GibsLayer, "period">): boolean {
+  return layer.period !== "daily" && layer.period !== "static";
+}
+
 /** Offline guess used before the domain has loaded (keeps the first paint fast). */
 export function provisionalDate(layer: GibsLayer, requested?: string | null): string {
   const lagDays =

@@ -1,7 +1,7 @@
 // Per-pixel change and trend over a stack of yearly season means.
 // Each grid is a Float32Array in row-major order (row 0 = north), NaN where there is no data.
 
-import { normalCdf } from "../analysis/stats";
+import { carryOverFactor, lag1Autocorrelation, normalCdf } from "../analysis/stats";
 import { seasonYearMonths } from "../query/period";
 
 export interface PixelTrends {
@@ -68,11 +68,17 @@ export function pixelTrend(xs: Float64Array, ys: Float64Array, n: number, slopes
     if (t > 1) ties += t * (t - 1) * (2 * t + 5);
     i = j;
   }
-  const varS = (n * (n - 1) * (2 * n + 5) - ties) / 18;
-  const z = varS > 0 && s !== 0 ? (s - Math.sign(s)) / Math.sqrt(varS) : 0;
-  const p = z === 0 ? 1 : 2 * (1 - normalCdf(Math.abs(z)));
   const list = slopes.subarray(0, count).sort();
   const slope = count % 2 ? list[(count - 1) / 2] : (list[count / 2 - 1] + list[count / 2]) / 2;
+  // Years that follow the year before make a run look more like a trend than it is: when that
+  // carry-over is clearly there, the test asks for stronger evidence (Yue & Wang 2004), as for the
+  // whole area. The intercept is the median of y − slope·x (Conover).
+  for (let i = 0; i < n; i++) sorted[i] = ys[i] - slope * xs[i];
+  const offsets = sorted.subarray(0, n).sort();
+  const intercept = n % 2 ? offsets[(n - 1) / 2] : (offsets[n / 2 - 1] + offsets[n / 2]) / 2;
+  const varS = ((n * (n - 1) * (2 * n + 5) - ties) / 18) * carryOverFactor(lag1Autocorrelation(xs, ys, n, slope, intercept), n);
+  const z = varS > 0 && s !== 0 ? (s - Math.sign(s)) / Math.sqrt(varS) : 0;
+  const p = z === 0 ? 1 : 2 * (1 - normalCdf(Math.abs(z)));
   return { slope, p };
 }
 

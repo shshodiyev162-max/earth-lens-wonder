@@ -23,6 +23,19 @@ export interface ScanProgress {
   done: number;
   total: number;
   message: string;
+  /** A first look at the whole area, from one map a year, while the rest are read. */
+  preview?: ScanPreview;
+}
+
+/**
+ * The whole area's trend from one map a year (the middle month of the season), read first so an
+ * answer shows within seconds. Rougher than the full answer, which uses every month and may differ.
+ */
+export interface ScanPreview {
+  series: YearValue[];
+  verdict: TrendVerdict | null;
+  /** Maps it was read from. */
+  maps: number;
 }
 
 export interface YearValue {
@@ -196,6 +209,8 @@ export interface ScanRequest {
   loaders?: ScanLoaders;
   /** Long side of the grid in pixels (default 200, or 160 for very large areas). */
   maxSize?: number;
+  /** Re-read the top hotspots of a large area on a finer grid (default true; the world atlas skips it). */
+  refine?: boolean;
 }
 
 /** Spans wider than this (degrees) are scanned coarsely first, then the top hotspots are refined. */
@@ -204,6 +219,30 @@ const REFINE_BUDGET = 72;
 
 function monthsFor(plan: PeriodPlan, years: number[]): string[] {
   return [...new Set(years.flatMap((year) => seasonYearMonths(year, plan.months)))];
+}
+
+/**
+ * One map a year for the first look: the middle month of each year's season that NASA has, or the
+ * nearest month to it. Empty when a first look wouldn't be any quicker (one month a year, or too few years).
+ */
+export function firstLookMonths(plan: Pick<PeriodPlan, "kind" | "years" | "months">, available: string[]): Map<number, string> {
+  const out = new Map<number, string>();
+  if (plan.kind !== "trend" || plan.years.length < 6 || plan.months.length < 2) return out;
+  const have = new Set(available);
+  for (const year of plan.years) {
+    const season = seasonYearMonths(year, plan.months);
+    const middle = (season.length - 1) / 2;
+    const ranked = season.map((month, i) => ({ month, distance: Math.abs(i - middle) })).sort((a, b) => a.distance - b.distance);
+    const pick = ranked.find((entry) => have.has(entry.month));
+    if (pick) out.set(year, pick.month);
+  }
+  return out;
+}
+
+/** The months in reading order: the first look's months first, then the rest as they were. */
+export function readingOrder(months: string[], firstLook: Map<number, string>): string[] {
+  const first = new Set(firstLook.values());
+  return [...months.filter((m) => first.has(m)), ...months.filter((m) => !first.has(m))];
 }
 
 /** Area-weighted mean of a grid over some pixels; null when under 30 % of them have data. */
@@ -239,19 +278,21 @@ async function loadMonths(
   months: string[],
   load: (month: string) => Promise<Float32Array>,
   signal: AbortSignal | undefined,
-  tick: (month: string) => void,
+  tick: (month: string, grid: Float32Array | null) => void,
 ): Promise<{ grids: Map<string, Float32Array>; failed: string[] }> {
   const grids = new Map<string, Float32Array>();
   const failed: string[] = [];
   await Promise.all(
     months.map(async (month) => {
+      let grid: Float32Array | null = null;
       try {
-        grids.set(month, await load(month));
+        grid = await load(month);
+        grids.set(month, grid);
       } catch (error) {
         if (isAbortError(error) || signal?.aborted) throw error;
         failed.push(month);
       } finally {
-        tick(month);
+        tick(month, grid);
       }
     }),
   );
@@ -276,6 +317,8 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
 
   const wanted = monthsFor(plan, plan.years);
   const months = availability.available ? wanted.filter((m) => availability.available?.has(m)) : wanted;
+  // One map a year is read first, for a first look at the whole area while the rest arrive.
+  const firstLook = firstLookMonths(plan, months);
   const missingMonths = wanted.filter((m) => !months.includes(m));
   const inWindow = (window: [number, number]) => months.some((m) => plan.years.some((y) => y >= window[0] && y <= window[1] && seasonYearMonths(y, plan.months).includes(m)));
   if (months.length < wanted.length * 0.5 || !inWindow(plan.baseline) || !inWindow(plan.recent)) {
@@ -287,7 +330,8 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
 
   let done = 0;
   const total = months.length + 1;
-  const report = (phase: ScanProgress["phase"], message: string) => onProgress?.({ phase, done, total, message });
+  let preview: ScanPreview | undefined;
+  const report = (phase: ScanProgress["phase"], message: string) => onProgress?.({ phase, done, total, message, ...(preview ? { preview } : {}) });
   report("maps", `Reading NASA maps: 0 of ${months.length}`);
 
   // The land/water map first (one request, or none for "any"): no monthly maps are read for an area
@@ -305,13 +349,31 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   for (let i = 0; i < size; i++) mask[i] = regionMask[i] && surfaceResult[i] ? 1 : 0;
   if (regionMask.some(Boolean) && !mask.some(Boolean)) throw new WrongPlaceError(emptySurfaceMessage(indicator, area, surface));
 
+  // The first look: once every year's one map is in, the whole area's yearly series and its test.
+  const lookPixels: number[] = [];
+  for (let i = 0; i < size; i++) if (mask[i]) lookPixels.push(i);
+  const lookGrids = new Map<string, Float32Array | null>();
+  const lookMonths = new Set(firstLook.values());
+  const takeFirstLook = (month: string, monthGrid: Float32Array | null) => {
+    if (preview || !lookMonths.has(month)) return;
+    lookGrids.set(month, monthGrid);
+    if (lookGrids.size < lookMonths.size) return;
+    const series = plan.years.map((year) => {
+      const pick = firstLook.get(year);
+      const yearGrid = pick ? lookGrids.get(pick) : null;
+      return { year, value: yearGrid ? areaMean(yearGrid, lookPixels, grid) : null };
+    });
+    preview = { series, verdict: verdictOf(series), maps: [...lookGrids.values()].filter(Boolean).length };
+  };
+
   const [monthResult, scaleTop, scaleBottom] = await Promise.all([
     loadMonths(
-      months,
+      readingOrder(months, firstLook),
       (month) => loaders.monthGrid(layer, grid, month, signal),
       signal,
-      (month) => {
+      (month, monthGrid) => {
         done += 1;
+        takeFirstLook(month, monthGrid);
         report("maps", `Reading NASA maps: ${done} of ${months.length} (${month})`);
       },
     ),
@@ -357,13 +419,13 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
     signal,
   });
 
-  const found = buildHotspots(trends, grid, hotspotOptions(filter, info.minChange, coarse));
+  const found = buildHotspots(trends, grid, hotspotOptions(filter, info.minChange, coarse, trends));
   let hotspots: HotspotDetail[] = found.map((h) => {
     const series = yearlySeries(yearGrids, plan.years, h.pixels, grid);
     return { ...h, series, verdict: plan.kind === "trend" ? verdictOf(series) : null, refined: false };
   });
 
-  if (coarse && hotspots.length) {
+  if (coarse && hotspots.length && request.refine !== false) {
     hotspots = await refineHotspots(hotspots, { request, layer, grid, loaders, report });
   }
 
@@ -432,7 +494,7 @@ export function rebuildHotspots(result: ScanResult, filter: HotspotFilter): Hots
   if (sameFilter(filter, result.filter)) return result.hotspots;
   const before = new Map(result.hotspots.map((h) => [h.id, h]));
   const info = INDICATORS[result.indicator];
-  return buildHotspots(result.trends, result.grid, hotspotOptions(filter, info.minChange, result.coarse)).map((hotspot) => {
+  return buildHotspots(result.trends, result.grid, hotspotOptions(filter, info.minChange, result.coarse, result.trends)).map((hotspot) => {
     const previous = before.get(hotspot.id);
     if (previous && previous.pixels.length === hotspot.pixels.length) return { ...previous, rank: hotspot.rank };
     const series = yearlySeries(result.yearGrids, result.plan.years, hotspot.pixels, result.grid);
@@ -457,7 +519,7 @@ export interface AreaSummary {
 
 /** The whole scanned area in numbers, for the filter currently applied. */
 export function summarizeArea(result: ScanResult, filter: HotspotFilter): AreaSummary {
-  const options = hotspotOptions(filter, INDICATORS[result.indicator].minChange, result.coarse);
+  const options = hotspotOptions(filter, INDICATORS[result.indicator].minChange, result.coarse, result.trends);
   const down = flagPixels(result.trends, -1, options.minChange, options.maxP);
   const up = flagPixels(result.trends, 1, options.minChange, options.maxP);
   const { trends, grid, mask } = result;

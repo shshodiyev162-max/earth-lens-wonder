@@ -242,10 +242,10 @@ export default function SplitView() {
       <div ref={stageRef} className="absolute inset-0">
         <BaseMap initialView={initialView} onViewChange={workspace.setView}>
           <Pane name="compare-left" style={{ zIndex: 210 }}>
-            <LayerStack layer={leftLayer} date={leftDate.date} />
+            <LayerStack layer={leftLayer} date={leftDate.date} waiting={leftDate.waiting} />
           </Pane>
           <Pane name="compare-right" style={{ zIndex: 220 }}>
-            <LayerStack layer={rightLayer} date={rightDate.date} />
+            <LayerStack layer={rightLayer} date={rightDate.date} waiting={rightDate.waiting} />
           </Pane>
           <SwipeClip leftPane="compare-left" rightPane="compare-right" ratio={ratio} />
           <ReferenceOverlays />

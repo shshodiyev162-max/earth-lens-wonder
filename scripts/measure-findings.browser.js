@@ -24,11 +24,14 @@
   const geom = await import("/src/lib/geo/geometry.ts");
   const geocode = await import("/src/lib/geo/geocode.ts");
 
-  const save = (name, blob) => {
-    const link = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: name });
-    link.click();
-    URL.revokeObjectURL(link.href);
-  };
+  // window.__terrascopeSave, when set, takes the files instead of the browser's downloads.
+  const save =
+    window.__terrascopeSave ??
+    ((name, blob) => {
+      const link = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: name });
+      link.click();
+      URL.revokeObjectURL(link.href);
+    });
   const round = (v, d) => (v === null || !Number.isFinite(v) ? null : Number(v.toFixed(d)));
   const verdict = (v, d) =>
     v && {
@@ -41,6 +44,9 @@
       slopePerDecade: v.slopePerDecade === null ? null : round(v.slopePerDecade, d),
       years: v.years,
       method: v.method,
+      // Year-to-year carry-over the test allowed for, and the years a trend this size needs (null when not used).
+      carryOver: v.carryOver == null ? null : round(v.carryOver, 2),
+      yearsNeeded: v.yearsNeeded == null || !Number.isFinite(v.yearsNeeded) ? null : Math.ceil(v.yearsNeeded),
     };
 
   /** The rate per decade the colours top out at: the 97th percentile, so a few extremes don't wash the map out. */
@@ -74,7 +80,7 @@
       image.data.set([Math.round(127.5 + 127.5 * rate), significant ? 255 : 0, valid ? 255 : 0, 255], i * 4);
     }
     context.putImageData(image, 0, 0);
-    save(name, await new Promise((resolve) => canvas.toBlob(resolve, "image/png")));
+    await save(name, await new Promise((resolve) => canvas.toBlob(resolve, "image/png")));
     return {
       file: name,
       bbox: bbox.map((v) => round(v, 4)),
@@ -162,6 +168,7 @@
     };
   }
   const measuredOn = new Date().toISOString().slice(0, 10);
-  save("findings.json", new Blob([JSON.stringify({ measuredOn, findings }, null, 2)], { type: "application/json" }));
+  await save("findings.json", new Blob([JSON.stringify({ measuredOn, findings }, null, 2)], { type: "application/json" }));
+  window.__terrascopeMeasured = { measuredOn, findings };
   console.log("Done.", findings);
 })();

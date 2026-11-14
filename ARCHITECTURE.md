@@ -1,6 +1,6 @@
 # Architecture
 
-TerraScope is a single-page React app (Vite, TypeScript, Tailwind, shadcn/ui, react-leaflet, Recharts, three.js). There is no required backend: every map tile, measurement and search result comes straight from public NASA and OpenStreetMap services, and the app's own state lives in the URL and on the device.
+TerraScope is a single-page React app (Vite, TypeScript, Tailwind, shadcn/ui, react-leaflet, Recharts, three.js). There is no required backend: every map tile, measurement and search result comes straight from public NASA, NOAA and OpenStreetMap services, and the app's own state lives in the URL and on the device.
 
 ## Routes
 
@@ -11,6 +11,7 @@ TerraScope is a single-page React app (Vite, TypeScript, Tailwind, shadcn/ui, re
 | `/split`    | `SplitView` ("Compare")  | One map, two layers or dates, draggable divider                       |
 | `/sync`     | `SyncView` ("Side by side") | Two maps locked together                                          |
 | `/trends`   | `Trends` ("Trend detective") | Choose a measure, place and period; hotspot scan, trend tests, demos |
+| `/atlas`    | `Atlas`                  | Where six measures changed most worldwide, measured ahead of time      |
 | `/analysis` | `Analysis`               | Measured report for a place, area or point, with trend tests          |
 | `/login`    | `Login`                  | Accounts when `VITE_API_BASE_URL` is set; explains demo mode otherwise |
 | `*`         | `NotFound`               | 404                                                                   |
@@ -55,10 +56,10 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 
 - `query.ts` is the search as URL state: the form ⇄ the address (every combination round-trips; tested), and the sentence written from the choices. Places added to the chosen one are `extra` (`?add=`); `trendParts` lists every place and `editForParts` makes a list of places the search's area.
 - `grid.ts` fetches one month of a layer as a decoded grid (cached on the device) and the land/water mask (OSM land/water map).
-- `pixels.ts` gives each pixel a seasonal mean per year, its change, and a Mann–Kendall p-value and Sen's slope.
-- `hotspots.ts` flags pixels, groups them into 8-connected patches, ranks them and traces outlines.
+- `pixels.ts` gives each pixel a seasonal mean per year, its change, and a Mann–Kendall p-value and Sen's slope, corrected for carry-over from one year to the next where the pixel's own years show it.
+- `hotspots.ts` flags pixels, groups them into 8-connected patches, ranks them and traces outlines. "Only clear trends" sets the pixel cut-off from every pixel's p-value at once (`pixelCutoff`: Benjamini–Hochberg, 5% false discovery rate).
 - `scan.ts` runs a scan:
-  - availability, then the monthly maps (6 at a time)
+  - availability, then the monthly maps (6 at a time), one map a year first (`firstLookMonths`, `readingOrder`) so a provisional answer (`ScanProgress.preview`, shown by `components/trends/FirstLook.tsx`) is ready within seconds
   - the masks, then the per-pixel trends and the hotspots
   - the whole-area series and verdict, and the top-of-colour-scale note
   - finer re-reads of the top hotspots for large areas
@@ -73,11 +74,23 @@ Pages are lazy-loaded and each one is wrapped in an error boundary (`App.tsx`). 
 - `stats.ts` provides means, extremes and year-over-year change. It also has the statistics behind every verdict, checked against textbook values:
   - the Mann–Kendall test (tie-corrected, plus a seasonal version)
   - Sen's slope with its confidence range (Gilbert 1987)
+  - the carry-over correction (`lag1Autocorrelation`, `carryOverFactor`: Yue and Wang 2004, applied only when the lag-1 autocorrelation of the detrended years is clearly above zero) and years-to-detect (`yearsToDetect`: Weatherhead et al. 1998)
+  - the false discovery rate (`falseDiscoveryThreshold`: Benjamini–Hochberg)
   - Welch's t-test and plain-language verdicts
 - `aggregate.ts` turns monthly values into one value per (season) year and compares two periods. `period.ts` reads periods, comparisons and months from the URL. `trend.ts` runs a trend test or comparison for every measure of a report and suggests testing the whole record when a short one shows no clear trend.
 - `insights.ts` writes the answer from the trend tests alone (one hot month or a dry spell can't change it), a note on how far to trust it, the latest months against the 2001–2020 normal, and caveats. It has no randomness and no language model.
-- `export.ts` produces the CSV: one row per month read, blank where there is no data, with the trend results as header lines.
+- `export.ts` produces the CSV: one row per month read, blank where there is no data, with the trend results as header lines. `printReport` opens the browser's print dialog with the page in its light colours (`print:` styles hide the controls and navigation), so "Save as PDF" gives a report on white paper.
 - `../analysisClient.ts` is optional: when `VITE_AI_ANALYSIS_ENDPOINT` is set, the measured findings are sent there for a short AI-written briefing shown next to the built-in summary.
+
+### `lib/stations` — checked against the ground
+
+- `ncei.ts` asks NOAA's free search service for Global Summary of the Month stations within 75 km of the place (`stationSearchUrl`, `parseStationSearch`), then reads their monthly mean temperature and rainfall in metric units (`stationDataUrl`, `parseStationData`). Answers are cached like NASA's series, and requests go through the shared limiter.
+- `groundCheck.ts` turns a station's months into years: each month becomes a departure from that station's own average for the calendar month, and a year needs at least half its months (`stationYearly`). `compareWithStations` picks the station with the most years shared with NASA's record (at least 10), tests both over the same years, calls them in agreement when their 95% ranges overlap, and adds how closely the years follow each other (Pearson r). `groundCheckText` says it in a sentence, naming the years and the station.
+- `hooks/useGroundCheck.ts` runs it once an Analysis report is in; `components/analysis/GroundCheck.tsx` shows "Checked against the ground" with both lines on one chart, or says why there is no station to compare with.
+
+### `lib/atlas` — the world change atlas
+
+`scripts/measure-atlas.browser.js` runs the app's own scanner over 60°S–80°N for six measures, every month of every year since 2003, on a half-degree grid. Where widespread change joins into continent-sized patches, it raises the smallest change step by step until the biggest patch is a region, and saves the bar it used. It saves each change map as a PNG (`public/data/atlas`) and the verdicts, patches and names as `atlasData.ts`. `atlas.ts` gives them types, the legend scale (`atlasScale`) and the Trends search for each patch (`atlasTrendsHref`). `pages/Atlas.tsx` draws the map with the Trends page's own layers (`GridImageLayer`, `HotspotLayer`, `TrendLegend`).
 
 ### `lib/causes` — possible causes
 
@@ -150,5 +163,7 @@ Every page uses the home page's design, built from a few parts in `src/index.css
 - **Nothing heavy starts by itself.** Reading NASA's maps takes minutes the first time, so the Analysis page reads only after **Start the analysis** (showing the maps it will read and the time first, with Stop while it runs), and a Trends link opens with its search filled in until **Find changes**. Buttons that say they scan (a worked example, "Scan inside", "Test every year since 2000") start straight away.
 - **Measure, don't simulate.** Every number on the Analysis page is decoded from NASA imagery or read from NASA POWER, and gaps stay gaps. A verdict comes from a stated test, never from a fixed threshold on one month's value.
 - **Ask GIBS what exists.** Dates come from the live time domain and zoom limits from the matrix set, so the maps never request tiles that cannot exist.
-- **Keyless and static.** The build is plain static files (Netlify config included). Optional services (accounts, AI briefing) are switched on with environment variables and never need secrets in the browser.
+- **Keyless and static.** The build is plain static files (Netlify config included, with safe browser headers and long caching for the globe pictures). Fonts are bundled, so no font service is contacted. Optional services (accounts, AI briefing) are switched on with environment variables and never need secrets in the browser.
+- **Check against an independent record.** NASA's model and satellite records are compared with ground weather stations wherever one is near, and a disagreement is shown, not hidden.
+- **Measure ahead where it can't be fast.** A whole-world scan reads thousands of maps, too many for a visitor to wait for, so the atlas is measured with the same code ahead of time and bundled with the date it was measured.
 - **Polite to free services.** Searches are debounced, Nominatim calls are queued at one per second, and analysis requests are de-duplicated, cancelled when no longer needed, and concurrency-limited.
