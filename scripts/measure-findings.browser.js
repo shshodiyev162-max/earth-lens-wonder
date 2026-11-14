@@ -11,7 +11,9 @@
 // Each PNG holds one pixel per grid cell: red = rate per decade (0–255 maps to −scale…+scale),
 // green = significant at p < 0.05, blue = measured. The scan's whole-area numbers use the same grid
 // as the Trends page. Antarctica's map is drawn from a finer grid, because its default one is
-// too coarse to show near the pole.
+// too coarse to show near the pole. Uzbekistan's numbers stay on the Trends page's grid, but its
+// picture ("picture" in the JSON, <id>-fine.png) is the same test on a grid 4× finer (about 2.5 km),
+// drawn on the same colour scale, because the page looks at the Aral Sea shore from close up.
 
 (async () => {
   const scan = await import("/src/lib/trends/scan.ts");
@@ -41,13 +43,18 @@
       method: v.method,
     };
 
-  async function drawMap(result, name) {
-    const { width, height, bbox } = result.grid;
-    const { slope, p } = result.trends;
+  /** The rate per decade the colours top out at: the 97th percentile, so a few extremes don't wash the map out. */
+  function colourScale(result) {
+    const { slope } = result.trends;
     const sizes = [];
     for (let i = 0; i < slope.length; i++) if (result.mask[i] && Number.isFinite(slope[i])) sizes.push(Math.abs(slope[i] * 10));
     sizes.sort((a, b) => a - b);
-    const scale = sizes[Math.floor(sizes.length * 0.97)] || 1;
+    return sizes[Math.floor(sizes.length * 0.97)] || 1;
+  }
+
+  async function drawMap(result, name, scale = colourScale(result)) {
+    const { width, height, bbox } = result.grid;
+    const { slope, p } = result.trends;
     const canvas = Object.assign(document.createElement("canvas"), { width, height });
     const context = canvas.getContext("2d");
     const image = context.createImageData(width, height);
@@ -84,7 +91,7 @@
 
   const SCANS = [
     { id: "mediterranean", indicator: "sst", place: "Mediterranean Sea", since: 2003, direction: "increase", link: "/trends?ind=sst&dir=increase&place=Mediterranean+Sea&t=since-2003" },
-    { id: "uzbekistan", indicator: "vegetation", country: "UZB", since: 2000, direction: "decline", link: "/trends?ind=vegetation&dir=decline&country=UZB&name=Uzbekistan&t=since-2000" },
+    { id: "uzbekistan", indicator: "vegetation", country: "UZB", since: 2000, direction: "decline", link: "/trends?ind=vegetation&dir=decline&country=UZB&name=Uzbekistan&t=since-2000", pictureSize: 700 },
     { id: "antarctica", indicator: "ozone", place: "Antarctica", since: 2005, direction: "increase", link: "/trends?ind=ozone&dir=increase&place=Antarctica&t=since-2005", mapSize: 720 },
   ];
 
@@ -104,6 +111,10 @@
     const request = { indicator: s.indicator, direction: s.direction, area, plan, availability };
     const result = await scan.runScan(request);
     const overlay = await drawMap(s.mapSize ? await scan.runScan({ ...request, maxSize: s.mapSize }) : result, `${s.id}.png`);
+    if (s.pictureSize) {
+      const fine = await drawMap(await scan.runScan({ ...request, maxSize: s.pictureSize }), `${s.id}-fine.png`, overlay.scalePerDecade);
+      overlay.picture = { file: fine.file, bbox: fine.bbox, width: fine.width, height: fine.height };
+    }
 
     const d = Math.max(info.decimals + 2, 3);
     const top = result.hotspots[0];

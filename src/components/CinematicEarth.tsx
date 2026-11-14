@@ -3,7 +3,7 @@ import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { TextureLoader } from "three";
 import { browserTimeZone, findHome, formatLocalClock, latLonToSphere, type Home } from "./landing/home";
-import { cloudImagePath, dayImagePath, FIRST_IMAGE, sharpCloudImageSize, sharpDayImageSize } from "./landing/earthTextures";
+import { cloudImagePath, dayImagePath, DETAIL_IMAGE, FIRST_IMAGE, pictureBox, sharpCloudImageSize, sharpDayImageSize, wantsDetailImage } from "./landing/earthTextures";
 import { AIR_FRAGMENT, AIR_VERTEX, CLOUD_FRAGMENT, PLANET_FRAGMENT, PLANET_VERTEX, STAR_FRAGMENT, STAR_VERTEX } from "./landing/planetShaders";
 import { CAMERA_DISTANCE, EDGE_ON_MIDDLE_PLANE, flickSpeed, HORIZON_HEIGHT, lensFor, onScreen, orientationFacing, turnGlobe, type DragSample } from "./landing/globeDrag";
 import { fitRadius, poseAt, stopAt, type DataId } from "./landing/story";
@@ -118,6 +118,9 @@ function PlanetScene({ controls, reducedMotion, home, centres, homeLabel, homeTi
   const planetUniforms = useMemo(
     () => ({
       uDay: { value: dayTexture as THREE.Texture },
+      uDetail: { value: blank as THREE.Texture },
+      uDetailBox: { value: new THREE.Vector4(...pictureBox(DETAIL_IMAGE.bbox)) },
+      uDetailAmount: { value: 0 },
       uClouds: { value: cloudTexture as THREE.Texture },
       uData: { value: blank as THREE.Texture },
       uSun: { value: SUN.clone() },
@@ -171,6 +174,11 @@ function PlanetScene({ controls, reducedMotion, home, centres, homeLabel, homeTi
     };
   }, [gl, planetUniforms]);
 
+  // The sharper picture of Central Asia, fetched once the story heads that way, then faded in.
+  const detail = useRef({ requested: false, texture: null as THREE.Texture | null, stop: undefined as (() => void) | undefined });
+  const saveData = useMemo(() => (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true, []);
+  useEffect(() => () => detail.current.stop?.(), []);
+
   // The measured maps: each pixel holds the rate, whether it is significant, and whether it was measured.
   const dataTextures = useRef<Partial<Record<DataId, THREE.Texture>>>({});
   useEffect(() => {
@@ -179,8 +187,10 @@ function PlanetScene({ controls, reducedMotion, home, centres, homeLabel, homeTi
     (Object.keys(DATA_MAPS) as DataId[]).forEach((id) => {
       loader.load(`${import.meta.env.BASE_URL}data/findings/${DATA_MAPS[id].file}`, (texture) => {
         texture.colorSpace = THREE.NoColorSpace;
-        texture.generateMipmaps = false;
-        texture.minFilter = THREE.LinearFilter;
+        // Smaller copies for when the map is seen from further away (the fine Uzbekistan map at the
+        // country's stop), so it doesn't shimmer as the planet moves.
+        texture.generateMipmaps = true;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
         texture.magFilter = THREE.LinearFilter;
         texture.wrapS = THREE.ClampToEdgeWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -335,6 +345,19 @@ function PlanetScene({ controls, reducedMotion, home, centres, homeLabel, homeTi
     // The sun as the planet's own frame sees it (for cloud shadows).
     scratch.inverse.copy(scratch.quaternion).invert();
     planetUniforms.uSunLocal.value.copy(SUN).applyQuaternion(scratch.inverse).normalize();
+
+    const sharp = detail.current;
+    if (!sharp.requested && wantsDetailImage(s.place, saveData)) {
+      sharp.requested = true;
+      sharp.stop = loadSharper(DETAIL_IMAGE.path, THREE.SRGBColorSpace, (texture) => {
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.needsUpdate = true;
+        sharp.texture = texture;
+      });
+    }
+    if (sharp.texture) planetUniforms.uDetail.value = sharp.texture;
+    planetUniforms.uDetailAmount.value = sharp.texture ? (reducedMotion ? 1 : THREE.MathUtils.damp(planetUniforms.uDetailAmount.value, 1, 3, delta)) : 0;
 
     // Clouds drift, and thin out so the measured maps can be read.
     if (!reducedMotion) s.cloudSpin += CLOUD_DRIFT * delta;

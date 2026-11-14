@@ -7,7 +7,10 @@
 // NASA's old file host wasn't reachable in November 2026, so the original came from the Internet Archive:
 // https://web.archive.org/web/20261018141030id_/https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_8192.tif
 //
-// Run: npm run data:earth
+// The Central Asia image is a sharper piece of the same picture, for the home page's close look at
+// Uzbekistan and the Aral Sea shore (the whole-world image is about 5 km a pixel there).
+//
+// Run: npm run data:earth (all images), or name the files: npm run data:earth -- earth_day_central_asia.jpg
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -24,9 +27,15 @@ const TEXTURES = [
   { layer: DAY, width: 4096, height: 2048, format: "image/jpeg", file: "earth_day_4096.jpg" },
   // For large screens.
   { layer: DAY, width: 8192, height: 4096, format: "image/jpeg", file: "earth_day_8192.jpg" },
+  // Central Asia, from the Caspian to Kyrgyzstan, at 0.0125° a pixel (about 1 km): south, west, north, east.
+  { layer: DAY, width: 2560, height: 1440, format: "image/jpeg", file: "earth_day_central_asia.jpg", bbox: [34, 44, 52, 76] },
 ];
 
-for (const texture of TEXTURES) {
+const wanted = process.argv.slice(2);
+const chosen = wanted.length ? TEXTURES.filter((texture) => wanted.includes(texture.file)) : TEXTURES;
+if (wanted.length && chosen.length !== wanted.length) throw new Error(`Unknown file: ${wanted.filter((file) => !TEXTURES.some((t) => t.file === file)).join(", ")}`);
+
+for (const texture of chosen) {
   const params = new URLSearchParams({
     SERVICE: "WMS",
     REQUEST: "GetMap",
@@ -35,7 +44,7 @@ for (const texture of TEXTURES) {
     STYLES: "",
     CRS: "EPSG:4326",
     // WMS 1.3.0 with EPSG:4326 takes latitude first: south, west, north, east.
-    BBOX: "-90,-180,90,180",
+    BBOX: (texture.bbox ?? [-90, -180, 90, 180]).join(","),
     WIDTH: String(texture.width),
     HEIGHT: String(texture.height),
     FORMAT: texture.format,

@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { isScienceLayer, periodLabel, type GibsLayer } from "@/lib/gibs/catalog";
-import { formatDate } from "@/lib/gibs/time";
+import { COARSE_PIXEL_KM, isScienceLayer, periodLabel, pixelSize, type GibsLayer } from "@/lib/gibs/catalog";
+import { formatLayerDate } from "@/lib/gibs/time";
 import type { TileStatus } from "./GibsTileLayer";
-import LayerLegend from "./LayerLegend";
+import LayerLegend, { ClassLegend } from "./LayerLegend";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -24,13 +24,20 @@ export function LayerInfoCard({ layer, title }: { layer: GibsLayer; title?: stri
       <dl className="mt-3 font-mono text-[10.5px] tabular-nums">
         <Fact label="Source">{layer.source}</Fact>
         <Fact label="Updates">{periodLabel(layer.period)}</Fact>
+        {layer.pixelKm !== undefined && <Fact label="Pixel size">{pixelSize(layer.pixelKm)}</Fact>}
         {layer.unit && <Fact label="Unit">{layer.unit}</Fact>}
         <Fact label="NASA layer">
           <span className="break-all">{layer.id}</span>
         </Fact>
       </dl>
+      {layer.pixelKm !== undefined && layer.pixelKm >= COARSE_PIXEL_KM && (
+        <p className="mt-2 text-xs leading-relaxed text-panel-soft">
+          Coarse: each pixel is {pixelSize(layer.pixelKm)} across, the finest detail NASA publishes for it, so close up it shows as large squares. It suits countries and regions, not towns.
+        </p>
+      )}
       {isScienceLayer(layer) && <p className="mt-2 text-xs text-panel-soft">Click the map to read real values.</p>}
       {isScienceLayer(layer) && <LayerLegend layer={layer} compact className="mt-4" />}
+      {layer.classes && <ClassLegend layer={layer} className="mt-4" />}
     </section>
   );
 }
@@ -45,7 +52,7 @@ export function MapStatusPill({ layer, date, status }: { layer: GibsLayer; date:
         <AlertTriangle className="h-3 w-3 shrink-0 text-tone-warn" aria-hidden />
       ) : null}
       <span>
-        {status === "error" ? "No imagery for this view · " : ""}NASA GIBS · {date ? formatDate(date) : "static composite"}
+        {status === "error" ? "No imagery for this view · " : ""}NASA GIBS · {date ? formatLayerDate(layer, date) : "static composite"}
       </span>
     </div>
   );

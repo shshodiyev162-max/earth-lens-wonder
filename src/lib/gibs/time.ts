@@ -229,7 +229,24 @@ export function defaultDateFor(layer: GibsLayer, domain: TimeDomain | null): str
   const lagged = completeDaysAgoUtc(layer.defaultLagDays ?? 0);
   if (!domain) return lagged;
   const target = layer.defaultLagDays ? (lagged < domain.latest ? lagged : domain.latest) : domain.latest;
-  return resolveInDomain(domain, target).date;
+  return resolveForLayer(layer, domain, target).date;
+}
+
+/**
+ * A requested date resolved for one layer. Monthly records whose list of dates NASA garbles (stray
+ * single days with gaps between them, though every month exists) or publishes on uneven days are
+ * read month by month: the month asked for, within the record.
+ */
+export function resolveForLayer(layer: Pick<GibsLayer, "period" | "continuousDomain" | "irregularDates">, domain: TimeDomain, requested: string): ResolvedDate {
+  if (layer.period !== "monthly" || !(layer.continuousDomain || layer.irregularDates)) return resolveInDomain(domain, requested);
+  const { earliest, latest } = domainWindow(domain);
+  const asked = monthOf(requested);
+  const month = asked < earliest ? earliest : asked > latest ? latest : asked;
+  const date = layer.irregularDates ? firstDateInMonth(domain, month) : `${month}-01`;
+  // A month with no map at all (a gap in an uneven record): the nearest date NASA lists.
+  if (!date) return resolveInDomain(domain, requested);
+  const resolution: DateResolution = asked < earliest ? "earliest" : asked > latest ? "latest" : date === requested ? "exact" : "snapped";
+  return { requested, date, resolution };
 }
 
 /** Offline guess used before the domain has loaded (keeps the first paint fast). */
@@ -238,8 +255,11 @@ export function provisionalDate(layer: GibsLayer, requested?: string | null): st
     layer.defaultLagDays ??
     (layer.period === "16-day" ? 40 : layer.period === "8-day" ? 20 : layer.period === "monthly" ? 70 : layer.period === "yearly" ? 3000 : 2);
   const latestGuess = completeDaysAgoUtc(lagDays);
-  if (!requested || requested > latestGuess) return latestGuess;
-  return requested;
+  const guess = !requested || requested > latestGuess ? latestGuess : requested;
+  // Monthly and yearly maps are dated the 1st of their month or year.
+  if (layer.period === "monthly") return `${monthOf(guess)}-01`;
+  if (layer.period === "yearly") return `${guess.slice(0, 4)}-01-01`;
+  return guess;
 }
 
 export function stepForLayer(layer: GibsLayer): Step {
@@ -325,6 +345,13 @@ export function formatMonth(month: string, style: "short" | "long" = "short"): s
   const [year, m] = month.split("-").map(Number);
   const date = new Date(Date.UTC(year, m - 1, 1));
   return date.toLocaleDateString("en-US", { month: style === "long" ? "long" : "short", year: "numeric", timeZone: "UTC" });
+}
+
+/** A layer's date the way people say it: "4 Nov 2026", "Aug 2026" for a monthly map, "2024" for a yearly one. */
+export function formatLayerDate(layer: Pick<GibsLayer, "period">, value: string): string {
+  if (layer.period === "monthly") return formatMonth(monthOf(value));
+  if (layer.period === "yearly") return value.slice(0, 4);
+  return formatDate(value);
 }
 
 export function formatDate(value: string): string {

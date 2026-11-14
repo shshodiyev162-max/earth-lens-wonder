@@ -25,7 +25,7 @@ import { useLayerDate } from "@/hooks/useLayerDate";
 import { usePlaceSelection } from "@/hooks/usePlaceSelection";
 import { useRouteFocusPlace } from "@/hooks/useRouteFocusPlace";
 import { DEFAULT_COMPARE_LAYER_ID, DEFAULT_LAYER_ID, getLayerOrDefault, isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
-import { formatDate, isIsoDate } from "@/lib/gibs/time";
+import { formatLayerDate, isIsoDate } from "@/lib/gibs/time";
 import { formatArea, type PolygonGeometry } from "@/lib/geo/geometry";
 import { analysisHrefForArea } from "@/lib/links";
 import { cn } from "@/lib/utils";
@@ -159,7 +159,7 @@ export default function SyncView() {
           label={linkDates ? "Observation date" : "Left date"}
         />
         {linkDates && rightDate.date && rightDate.date !== leftDate.date && (
-          <p className="mt-2 text-xs text-panel-muted">The right layer publishes on its own schedule — showing {formatDate(rightDate.date)}.</p>
+          <p className="mt-2 text-xs text-panel-muted">The right layer publishes on its own schedule — showing {formatLayerDate(rightLayer, rightDate.date)}.</p>
         )}
       </SidebarSection>
       {!linkDates && (
@@ -201,7 +201,7 @@ export default function SyncView() {
       )}
     >
       <span className="font-medium text-panel-foreground">{layer.name}</span>
-      {date ? ` · ${formatDate(date)}` : ""}
+      {date ? ` · ${formatLayerDate(layer, date)}` : ""}
     </div>
   );
 

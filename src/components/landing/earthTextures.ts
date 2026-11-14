@@ -33,6 +33,22 @@ export function sharpCloudImageSize({ screenWidth, touch, maxTextureSize, saveDa
   return 4096;
 }
 
+/**
+ * A sharper piece of the surface (about 1 km a pixel instead of 5) where the story comes close:
+ * Uzbekistan and the Aral Sea shore. Its edges, as west, south, east, north in degrees.
+ */
+export const DETAIL_IMAGE = { path: "textures/earth_day_central_asia.jpg", bbox: [44, 34, 76, 52] as const };
+
+/** Fetched once the story heads past its opening, so a visitor who never scrolls doesn't pay for it. */
+export function wantsDetailImage(place: number, saveData: boolean): boolean {
+  return !saveData && place >= 1.5;
+}
+
+/** Where a box of degrees (west, south, east, north) sits on the planet's picture, from 0 to 1. */
+export function pictureBox([west, south, east, north]: readonly number[]): [number, number, number, number] {
+  return [(west + 180) / 360, (south + 90) / 180, (east + 180) / 360, (north + 90) / 180];
+}
+
 export function dayImagePath(size: ImageSize): string {
   return `textures/earth_day_${size}.jpg`;
 }

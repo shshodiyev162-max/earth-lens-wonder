@@ -21,10 +21,14 @@ export interface Verdict {
 
 export const FINDINGS = MEASURED.findings;
 
-/** Colours for the measured maps on the planet. The interface stays neutral so only data has colour. */
+/**
+ * Colours for the measured maps on the planet. The interface stays neutral so only data has colour.
+ * Uzbekistan's map is the same test on a grid 4× finer (its "picture"), since the page looks at the
+ * Aral Sea shore from close up; its numbers in words come from the Trends page's own grid.
+ */
 export const DATA_MAPS: Record<DataId, { file: string; bbox: readonly number[]; rise: string; fall: string }> = {
   mediterranean: { file: FINDINGS.mediterranean.overlay.file, bbox: FINDINGS.mediterranean.overlay.bbox, rise: "#ff5a36", fall: "#3d7dff" },
-  uzbekistan: { file: FINDINGS.uzbekistan.overlay.file, bbox: FINDINGS.uzbekistan.overlay.bbox, rise: "#3ddc84", fall: "#ff9a2e" },
+  uzbekistan: { file: FINDINGS.uzbekistan.overlay.picture.file, bbox: FINDINGS.uzbekistan.overlay.picture.bbox, rise: "#3ddc84", fall: "#ff9a2e" },
   antarctica: { file: FINDINGS.antarctica.overlay.file, bbox: FINDINGS.antarctica.overlay.bbox, rise: "#39d0ff", fall: "#b06bff" },
 };
 

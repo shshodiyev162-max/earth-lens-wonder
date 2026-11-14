@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CATEGORY_LABELS, CATEGORY_ORDER, MAP_LAYERS, periodLabel, searchLayers, type GibsLayer } from "@/lib/gibs/catalog";
+import { CATEGORY_LABELS, CATEGORY_ORDER, layerSubtitle, MAP_LAYERS, searchLayers, type GibsLayer } from "@/lib/gibs/catalog";
 
 interface LayerPickerProps {
   value: GibsLayer;
@@ -34,7 +34,7 @@ export default function LayerPicker({ value, onChange, label = "Layer" }: LayerP
           <span className="min-w-0">
             <span className="block truncate font-editorial text-[1.3rem] leading-tight text-panel-foreground">{value.name}</span>
             <span className="mt-0.5 block truncate font-mono text-[10.5px] text-panel-muted">
-              {value.source} · {periodLabel(value.period)}
+              {layerSubtitle(value)}
             </span>
           </span>
           <ChevronDown className={`h-4 w-4 shrink-0 text-panel-muted transition ${open ? "rotate-180" : ""}`} />
@@ -74,7 +74,7 @@ export default function LayerPicker({ value, onChange, label = "Layer" }: LayerP
                 >
                   <span className="block text-sm font-medium">{item.name}</span>
                   <span className="mt-1 block text-xs leading-relaxed text-panel-muted">
-                    {item.source} · {periodLabel(item.period)}
+                    {layerSubtitle(item)}
                   </span>
                 </button>
               ))}

@@ -26,7 +26,7 @@ import { useLayerDate } from "@/hooks/useLayerDate";
 import { usePlaceSelection } from "@/hooks/usePlaceSelection";
 import { useRouteFocusPlace } from "@/hooks/useRouteFocusPlace";
 import { DEFAULT_COMPARE_LAYER_ID, DEFAULT_LAYER_ID, getLayerOrDefault, isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
-import { formatDate, isIsoDate } from "@/lib/gibs/time";
+import { formatLayerDate, isIsoDate } from "@/lib/gibs/time";
 import { formatArea, type PolygonGeometry } from "@/lib/geo/geometry";
 import { analysisHrefForArea } from "@/lib/links";
 import { initialViewFrom } from "@/lib/mapView";
@@ -222,7 +222,7 @@ export default function SplitView() {
     </>
   );
 
-  const sideLabel = (layer: GibsLayer, date: string | null) => `${layer.name}${date ? ` ${formatDate(date)}` : ""}`;
+  const sideLabel = (layer: GibsLayer, date: string | null) => `${layer.name}${date ? ` ${formatLayerDate(layer, date)}` : ""}`;
 
   return (
     <MapPageShell

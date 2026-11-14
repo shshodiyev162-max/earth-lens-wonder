@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { isTimeEnabled, type GibsLayer } from "@/lib/gibs/catalog";
-import { defaultDateFor, fetchTimeDomain, provisionalDate, resolveInDomain, type DateResolution, type TimeDomain } from "@/lib/gibs/time";
+import { defaultDateFor, fetchTimeDomain, provisionalDate, resolveForLayer, type DateResolution, type TimeDomain } from "@/lib/gibs/time";
 
 export interface LayerDateState {
   /** Date to request tiles for (null for static layers). */
@@ -69,7 +69,7 @@ export function useLayerDate(layer: GibsLayer, requested: string | null): LayerD
       };
     }
     const defaultDate = defaultDateFor(layer, current.domain);
-    const resolved = requested ? resolveInDomain(current.domain, requested) : { date: defaultDate, resolution: "latest" as DateResolution };
+    const resolved = requested ? resolveForLayer(layer, current.domain, requested) : { date: defaultDate, resolution: "latest" as DateResolution };
     return {
       date: resolved.date,
       resolution: requested ? resolved.resolution : "exact",

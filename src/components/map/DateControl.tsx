@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { LayerDateState } from "@/hooks/useLayerDate";
 import { isTimeEnabled, periodLabel, type GibsLayer } from "@/lib/gibs/catalog";
-import { formatDate, shiftDate, stepForLayer, todayUtc } from "@/lib/gibs/time";
+import { formatLayerDate, shiftDate, stepForLayer, todayUtc } from "@/lib/gibs/time";
 import { cn } from "@/lib/utils";
 
 interface DateControlProps {
@@ -21,15 +21,20 @@ function statusText(layer: GibsLayer, state: LayerDateState, requested: string |
   if (!requested || (state.defaultDate && state.date === state.defaultDate && requested >= state.date)) {
     return { text: `Latest available · ${periodLabel(layer.period).toLowerCase()}`, tone: "muted" };
   }
+  const when = (date: string) => formatLayerDate(layer, date);
+  const whole = layer.period === "monthly" || layer.period === "yearly";
   switch (state.resolution) {
     case "snapped":
-      return { text: `Showing the ${periodLabel(layer.period).toLowerCase()} that starts ${formatDate(state.date)}.`, tone: "info" };
+      return {
+        text: whole ? `Showing ${when(state.date)}: NASA publishes this layer ${layer.period === "monthly" ? "once a month" : "once a year"}.` : `Showing the ${periodLabel(layer.period).toLowerCase()} that starts ${when(state.date)}.`,
+        tone: "info",
+      };
     case "latest":
-      return { text: `NASA hasn't published ${formatDate(requested)} yet — showing ${formatDate(state.date)}.`, tone: "info" };
+      return { text: `NASA hasn't published ${when(requested)} yet — showing ${when(state.date)}.`, tone: "info" };
     case "earliest":
-      return { text: `This product starts on ${formatDate(state.date)}.`, tone: "info" };
+      return { text: `This product starts ${whole ? "in" : "on"} ${when(state.date)}.`, tone: "info" };
     case "gap":
-      return { text: `No imagery on ${formatDate(requested)} (processing gap) — showing ${formatDate(state.date)}.`, tone: "warn" };
+      return { text: `No imagery for ${when(requested)} (processing gap) — showing ${when(state.date)}.`, tone: "warn" };
     default:
       return { text: periodLabel(layer.period), tone: "muted" };
   }

@@ -23,6 +23,7 @@ Also:
 - **Suggestions that suit the place.** Land-cover-based suggestions, made by fixed written rules rather than AI.
 - **Seasonal cycles removed.** Seasonal statistics and same-months-every-year comparisons.
 - **Weak trends still shown.** Every rate is shown with its range, even when it isn't significant, and there's a one-click "test every year since 2000".
+- **40 NASA layers to look at.** The map pages (Explore, Compare, Sync) show the daily photos and science maps, the monthly records Trends measures (rainfall, soil moisture, water storage, ozone, methane, sea salinity and more) and the yearly land cover with its named categories. Coarse layers say how big a pixel is (MERRA-2 is about 50 km), and monthly maps step month by month.
 
 ## The measures
 
@@ -130,7 +131,7 @@ Never put secrets (model API keys and the like) in `VITE_` variables: they end u
 | Fires and people (possible causes) | MODIS fire detections (Terra and Aqua) and NASA SEDAC Gridded Population of the World v4, both through NASA GIBS |
 | Place search, boundaries | [OpenStreetMap](https://www.openstreetmap.org/copyright) via [Photon](https://photon.komoot.io/) and [Nominatim](https://nominatim.org/) (queued to one request a second) |
 | Country outlines and coastlines | [Natural Earth](https://www.naturalearthdata.com/) 1:50m (bundled in `public/data`; also used to cut the land out of the sea and ocean areas) |
-| Globe textures | NASA GIBS Blue Marble (surface); NASA Blue Marble cloud map (clouds) |
+| Globe textures | NASA GIBS Blue Marble (surface, plus a sharper piece of Central Asia, about 1 km a pixel, fetched once a visitor scrolls towards Uzbekistan); NASA Blue Marble cloud map (clouds) |
 | Home page findings | Measured with the app's own scanner; `scripts/measure-findings.browser.js` says how to measure them again |
 
 ## Project structure

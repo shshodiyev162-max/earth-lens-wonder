@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { cloudImagePath, dayImagePath, FIRST_IMAGE, sharpCloudImageSize, sharpDayImageSize } from "../earthTextures";
+import { cloudImagePath, dayImagePath, DETAIL_IMAGE, FIRST_IMAGE, pictureBox, sharpCloudImageSize, sharpDayImageSize, wantsDetailImage } from "../earthTextures";
+import { FINDINGS } from "../findings";
 
 const desktop = { screenWidth: 1440, touch: false, maxTextureSize: 16384, saveData: false };
 const phone = { ...desktop, screenWidth: 390, touch: true };
@@ -59,5 +60,33 @@ describe("image paths", () => {
     const device = { screenWidth: 1440, touch: false, maxTextureSize: 16384, saveData: false };
     expect(existsSync(`public/${cloudImagePath(FIRST_IMAGE)}`)).toBe(true);
     expect(existsSync(`public/${cloudImagePath(sharpCloudImageSize(device))}`)).toBe(true);
+  });
+});
+
+describe("the sharper picture of Central Asia", () => {
+  it("is bundled, and covers the story's close looks at Uzbekistan and the Aral Sea shore", () => {
+    expect(existsSync(`public/${DETAIL_IMAGE.path}`)).toBe(true);
+    const [west, south, east, north] = DETAIL_IMAGE.bbox;
+    const inside = ([lat, lon]: readonly number[]) => lon > west && lon < east && lat > south && lat < north;
+    // Uzbekistan from end to end, and the Muynoq district by the old Aral Sea.
+    for (const point of [[43.6, 60.2], [41.5, 64], [37.2, 67.3], [45.5, 56.0], [41.0, 73.1]]) expect(inside(point), point.join(", ")).toBe(true);
+    expect(inside(FINDINGS.uzbekistan.hotspot.center), "the Muynoq hotspot").toBe(true);
+  });
+
+  it("sits on the planet's picture where its degrees say", () => {
+    expect(pictureBox([-180, -90, 180, 90])).toEqual([0, 0, 1, 1]);
+    const [u0, v0, u1, v1] = pictureBox(DETAIL_IMAGE.bbox);
+    expect(u0).toBeCloseTo(224 / 360, 6);
+    expect(v0).toBeCloseTo(124 / 180, 6);
+    expect(u1).toBeCloseTo(256 / 360, 6);
+    expect(v1).toBeCloseTo(142 / 180, 6);
+  });
+
+  it("is fetched only once the story heads past its opening, and never when saving data", () => {
+    expect(wantsDetailImage(0, false)).toBe(false);
+    expect(wantsDetailImage(1.2, false)).toBe(false);
+    expect(wantsDetailImage(1.5, false)).toBe(true);
+    expect(wantsDetailImage(4, false)).toBe(true);
+    expect(wantsDetailImage(4, true)).toBe(false);
   });
 });

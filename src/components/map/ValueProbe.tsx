@@ -5,7 +5,7 @@ import { TrendingUp } from "lucide-react";
 import { isAbortError } from "@/lib/async";
 import { isScienceLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { probePoint } from "@/lib/gibs/sample";
-import { formatDate } from "@/lib/gibs/time";
+import { formatLayerDate } from "@/lib/gibs/time";
 import { formatLatLng, type LatLng } from "@/lib/geo/geometry";
 import { analysisHrefForPoint } from "@/lib/links";
 import { formatValue } from "@/lib/format";
@@ -77,7 +77,7 @@ export default function ValueProbe({ layers, date, disabled }: { layers: { layer
                 ) : (
                   <div className="font-mono text-lg font-medium tabular-nums tracking-tight text-panel-foreground">{formatValue(value, layer.unit, layer.decimals)}</div>
                 )}
-                {layerDate && <div className="font-mono text-[10.5px] tabular-nums text-panel-muted">{formatDate(layerDate)}</div>}
+                {layerDate && <div className="font-mono text-[10.5px] tabular-nums text-panel-muted">{formatLayerDate(layer, layerDate)}</div>}
               </div>
             );
           })}

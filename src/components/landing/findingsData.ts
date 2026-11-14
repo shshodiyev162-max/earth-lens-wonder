@@ -529,7 +529,18 @@ export const MEASURED = {
         "significantShare": 0.22,
         "rising": 0.4155,
         "significantRising": 0.1337,
-        "significantFalling": 0.0861
+        "significantFalling": 0.0861,
+        "picture": {
+          "file": "uzbekistan-fine.png",
+          "bbox": [
+            55.976,
+            37.172,
+            73.137,
+            45.555
+          ],
+          "width": 700,
+          "height": 342
+        }
       },
       "measuredOn": "2026-11-09"
     },

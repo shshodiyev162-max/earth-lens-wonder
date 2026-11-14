@@ -55,6 +55,10 @@ const SURFACE_SHARED = /* glsl */ `
 export const PLANET_FRAGMENT = /* glsl */ `
   ${SURFACE_SHARED}
   uniform sampler2D uDay;
+  // A sharper piece of the same picture where the story looks closely (Central Asia).
+  uniform sampler2D uDetail;
+  uniform vec4 uDetailBox;
+  uniform float uDetailAmount;
   uniform sampler2D uData;
   uniform vec4 uDataBox;
   uniform float uDataAmount;
@@ -91,6 +95,15 @@ export const PLANET_FRAGMENT = /* glsl */ `
     float sunHeight = dot(N, uSun);
 
     vec3 picture = texture2D(uDay, vUv).rgb;
+    if (uDetailAmount > 0.001) {
+      // Sampled everywhere (clamped), so its sharpness steps stay smooth at the edges; used inside its
+      // box only, fading into the whole-world picture over the last few percent.
+      vec2 detailUv = (vUv - uDetailBox.xy) / (uDetailBox.zw - uDetailBox.xy);
+      vec3 sharp = texture2D(uDetail, clamp(detailUv, 0.0, 1.0)).rgb;
+      vec2 edge = min(detailUv, 1.0 - detailUv);
+      float inside = smoothstep(0.0, 0.035, min(edge.x, edge.y));
+      picture = mix(picture, sharp, inside * uDetailAmount);
+    }
     float water = waterIn(picture);
     vec3 surface = mix(landFrom(picture), oceanFrom(picture), water);
 
@@ -112,8 +125,9 @@ export const PLANET_FRAGMENT = /* glsl */ `
     // Measured data lies on the ground: strong where the trend is significant, faint where it isn't.
     if (uDataAmount > 0.001) {
       vec2 dataUv = (vUv - uDataBox.xy) / (uDataBox.zw - uDataBox.xy);
+      // Read outside the test below, so the map's smaller copies are picked smoothly at its edges.
+      vec3 reading = texture2D(uData, clamp(dataUv, 0.0, 1.0)).rgb;
       if (dataUv.x > 0.0 && dataUv.x < 1.0 && dataUv.y > 0.0 && dataUv.y < 1.0) {
-        vec3 reading = texture2D(uData, dataUv).rgb;
         float measured = smoothstep(0.35, 0.75, reading.b);
         float rate = reading.r * 2.0 - 1.0;
         float size = pow(clamp(abs(rate), 0.0, 1.0), 0.7);

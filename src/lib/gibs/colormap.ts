@@ -199,6 +199,37 @@ export function fetchColorMap(name: string): Promise<ParsedColorMap> {
   return request;
 }
 
+export interface ClassEntry {
+  /** CSS colour, e.g. "rgb(33,138,33)". */
+  color: string;
+  name: string;
+}
+
+/** The named categories of a map of kinds (land cover): each colour and what it stands for. */
+export function parseClassLegend(xml: string): ClassEntry[] {
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  return Array.from(doc.getElementsByTagName("LegendEntry"))
+    .map((entry) => ({ rgb: entry.getAttribute("rgb") ?? "", name: (entry.getAttribute("tooltip") ?? "").trim() }))
+    .filter((entry) => /^\d+,\d+,\d+$/.test(entry.rgb) && entry.name && !/^unclassified$/i.test(entry.name))
+    .map((entry) => ({ color: `rgb(${entry.rgb})`, name: entry.name }));
+}
+
+const classCache = new Map<string, Promise<ClassEntry[]>>();
+
+export function fetchClassLegend(name: string): Promise<ClassEntry[]> {
+  const cached = classCache.get(name);
+  if (cached) return cached;
+  const request = fetch(colormapUrl(name))
+    .then((response) => (response.ok ? response.text() : Promise.reject(new Error(`Legend request failed (${response.status})`))))
+    .then(parseClassLegend)
+    .catch((error) => {
+      classCache.delete(name);
+      throw error;
+    });
+  classCache.set(name, request);
+  return request;
+}
+
 /** Unit conversions from the units NASA publishes to the ones people read. */
 export type ValueTransform = "kelvinToCelsius" | "kgm2sToMmPerMonth" | "snowfallToMmPerMonth" | "fractionToPercent" | "kgm3ToUgm3" | "kgm2ToMgm2" | "ozoneMassToPpmv" | undefined;
 

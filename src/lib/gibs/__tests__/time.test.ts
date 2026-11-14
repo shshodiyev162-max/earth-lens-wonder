@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, availableMonths, clipDomain, completeDaysAgoUtc, firstDateInMonth, monthRange, monthsInDomain, parseDomainXml, parsePeriod, resolveInDomain } from "../time";
+import { addMonths, availableMonths, clipDomain, completeDaysAgoUtc, defaultDateFor, firstDateInMonth, formatLayerDate, monthRange, monthsInDomain, parseDomainXml, parsePeriod, provisionalDate, resolveForLayer, resolveInDomain } from "../time";
 import { getLayer, type GibsLayer } from "../catalog";
 
 const DAILY = `<Domains><DimensionDomain><ows:Identifier>time</ows:Identifier><Domain>2000-06-01/2025-10-22/P1D,2025-10-30/2026-01-07/P1D,2026-01-09/2026-09-30/P1D</Domain><Size>3</Size></DimensionDomain></Domains>`;
@@ -109,5 +109,49 @@ describe("products published on uneven dates", () => {
     expect(layer.irregularDates).toBe(true);
     expect(monthsInDomain(layer, domain, "2002-03", "2002-09")).toEqual(["2002-04", "2002-05", "2002-08", "2002-09"]);
     expect(monthsInDomain(layer, domain, "2022-06", "2022-09")).toEqual(["2022-06", "2022-07"]);
+  });
+});
+
+describe("monthly records on the map pages", () => {
+  // NASA's real list for MERRA-2's monthly air temperature (November 2026): stray single days with
+  // gaps between them, though every month has a map.
+  const STRAY = `<Domains><DimensionDomain><Domain>1980-01-01/2000-03-01/P1M,2000-03-03/2000-03-03/P1M,2000-03-04/2000-03-04/P1M,2025-06-04/2025-06-04/P1M,2025-07-01/2025-07-01/P1M,2025-09-01/2026-08-01/P1M</Domain></DimensionDomain></Domains>`;
+  const merra = getLayer("MERRA2_2m_Air_Temperature_Assimilated_Monthly") as GibsLayer;
+  const domain = parseDomainXml(STRAY)!;
+
+  it("reads them month by month, whatever stray days NASA lists", () => {
+    expect(resolveForLayer(merra, domain, "2025-08-15")).toEqual({ requested: "2025-08-15", date: "2025-08-01", resolution: "snapped" });
+    expect(resolveForLayer(merra, domain, "2025-08-01").resolution).toBe("exact");
+    expect(resolveForLayer(merra, domain, "2000-03-04").date).toBe("2000-03-01");
+    // Plain day-by-day resolving would have jumped to July or September.
+    expect(resolveInDomain(domain, "2025-08-15").date).not.toBe("2025-08-01");
+  });
+
+  it("stays within the record", () => {
+    expect(resolveForLayer(merra, domain, "2027-02-10")).toMatchObject({ date: "2026-08-01", resolution: "latest" });
+    expect(resolveForLayer(merra, domain, "1975-06-01")).toMatchObject({ date: "1980-01-01", resolution: "earliest" });
+    expect(defaultDateFor(merra, domain)).toBe("2026-08-01");
+  });
+
+  it("asks for the date NASA lists in a month for uneven records, and the nearest one in a month with none", () => {
+    const grace = getLayer("GRACE_Tellus_Liquid_Water_Equivalent_Thickness_Mascon_CRI") as GibsLayer;
+    const record = clipDomain(parseDomainXml(GRACE), "2022-07")!;
+    expect(resolveForLayer(grace, record, "2011-02-20").date).toBe("2011-02-08");
+    expect(resolveForLayer(grace, record, "2017-08-10").date).not.toMatch(/^2017-08/);
+    expect(resolveForLayer(grace, record, "2024-01-01")).toMatchObject({ date: "2022-07-01", resolution: "latest" });
+  });
+
+  it("leaves regular layers to the usual rules", () => {
+    const ndvi = getLayer("MODIS_Terra_L3_NDVI_16Day") as GibsLayer;
+    const sixteen = parseDomainXml(SIXTEEN)!;
+    expect(resolveForLayer(ndvi, sixteen, "2026-01-20")).toEqual(resolveInDomain(sixteen, "2026-01-20"));
+  });
+
+  it("dates monthly and yearly maps the way people say them", () => {
+    expect(formatLayerDate(merra, "2026-08-01")).toBe("Aug 2026");
+    expect(formatLayerDate({ period: "yearly" }, "2024-01-01")).toBe("2024");
+    expect(formatLayerDate({ period: "daily" }, "2026-11-04")).toBe("Nov 4, 2026");
+    expect(provisionalDate(merra, "2025-03-17")).toBe("2025-03-01");
+    expect(provisionalDate({ ...merra, period: "yearly" }, "2012-06-30")).toBe("2012-01-01");
   });
 });

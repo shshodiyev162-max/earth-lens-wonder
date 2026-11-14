@@ -39,8 +39,16 @@ export interface GibsLayer {
   needsBase?: boolean;
   /** Short explanation of how to read the layer. */
   howToRead?: string;
-  /** Hidden from the layer picker (analysis-only products). */
+  /**
+   * Left out of the layer list: a monthly copy of a layer already listed (vegetation, land and sea
+   * temperature, snow, aerosols, carbon monoxide), or too close to one (leaf density). Trends and the
+   * Analysis page still read them.
+   */
   hidden?: boolean;
+  /** About how wide one pixel is, in km (weather models and some instruments see 25–300 km). */
+  pixelKm?: number;
+  /** NASA's legend of named categories, for a map of kinds rather than amounts (land cover). */
+  classes?: string;
   /**
    * GIBS lists stray daily dates in some MERRA-2 monthly domains; treat the record as
    * continuous between its first and last month instead.
@@ -290,7 +298,8 @@ export const LAYERS: GibsLayer[] = [
     defaultLagDays: 1,
   }),
 
-  // ── Monthly products used by the Analysis page ─────────────────────────
+  // ── Monthly records: read by Trends and the Analysis page, and listed on the map pages unless
+  //    they repeat a layer above ──────────────────────────────────────────────
   layer({
     id: "MODIS_Terra_L3_NDVI_Monthly",
     name: "Vegetation (NDVI, monthly)",
@@ -369,7 +378,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "kgm2sToMmPerMonth",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -386,7 +395,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "fractionToPercent",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -403,7 +412,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "kgm3ToUgm3",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
 
@@ -422,7 +431,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "kelvinToCelsius",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -439,7 +448,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "kgm2sToMmPerMonth",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -456,7 +465,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "kelvinToCelsius",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -473,7 +482,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "ozoneMassToPpmv",
     decimals: 2,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -490,7 +499,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "kgm2ToMgm2",
     decimals: 2,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -554,7 +563,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "kelvinToCelsius",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 5,
   }),
   layer({
     id: "GLDAS_Underground_Soil_Moisture_Monthly",
@@ -569,7 +578,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "% vol",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 25,
     continuousDomain: true,
   }),
   layer({
@@ -585,7 +594,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "cm",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 300,
     irregularDates: true,
     recordEnd: "2022-07",
   }),
@@ -602,7 +611,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "mm",
     decimals: 0,
     needsBase: true,
-    hidden: true,
+    pixelKm: 25,
   }),
   layer({
     id: "MERRA2_Snowfall_Monthly",
@@ -618,7 +627,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "snowfallToMmPerMonth",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -634,7 +643,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "W/m²",
     decimals: 0,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -650,7 +659,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "%",
     decimals: 0,
     needsBase: true,
-    hidden: true,
+    pixelKm: 100,
   }),
   layer({
     id: "MERRA2_Total_Precipitable_Water_Vapor_Monthly",
@@ -665,7 +674,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "mm",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -681,7 +690,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "m/s",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -697,7 +706,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "W/m²",
     decimals: 0,
     needsBase: true,
-    hidden: true,
+    pixelKm: 100,
   }),
   layer({
     id: "MERRA2_Dust_Surface_Mass_Concentration_PM25_Monthly",
@@ -713,7 +722,7 @@ export const LAYERS: GibsLayer[] = [
     transform: "kgm3ToUgm3",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 50,
     continuousDomain: true,
   }),
   layer({
@@ -729,7 +738,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "ppb",
     decimals: 0,
     needsBase: true,
-    hidden: true,
+    pixelKm: 100,
   }),
   layer({
     id: "MOPITT_CO_Monthly_Surface_Mixing_Ratio_Day",
@@ -744,7 +753,7 @@ export const LAYERS: GibsLayer[] = [
     unit: "ppb",
     decimals: 0,
     needsBase: true,
-    hidden: true,
+    pixelKm: 100,
   }),
   layer({
     id: "SMAP_L3_Sea_Surface_Salinity_CAP_Monthly",
@@ -759,11 +768,11 @@ export const LAYERS: GibsLayer[] = [
     unit: "PSU",
     decimals: 1,
     needsBase: true,
-    hidden: true,
+    pixelKm: 70,
   }),
 ];
 
-/** Yearly land cover (17 classes, 2001 onwards): what an area is like, to suggest measures for it. */
+/** Yearly land cover (17 classes, 2001 onwards): what an area is like, to suggest measures for it, and a map of it. */
 LAYERS.push(
   layer({
     id: "MODIS_Combined_L3_IGBP_Land_Cover_Type_Annual",
@@ -775,7 +784,9 @@ LAYERS.push(
     matrixSet: "GoogleMapsCompatible_Level8",
     period: "yearly",
     needsBase: true,
-    hidden: true,
+    classes: "MODIS_IGBP_Land_Cover_Type",
+    howToRead: "Each colour is one kind of land, from NASA's 17 classes: greens are forests, yellows crops and savanna, red towns and cities, grey bare ground.",
+    pixelKm: 0.5,
   }),
 );
 
@@ -852,6 +863,25 @@ export function searchLayers(query: string, layers: GibsLayer[] = MAP_LAYERS): G
     .filter((entry) => entry.score >= 0)
     .sort((a, b) => a.score - b.score || a.index - b.index)
     .map((entry) => entry.item);
+}
+
+/**
+ * The line under a layer's name in the list: its source, how often it updates unless the source
+ * already says so ("MODIS · Terra · daily", not "… daily · Daily"), and its pixel size when coarse.
+ */
+export function layerSubtitle(item: GibsLayer): string {
+  const period = periodLabel(item.period);
+  const said = [period.split(" ")[0], item.period === "yearly" ? "yearly" : ""].filter(Boolean).some((word) => item.source.toLowerCase().includes(word.toLowerCase()));
+  const parts = [item.source, said ? null : period, item.pixelKm !== undefined && item.pixelKm >= COARSE_PIXEL_KM ? `${item.pixelKm} km pixels` : null];
+  return parts.filter(Boolean).join(" · ");
+}
+
+/** Pixels at least this wide (km) are called out: close up they show as large squares. */
+export const COARSE_PIXEL_KM = 20;
+
+/** "about 50 km", "about 500 m". */
+export function pixelSize(km: number): string {
+  return km < 1 ? `about ${Math.round(km * 1000)} m` : `about ${km} km`;
 }
 
 export function periodLabel(period: LayerPeriod): string {
