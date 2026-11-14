@@ -1,8 +1,14 @@
 import { TIME_ZONES, TIME_ZONE_ALIASES } from "./timezones";
+import { COUNTRY_NAMES, ZONE_COUNTRY } from "./zoneCountries";
 
 export interface Home {
-  /** City that gives the time zone its name, e.g. "Tashkent". */
+  /** City that gives the time zone its name, e.g. "Tashkent" (where the globe marks). */
   city: string;
+  /**
+   * What the label says: the time zone's country ("Uzbekistan"). A time zone covers far more than
+   * its city, so the country is right where the city often isn't.
+   */
+  label: string;
   lat: number;
   lon: number;
 }
@@ -17,7 +23,8 @@ export function findHome(timeZone: string | undefined): Home | null {
   const coordinates = zone ? TIME_ZONES[zone] : undefined;
   if (!zone || !coordinates) return null;
   const city = zone.split("/").pop()!.replace(/_/g, " ");
-  return { city, lat: coordinates[0], lon: coordinates[1] };
+  const country = ZONE_COUNTRY[timeZone] ?? ZONE_COUNTRY[zone];
+  return { city, label: (country && COUNTRY_NAMES[country]) || city, lat: coordinates[0], lon: coordinates[1] };
 }
 
 export function browserTimeZone(): string | undefined {

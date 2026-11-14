@@ -90,7 +90,9 @@ describe("the home page", () => {
     renderPage();
     const footer = screen.getByRole("contentinfo");
     expect(within(footer).getByRole("link", { name: /NASA GIBS/ }).getAttribute("href")).toContain("earthdata.nasa.gov");
-    expect(within(footer).getByRole("link", { name: /Source code/ }).getAttribute("href")).toContain("github.com");
+    // No link to the code.
+    expect(within(footer).queryByRole("link", { name: /Source code/ })).toBeNull();
+    expect(footer.querySelector('a[href*="github.com"]')).toBeNull();
     expect(within(footer).getByRole("link", { name: "Trends" }).getAttribute("href")).toBe("/trends");
   });
 });

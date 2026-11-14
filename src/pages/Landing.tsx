@@ -146,8 +146,6 @@ const DATA_SOURCES = [
   { href: "https://www.naturalearthdata.com/", name: "Natural Earth" },
 ];
 
-const REPOSITORY = "https://github.com/shshodiyev162-max/earth-lens-wonder";
-
 function SectionHeading({ eyebrow, children }: { eyebrow: string; children: ReactNode }) {
   return (
     <header>
@@ -467,12 +465,6 @@ export default function Landing() {
               <li>
                 <a href="#limits" className="inline-flex min-h-8 items-center text-foreground underline-offset-4 hover:underline">
                   Limits
-                </a>
-              </li>
-              <li>
-                <a href={REPOSITORY} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 text-foreground underline-offset-4 hover:underline">
-                  Source code
-                  <ArrowUpRight aria-hidden="true" className="h-3 w-3 text-muted-foreground" />
                 </a>
               </li>
             </ul>

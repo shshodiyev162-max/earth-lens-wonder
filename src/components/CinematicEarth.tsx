@@ -603,7 +603,7 @@ export default function CinematicEarth({ reducedMotion, story }: CinematicEarthP
       className={`relative h-full w-full select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foreground/60 ${free ? "" : "pointer-events-none"}`}
       style={{ touchAction: "pan-y" }}
       role="application"
-      aria-label={`Interactive Earth. Drag or use the arrow keys to turn it.${home ? ` Your time zone, ${home.city}, is marked.` : ""}`}
+      aria-label={`Interactive Earth. Drag or use the arrow keys to turn it.${home ? ` Your country, ${home.label}, is marked, from your time zone.` : ""}`}
       tabIndex={free ? 0 : -1}
       onKeyDown={handleKeyDown}
       onPointerMove={handlePointerMove}
@@ -630,7 +630,7 @@ export default function CinematicEarth({ reducedMotion, story }: CinematicEarthP
 
       {home && (
         <div ref={homeLabel} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 flex items-center gap-2 whitespace-nowrap rounded-sm bg-black/70 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-white opacity-0 will-change-transform">
-          <span translate="no">{home.city}</span>
+          <span translate="no">{home.label}</span>
           <span ref={homeTime} className="tabular-nums text-white/70" />
         </div>
       )}

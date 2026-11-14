@@ -15,6 +15,7 @@
     "data:borders": "node scripts/build-borders.mjs",
     "data:earth": "node scripts/build-earth-textures.mjs",
     "data:timezones": "node scripts/build-timezones.mjs",
+    "data:zone-countries": "node scripts/build-zone-countries.mjs",
     "data:waters": "vite-node scripts/build-waters.ts"
   },
   "dependencies": {
