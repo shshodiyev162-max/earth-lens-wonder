@@ -7,7 +7,7 @@ const trendLines = (container: HTMLElement) => container.querySelectorAll("line"
 
 describe("the yearly chart of a rise and a fall", () => {
   it("draws the trend before and after the turn, meeting at it, instead of one flat line", () => {
-    const { container } = render(<YearTrendChart series={series} unit="" decimals={2} showRange turnYear={2016} label="Greenness" />);
+    const { container } = render(<YearTrendChart series={series} unit="" decimals={2} showRange breaks={[2016]} label="Greenness" />);
     const lines = [...trendLines(container)];
     expect(lines).toHaveLength(2);
     expect(lines[0].getAttribute("x2")).toBe(lines[1].getAttribute("x1"));
@@ -19,5 +19,14 @@ describe("the yearly chart of a rise and a fall", () => {
     const { container } = render(<YearTrendChart series={series} unit="" decimals={2} showRange label="Greenness" />);
     expect(trendLines(container)).toHaveLength(1);
     expect(container.querySelector("path[clip-path]")).not.toBeNull();
+  });
+});
+
+describe("the yearly chart of one jump", () => {
+  it("draws the two flat levels either side of it", () => {
+    const { container } = render(<YearTrendChart series={series} unit="" decimals={2} showRange levels={{ before: 2015, after: 2016, levelBefore: 0.4, levelAfter: 0.5 }} label="Water" />);
+    const lines = [...container.querySelectorAll("line")];
+    expect(lines).toHaveLength(2);
+    expect(lines[0].getAttribute("y1")).toBe(lines[0].getAttribute("y2"));
   });
 });

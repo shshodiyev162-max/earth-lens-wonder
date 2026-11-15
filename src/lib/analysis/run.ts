@@ -6,9 +6,10 @@
 import { createLimiter, createSharedCache, isAbortError, withRetry } from "../async";
 import { cachedValue, TTL } from "../cache/store";
 import { defaultEndMonth } from "./period";
-import { areaKm2 as geometryArea, representativePoints, type LatLng, type PolygonGeometry } from "../geo/geometry";
+import { areaKm2 as geometryArea, bboxOf, representativePoints, type LatLng, type PolygonGeometry } from "../geo/geometry";
 import { getLayer, type GibsLayer } from "../gibs/catalog";
-import { sampleArea, type AreaStats } from "../gibs/sample";
+import { gridFor, rasterizeMask, sampleArea, statsFromValues, type AreaStats } from "../gibs/sample";
+import { readsPaletteTiles } from "../gibs/paletteTiles";
 import { addMonthsToMonth, dateForMonth, fetchTimeDomain, monthRange, monthsInDomain } from "../gibs/time";
 import { fetchMonthGrid } from "../trends/grid";
 import { waterInArea } from "../trends/water";
@@ -328,24 +329,24 @@ function cachedSample(layer: GibsLayer, geometry: PolygonGeometry, key: string, 
   return satelliteCache(
     id,
     (inner) =>
-      cachedValue(`stats:${id}`, ttlForMonth(month), () =>
-        gibsLimiter(async () => {
+      // "stats2": pixels weighted by the ground they cover, and snow read from NASA's tiles.
+      cachedValue(`stats2:${id}`, ttlForMonth(month), async () => {
+        if (readsPaletteTiles(layer)) {
+          // The snow maps: "no snow" is 0, and night, cloud, sea and lakes are left out (see paletteTiles).
+          const grid = gridFor(bboxOf(geometry), layer);
+          return statsFromValues(await fetchMonthGrid(layer, grid, month, inner), rasterizeMask(geometry, grid), grid);
+        }
+        return gibsLimiter(async () => {
           const date = await dateForMonth(layer, month);
           return withRetry(() => sampleArea({ layer, geometry, date, signal: inner }), { signal: inner, retries: 2 });
-        }, inner),
-      ),
+        }, inner);
+      }),
     signal,
   );
 }
 
 function toSatellitePoint(dataset: DatasetId, month: string, stats: AreaStats | null): SatellitePoint {
   if (!stats || stats.total === 0) return { month, value: null, p10: null, p90: null, coverage: 0 };
-  if (dataset === "snow" || dataset === "snowWater") {
-    // Snow-free pixels are transparent in the snow products, so average over the
-    // whole area treating them as no snow.
-    const total = stats.count ? stats.mean * stats.count : 0;
-    return { month, value: total / stats.total, p10: null, p90: null, coverage: 1 };
-  }
   if (stats.count === 0) return { month, value: null, p10: null, p90: null, coverage: 0 };
   return { month, value: stats.mean, p10: stats.p10, p90: stats.p90, coverage: stats.coverage, capped: stats.capped };
 }
@@ -433,14 +434,21 @@ function cachedClimatology(point: [number, number], signal?: AbortSignal) {
   return climatologyCache(key, (inner) => cachedValue(`normals:${key}`, TTL.series, () => powerLimiter(() => fetchPowerClimatology(point, inner), inner)), signal);
 }
 
+/**
+ * Climate points for an area this size. NASA POWER answers for one spot about 50 km across, so a big
+ * area needs more of them spread over it to be fairly represented: a country the size of India gets
+ * 16, rather than 5 that would cover well under 1% of it. Each is two small requests, kept after.
+ */
 export function samplePointCount(areaKm2: number): number {
+  if (areaKm2 > 1_000_000) return 16;
+  if (areaKm2 > 300_000) return 9;
   if (areaKm2 > 60_000) return 5;
   if (areaKm2 > 6_000) return 3;
   return 1;
 }
 
 /** Most climate points read for an area made of several places (one each, up to this many). */
-const MAX_PART_POINTS = 8;
+const MAX_PART_POINTS = 16;
 
 export function climatePointCount(target: Pick<AnalysisTarget, "areaKm2" | "parts">): number {
   const own = samplePointCount(target.areaKm2);

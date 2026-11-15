@@ -561,6 +561,57 @@ export interface TrendVerdict {
   yearsNeeded?: number | null;
   /** A clear change of direction (a rise then a fall, or the other way round), when there is one. */
   turn?: TrendTurn | null;
+  /** One sudden jump, when the change came that way: most of a clear trend, or a jump the steady-trend test can't see. */
+  step?: TrendStep | null;
+  /** A clear change of pace (faster, slower, started or levelled off), when there is one. */
+  bend?: TrendBend | null;
+}
+
+/** One sudden jump: two flat levels either side of it fit far better than a steady line. */
+export interface TrendStep {
+  /** The last year before the jump and the first year after it. */
+  before: number;
+  after: number;
+  /** The average level before and after. */
+  levelBefore: number;
+  levelAfter: number;
+  /** Welch's t-test between the two levels, multiplied by the number of years tried (at most 1). */
+  p: number;
+}
+
+/** Records shorter than this can't tell a sudden jump from a steady change. */
+export const MIN_STEP_YEARS = 8;
+
+const squaredError = (values: number[], fitted: (i: number) => number) => values.reduce((s, v, i) => s + (v - fitted(i)) ** 2, 0);
+
+/** Sum of squared differences between the values on each side of a split and that side's average. */
+function stepError(values: number[], split: number): number {
+  const before = values.slice(0, split + 1);
+  const after = values.slice(split + 1);
+  return squaredError(before, () => mean(before)) + squaredError(after, () => mean(after));
+}
+
+/**
+ * One sudden jump in the given direction, or null. Every split with at least two years on each side is
+ * tried and the one where two flat levels fit best is kept. It counts when those levels fit at least
+ * twice as well as a straight line and the years before and after differ clearly: Welch's t-test with
+ * the 5% cut-off divided by the number of splits tried, so trying many years can't make a jump.
+ */
+export function findStep(years: number[], values: number[], direction: "decline" | "increase"): (TrendStep & { split: number }) | null {
+  if (values.length < MIN_STEP_YEARS) return null;
+  const candidates: number[] = [];
+  for (let split = 1; split <= values.length - 3; split++) candidates.push(split);
+  const split = candidates.reduce((best, candidate) => (stepError(values, candidate) < stepError(values, best) ? candidate : best), candidates[0]);
+  const before = values.slice(0, split + 1);
+  const after = values.slice(split + 1);
+  const levelBefore = mean(before);
+  const levelAfter = mean(after);
+  const step = levelAfter - levelBefore;
+  const line = senSlope(years, values);
+  const lineError = line ? squaredError(values, (i) => line.intercept + line.slope * years[i]) : Infinity;
+  const rightWay = direction === "decline" ? step < 0 : step > 0;
+  const p = Math.min(1, (welchTTest(before, after)?.p ?? 1) * candidates.length);
+  return rightWay && p < SIGNIFICANCE && stepError(values, split) <= 0.5 * lineError ? { before: years[split], after: years[split + 1], levelBefore, levelAfter, p, split } : null;
 }
 
 /** A rise then a fall (or a fall then a rise) that a single trend line would average away. */
@@ -572,6 +623,9 @@ export interface TrendTurn {
   /** Sen's slope per year before and after the turn. */
   slopeBefore: number;
   slopeAfter: number;
+  /** When it turned twice (up, down, up again): the second turning year and the last stretch's slope. */
+  second?: number;
+  slopeLast?: number;
   from: number;
   to: number;
   /** Chance of a turn this clear anywhere in the record from a straight line plus random ups and downs (permutation test). */
@@ -594,19 +648,71 @@ function turnScore(ys: number[]): { k: number; score: number } {
   return best;
 }
 
+/** Mann–Kendall z of a stretch of values (0 when too short to test). */
+function stretchZ(ys: number[], from: number, to: number): number {
+  return mannKendall(ys.slice(from, to + 1))?.z ?? 0;
+}
+
+/** The clearest pair of turns (up, down, up or the other way round): three stretches scored by the weakest. */
+function twoTurnScore(ys: number[]): { k: number; k2: number; score: number } {
+  let best = { k: -1, k2: -1, score: 0 };
+  const n = ys.length;
+  for (let k = MIN_TURN_SIDE - 1; k <= n - 2 * MIN_TURN_SIDE + 1; k++) {
+    const a = stretchZ(ys, 0, k);
+    if (a === 0) continue;
+    for (let k2 = k + MIN_TURN_SIDE - 1; k2 <= n - MIN_TURN_SIDE; k2++) {
+      const b = stretchZ(ys, k, k2);
+      const c = stretchZ(ys, k2, n - 1);
+      if (Math.sign(a) !== -Math.sign(b) || Math.sign(c) !== Math.sign(a)) continue;
+      const score = Math.min(Math.abs(a), Math.abs(b), Math.abs(c));
+      if (score > best.score) best = { k, k2, score };
+    }
+  }
+  return best;
+}
+
+/** Least-squares slope of a stretch and its standard error. */
+function stretchSlope(xs: number[], ys: number[], from: number, to: number): { slope: number; se: number } | null {
+  const x = xs.slice(from, to + 1);
+  const y = ys.slice(from, to + 1);
+  const n = x.length;
+  if (n < 3) return null;
+  const mx = mean(x);
+  const my = mean(y);
+  let sxx = 0;
+  let sxy = 0;
+  for (let i = 0; i < n; i++) {
+    sxx += (x[i] - mx) ** 2;
+    sxy += (x[i] - mx) * (y[i] - my);
+  }
+  if (sxx === 0) return null;
+  const slope = sxy / sxx;
+  const rss = y.reduce((total, v, i) => total + (v - (my + slope * (x[i] - mx))) ** 2, 0);
+  return { slope, se: Math.sqrt(rss / Math.max(1, n - 2) / sxx) };
+}
+
+/** The clearest change of pace: the stretches' slopes compared, in standard errors. */
+function bendScore(xs: number[], ys: number[]): { k: number; score: number } {
+  let best = { k: -1, score: 0 };
+  for (let k = MIN_TURN_SIDE - 1; k <= ys.length - MIN_TURN_SIDE; k++) {
+    const before = stretchSlope(xs, ys, 0, k);
+    const after = stretchSlope(xs, ys, k, ys.length - 1);
+    if (!before || !after) continue;
+    const spread = Math.sqrt(before.se ** 2 + after.se ** 2);
+    const score = spread > 0 ? Math.abs(after.slope - before.slope) / spread : 0;
+    if (score > best.score) best = { k, score };
+  }
+  return best;
+}
+
 /**
- * Finds a clear change of direction in yearly values, which a single trend test can't see when the
- * rise and the fall cancel out. Both stretches must each be clear (|z| >= 1.96), and the turn must
- * beat 999 records made of the same straight line with the ups and downs shuffled (p < 0.05), so
- * trying every possible turning year can't make chance pass for a turn. Same data, same answer.
+ * How often the same straight line with its ups and downs shuffled scores at least as high: 999
+ * seeded shuffles, so every place a pattern could have been looked for is allowed for, and the same
+ * data always gives the same answer.
  */
-export function findTurn(xs: number[], ys: number[], shuffles = 999): TrendTurn | null {
-  const n = Math.min(xs.length, ys.length);
-  if (n < 2 * MIN_TURN_SIDE - 1) return null;
-  const observed = turnScore(ys);
-  if (observed.k < 0 || observed.score < 1.96) return null;
+function chanceOfShape(xs: number[], ys: number[], observed: number, score: (values: number[]) => number, shuffles: number): number {
   const line = senSlope(xs, ys);
-  if (!line) return null;
+  if (!line) return 1;
   const fit = xs.map((x) => line.intercept + line.slope * x);
   const shuffled = ys.map((y, i) => y - fit[i]);
   let seed = 0x2545f491;
@@ -616,21 +722,95 @@ export function findTurn(xs: number[], ys: number[], shuffles = 999): TrendTurn 
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  let asClear = 0;
+  let asHigh = 0;
   for (let s = 0; s < shuffles; s++) {
-    for (let i = n - 1; i > 0; i--) {
+    for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    if (turnScore(shuffled.map((r, i) => fit[i] + r)).score >= observed.score) asClear += 1;
+    if (score(shuffled.map((r, i) => fit[i] + r)) >= observed) asHigh += 1;
   }
-  const p = (asClear + 1) / (shuffles + 1);
+  return (asHigh + 1) / (shuffles + 1);
+}
+
+/**
+ * Finds a clear change of direction in yearly values, which a single trend test can't see when the
+ * rise and the fall cancel out: one turn, or two (up, down, up again) in a record of 16 years or more.
+ * Each stretch must be clear on its own (|z| >= 1.96) and the pattern must beat the shuffled records
+ * (p < 0.05; see chanceOfShape), so trying every possible turning year can't make chance pass for a turn.
+ */
+export function findTurn(xs: number[], ys: number[], shuffles = 999): TrendTurn | null {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 2 * MIN_TURN_SIDE - 1) return null;
+  const slope = (from: number, to: number) => senSlope(xs.slice(from, to + 1), ys.slice(from, to + 1))?.slope ?? 0;
+  const one = turnScore(ys);
+  if (one.k >= 0 && one.score >= 1.96) {
+    const p = chanceOfShape(xs, ys, one.score, (values) => turnScore(values).score, shuffles);
+    if (p < SIGNIFICANCE) {
+      const before = slope(0, one.k);
+      return { year: xs[one.k], first: before > 0 ? "increase" : "decline", slopeBefore: before, slopeAfter: slope(one.k, n - 1), from: xs[0], to: xs[n - 1], p };
+    }
+  }
+  if (n < 3 * MIN_TURN_SIDE - 2) return null;
+  const two = twoTurnScore(ys);
+  if (two.k < 0 || two.score < 1.96) return null;
+  const p = chanceOfShape(xs, ys, two.score, (values) => twoTurnScore(values).score, shuffles);
+  if (p >= SIGNIFICANCE) return null;
+  const before = slope(0, two.k);
+  return {
+    year: xs[two.k],
+    second: xs[two.k2],
+    first: before > 0 ? "increase" : "decline",
+    slopeBefore: before,
+    slopeAfter: slope(two.k, two.k2),
+    slopeLast: slope(two.k2, n - 1),
+    from: xs[0],
+    to: xs[n - 1],
+    p,
+  };
+}
+
+/** A change of pace in the same direction, or a start or stop: what one straight line averages away. */
+export interface TrendBend {
+  /** The year the pace changed (the end of one stretch and the start of the other). */
+  year: number;
+  /** "started": flat, then rising or falling; "levelled": rising or falling, then flat. */
+  kind: "faster" | "slower" | "started" | "levelled";
+  /** Sen's slope per year before and after. */
+  slopeBefore: number;
+  slopeAfter: number;
+  from: number;
+  to: number;
+  /** Chance of a change of pace this clear from a straight line plus random ups and downs. */
+  p: number;
+}
+
+/**
+ * Finds a clear change of pace: faster or slower in the same direction, flat and then moving, or
+ * moving and then flat. The two stretches' slopes must differ by at least 1.96 standard errors and
+ * beat the shuffled records (p < 0.05). A rise then a fall is a turn (findTurn), not a bend.
+ */
+export function findBend(xs: number[], ys: number[], shuffles = 999): TrendBend | null {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 2 * MIN_TURN_SIDE - 1) return null;
+  const observed = bendScore(xs, ys);
+  if (observed.k < 0 || observed.score < 1.96) return null;
+  const p = chanceOfShape(xs, ys, observed.score, (values) => bendScore(xs, values).score, shuffles);
   if (p >= SIGNIFICANCE) return null;
   const k = observed.k;
-  const before = senSlope(xs.slice(0, k + 1), ys.slice(0, k + 1));
-  const after = senSlope(xs.slice(k), ys.slice(k));
-  if (!before || !after) return null;
-  return { year: xs[k], first: before.slope > 0 ? "increase" : "decline", slopeBefore: before.slope, slopeAfter: after.slope, from: xs[0], to: xs[n - 1], p };
+  const zBefore = stretchZ(ys, 0, k);
+  const zAfter = stretchZ(ys, k, n - 1);
+  const clearBefore = Math.abs(zBefore) >= 1.96;
+  const clearAfter = Math.abs(zAfter) >= 1.96;
+  if (clearBefore && clearAfter && Math.sign(zBefore) !== Math.sign(zAfter)) return null;
+  const slopeBefore = senSlope(xs.slice(0, k + 1), ys.slice(0, k + 1))?.slope ?? 0;
+  const slopeAfter = senSlope(xs.slice(k), ys.slice(k))?.slope ?? 0;
+  let kind: TrendBend["kind"];
+  if (!clearBefore && clearAfter) kind = "started";
+  else if (clearBefore && !clearAfter) kind = "levelled";
+  else if (clearBefore && clearAfter) kind = Math.abs(slopeAfter) > Math.abs(slopeBefore) ? "faster" : "slower";
+  else return null;
+  return { year: xs[k], kind, slopeBefore, slopeAfter, from: xs[0], to: xs[n - 1], p };
 }
 
 export const SIGNIFICANCE = 0.05;
@@ -681,12 +861,19 @@ export function annualTrendVerdict(years: number[], values: number[]): TrendVerd
   const p = factor > 1 ? twoSidedP(mannKendallZ(mk.s, mk.varS * factor)) : mk.p;
   const sen = factor > 1 ? (senSlope(xs, ys, 0.95, factor) ?? plain) : plain;
   const span = pairs[pairs.length - 1][0] - pairs[0][0] + 1;
-  return {
+  const verdict: TrendVerdict = {
     ...verdictFrom(p, sen, span, "Mann–Kendall + Sen's slope"),
     carryOver: factor > 1 ? r1 : null,
     yearsNeeded: yearsToDetect(xs, ys, sen.slope, sen.intercept, r1),
     turn: findTurn(xs, ys),
   };
+  // What a single steady trend can't describe. A clear trend that is mostly one jump isn't a steady
+  // rate; and with no steady trend, a jump can still be clear (two flat levels read as "years that
+  // follow the year before", which the test allows for). Then a change of pace, unless one of those.
+  const jump = verdict.direction !== "none" ? findStep(xs, ys, verdict.direction) : verdict.turn ? null : (findStep(xs, ys, "increase") ?? findStep(xs, ys, "decline"));
+  if (jump) verdict.step = { before: jump.before, after: jump.after, levelBefore: jump.levelBefore, levelAfter: jump.levelAfter, p: jump.p };
+  if (!verdict.turn && !verdict.step) verdict.bend = findBend(xs, ys);
+  return verdict;
 }
 
 /**
@@ -713,23 +900,64 @@ export function formatP(p: number): string {
   return `p = ${p < 0.01 ? p.toFixed(3) : p.toFixed(2)}`;
 }
 
+/** "Rose, then fell", "Jumped up", "Started rising"…: what happened when no steady trend describes it. */
+export function shapeLabel(verdict: Pick<TrendVerdict, "direction" | "turn" | "step" | "bend">): string | null {
+  if (verdict.direction !== "none") return null;
+  if (verdict.turn) {
+    const up = verdict.turn.first === "increase";
+    if (verdict.turn.second !== undefined) return up ? "Rose, fell, rose again" : "Fell, rose, fell again";
+    return up ? "Rose, then fell" : "Fell, then rose";
+  }
+  if (verdict.step) return verdict.step.levelAfter > verdict.step.levelBefore ? "Jumped up" : "Dropped";
+  if (verdict.bend?.kind === "started") return verdict.bend.slopeAfter > 0 ? "Started rising" : "Started falling";
+  if (verdict.bend?.kind === "levelled") return verdict.bend.slopeBefore > 0 ? "Rose, then levelled off" : "Fell, then levelled off";
+  return null;
+}
+
+/** The same as a sentence about the measure ("plant greenness rose until 2016, then fell"), or null. */
+export function shapeSentence(verdict: Pick<TrendVerdict, "direction" | "turn" | "step" | "bend">, noun: string): string | null {
+  if (verdict.direction !== "none") return null;
+  const { turn, step, bend } = verdict;
+  if (turn) {
+    const up = turn.first === "increase";
+    if (turn.second !== undefined) return `${noun} ${up ? "rose" : "fell"} until ${turn.year}, ${up ? "fell" : "rose"} until ${turn.second}, then ${up ? "rose" : "fell"} again`;
+    return `${noun} ${up ? "rose" : "fell"} until ${turn.year}, then ${up ? "fell" : "rose"}`;
+  }
+  if (step) return `${noun} ${step.levelAfter > step.levelBefore ? "jumped up" : "dropped"} between ${step.before} and ${step.after}`;
+  if (bend?.kind === "started") return `${noun} was about level until ${bend.year}, then started ${bend.slopeAfter > 0 ? "rising" : "falling"}`;
+  if (bend?.kind === "levelled") return `${noun} ${bend.slopeBefore > 0 ? "rose" : "fell"} until ${bend.year}, then levelled off`;
+  return null;
+}
+
+/** The years a chart should break its trend line at, and a jump's two levels, for what no steady line describes. */
+export function shapeBreaks(verdict: Pick<TrendVerdict, "direction" | "turn" | "step" | "bend"> | null | undefined): { breaks: number[]; levels: TrendStep | null } {
+  if (!verdict || verdict.direction !== "none") return { breaks: [], levels: null };
+  if (verdict.turn) return { breaks: [verdict.turn.year, ...(verdict.turn.second !== undefined ? [verdict.turn.second] : [])], levels: null };
+  if (verdict.step) return { breaks: [], levels: verdict.step };
+  if (verdict.bend && (verdict.bend.kind === "started" || verdict.bend.kind === "levelled")) return { breaks: [verdict.bend.year], levels: null };
+  return { breaks: [], levels: null };
+}
+
 /**
  * The verdict as the answer to "is it changing?", graded by the evidence, in the voice of the home
  * page's findings: "Yes, clearly." for a very strong result, "Probably" for one that only just passes.
  */
-export function answerInWords(verdict: Pick<TrendVerdict, "direction" | "p" | "slopePerYear"> & { turn?: TrendTurn | null }): string {
-  if (verdict.direction === "none" && verdict.turn) {
-    const up = verdict.turn.first === "increase";
-    return `Not in one direction. It ${up ? "rose" : "fell"} until ${verdict.turn.year}, then ${up ? "fell" : "rose"}.`;
-  }
+export function answerInWords(verdict: Pick<TrendVerdict, "direction" | "p" | "slopePerYear"> & { turn?: TrendTurn | null; step?: TrendStep | null; bend?: TrendBend | null }): string {
+  const shape = shapeSentence({ turn: null, step: null, bend: null, ...verdict }, "it");
+  if (shape) return `${verdict.turn ? "Not in one direction" : "Not steadily"}. ${shape.charAt(0).toUpperCase()}${shape.slice(1)}.`;
   if (verdict.direction === "none") {
     if (verdict.p < WEAK_EVIDENCE && verdict.slopePerYear !== 0) return `Not clearly. It leans ${verdict.slopePerYear > 0 ? "upward" : "downward"}.`;
     return "No clear trend.";
   }
-  const word = verdict.direction === "increase" ? "rising" : "falling";
-  if (verdict.p < 0.001) return `Yes, clearly. It is ${word}.`;
-  if (verdict.p < 0.01) return `Yes. It is ${word}.`;
-  return `Probably. It is ${word}, but only just.`;
+  // How sure, in words about the evidence: "strong" is never about how big the change is.
+  const evidence = verdict.p < 0.001 ? "strong evidence" : verdict.p < 0.01 ? "good evidence" : null;
+  const up = verdict.direction === "increase";
+  if (verdict.step) {
+    const jump = `It ${up ? "rose" : "fell"}, mostly in one jump between ${verdict.step.before} and ${verdict.step.after}`;
+    return evidence ? `Yes. ${jump} (${evidence}).` : `Probably. ${jump}, but the evidence is only just enough.`;
+  }
+  const word = up ? "rising" : "falling";
+  return evidence ? `Yes. It is ${word} (${evidence}).` : `Probably. It is ${word}, but the evidence is only just enough.`;
 }
 
 /**
@@ -737,23 +965,86 @@ export function answerInWords(verdict: Pick<TrendVerdict, "direction" | "p" | "s
  * A run this consistent would appear by chance in fewer than 1 in 100 records without a real trend (p = 0.004)."
  */
 export function explainVerdict(verdict: TrendVerdict, subject: string, unit: string, decimals: number): string {
-  // A rise and a fall that cancel out are a strong pattern, not a weak one: say what happened instead.
-  if (verdict.turn && verdict.direction === "none") return turnText(verdict, verdict.turn, subject, unit, decimals);
-  const extra = [carryOverText(verdict), detectabilityText(verdict), verdict.turn ? turnText(verdict, verdict.turn, subject, unit, decimals) : null].filter(Boolean).join(" ");
+  // A rise and a fall that cancel out, a jump, or a start or stop are strong patterns, not weak ones:
+  // say what happened instead of "no consistent direction".
+  if (verdict.direction === "none") {
+    if (verdict.turn) return turnText(verdict, verdict.turn, subject, unit, decimals);
+    if (verdict.step) return stepStory(verdict, verdict.step, subject, unit, decimals);
+    if (verdict.bend && (verdict.bend.kind === "started" || verdict.bend.kind === "levelled")) return bendText(verdict, verdict.bend, subject, unit, decimals);
+  }
+  const extra = [
+    stepText(verdict, unit, decimals),
+    carryOverText(verdict),
+    detectabilityText(verdict),
+    verdict.turn ? turnText(verdict, verdict.turn, subject, unit, decimals) : null,
+    verdict.bend ? bendText(verdict, verdict.bend, subject, unit, decimals) : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
   const text = explainTest(verdict, subject, unit, decimals);
   return extra ? `${text} ${extra}` : text;
 }
 
+/** A clear trend that came mostly as one jump: the yearly rate is an average of a sudden change. */
+function stepText(verdict: TrendVerdict, unit: string, wanted: number): string | null {
+  if (!verdict.step || verdict.direction === "none") return null;
+  const { before, after, levelBefore, levelAfter } = verdict.step;
+  const decimals = Math.max(Math.abs(levelBefore), Math.abs(levelAfter)) >= 100 ? 0 : wanted;
+  const level = (value: number) => `${grouped(value, decimals)}${unit ? ` ${unit}` : ""}`;
+  return `Most of it came at once, though: it averaged about ${level(levelBefore)} up to ${before} and about ${level(levelAfter)} from ${after}, so the yearly rate spreads a sudden change (a fire, a dam, a new crop, a change in the instrument) over the years rather than describing a steady one.`;
+}
+
 /** A change of direction, in words: the whole story when it cancels out, one more sentence otherwise. */
+/** "fewer than 1 in 20" for a p-value under 0.05. */
+const chanceWords = (p: number) => (p < 0.001 ? "fewer than 1 in 1,000" : p < 0.01 ? "fewer than 1 in 100" : "fewer than 1 in 20");
+
+/** "+0.010 NDVI a year", with no decimals for rates in the hundreds. */
+function rateWords(unit: string, wanted: number, ...values: number[]): (value: number) => string {
+  const decimals = Math.max(...values.map(Math.abs)) >= 100 ? 0 : wanted;
+  return (value: number) => `${signed(value, decimals)}${unit ? ` ${unit}` : ""} a year`;
+}
+
+/** A jump with no steady trend around it: the whole story. */
+function stepStory(verdict: TrendVerdict, step: TrendStep, subject: string, unit: string, wanted: number): string {
+  const decimals = Math.max(Math.abs(step.levelBefore), Math.abs(step.levelAfter)) >= 100 ? 0 : wanted;
+  const level = (value: number) => `${grouped(value, decimals)}${unit ? ` ${unit}` : ""}`;
+  const up = step.levelAfter > step.levelBefore;
+  return `${subject} didn't change steadily: it ${up ? "jumped" : "dropped"} from about ${level(step.levelBefore)} (up to ${step.before}) to about ${level(step.levelAfter)} (from ${step.after}). A jump this clear would appear by chance in ${chanceWords(step.p)} records, even allowing for every year it could have happened (${formatP(step.p)}). The trend test looks for a steady rise or fall, so its answer (${formatP(verdict.p)}) doesn't mean nothing changed. A one-off jump often has a one-off cause: a fire, a dam, a new crop or a change in the instrument.`;
+}
+
+/** A change of pace: the whole story when there's no steady trend, one more sentence otherwise. */
+function bendText(verdict: TrendVerdict, bend: TrendBend, subject: string, unit: string, wanted: number): string {
+  const rate = rateWords(unit, wanted, bend.slopeBefore, bend.slopeAfter);
+  const proof = `a change of pace this clear would appear by chance in ${chanceWords(bend.p)} records (${formatP(bend.p)})`;
+  if (verdict.direction === "none") {
+    const story =
+      bend.kind === "started"
+        ? `${subject} stayed about level from ${bend.from} to ${bend.year}, then started ${bend.slopeAfter > 0 ? "rising" : "falling"} (${rate(bend.slopeAfter)} since).`
+        : `${subject} ${bend.slopeBefore > 0 ? "rose" : "fell"} from ${bend.from} to ${bend.year} (${rate(bend.slopeBefore)}), then levelled off (${rate(bend.slopeAfter)} since).`;
+    return `${story} Over all ${Math.round(verdict.years)} years that isn't one steady trend (${formatP(verdict.p)}), but it isn't random either: ${proof}. More years will tell whether it lasts.`;
+  }
+  const how =
+    bend.kind === "faster"
+      ? `it has sped up since ${bend.year}, from ${rate(bend.slopeBefore)} to ${rate(bend.slopeAfter)}`
+      : bend.kind === "slower"
+        ? `it has slowed since ${bend.year}, from ${rate(bend.slopeBefore)} to ${rate(bend.slopeAfter)}`
+        : bend.kind === "started"
+          ? `it was about level until ${bend.year}, and the change has come since (${rate(bend.slopeAfter)})`
+          : `most of it came before ${bend.year} (${rate(bend.slopeBefore)}), and it has been about level since`;
+  return `It hasn't moved at one pace, though: ${how}; ${proof}.`;
+}
+
 function turnText(verdict: TrendVerdict, turn: TrendTurn, subject: string, unit: string, wanted: number): string {
-  const decimals = Math.max(Math.abs(turn.slopeBefore), Math.abs(turn.slopeAfter)) >= 100 ? 0 : wanted;
-  const rate = (value: number) => `${signed(value, decimals)}${unit ? ` ${unit}` : ""} a year`;
+  const rate = rateWords(unit, wanted, turn.slopeBefore, turn.slopeAfter, turn.slopeLast ?? 0);
   const up = turn.first === "increase";
-  const chance = turn.p < 0.001 ? "fewer than 1 in 1,000" : turn.p < 0.01 ? "fewer than 1 in 100" : "fewer than 1 in 20";
-  const proof = `a turn this clear would appear by chance in ${chance} records (${formatP(turn.p)})`;
+  const proof = `a ${turn.second !== undefined ? "pattern" : "turn"} this clear would appear by chance in ${chanceWords(turn.p)} records (${formatP(turn.p)})`;
+  if (verdict.direction === "none" && turn.second !== undefined) {
+    return `${subject} ${up ? "rose" : "fell"} from ${turn.from} to ${turn.year} (${rate(turn.slopeBefore)}), ${up ? "fell" : "rose"} until ${turn.second} (${rate(turn.slopeAfter)}), then ${up ? "rose" : "fell"} again to ${turn.to} (${rate(turn.slopeLast ?? 0)}). Together they cancel out, so over all ${Math.round(verdict.years)} years there is no single direction (${formatP(verdict.p)}), but this isn't a weak or random pattern: ${proof}. It may be a long natural swing (a run of wet years, then dry ones) as much as a lasting change; more years will tell.`;
+  }
   if (verdict.direction === "none") {
     return `${subject} ${up ? "rose" : "fell"} from ${turn.from} to ${turn.year} (${rate(turn.slopeBefore)}), then ${up ? "fell" : "rose"} to ${turn.to} (${rate(turn.slopeAfter)}). The two cancel out, so over all ${Math.round(verdict.years)} years there is no single direction (${formatP(verdict.p)}), but this isn't a weak or random pattern: ${proof}. It may be a lasting change of direction or a long natural swing; more years will tell.`;
   }
+  if (turn.second !== undefined) return `It hasn't moved one way throughout, though: it turned in ${turn.year} and again in ${turn.second}; ${proof}.`;
   return `It hasn't moved one way throughout, though: it ${up ? "rose" : "fell"} until ${turn.year}, then ${up ? "fell" : "rose"} (${rate(turn.slopeAfter)} since); ${proof}.`;
 }
 
@@ -812,18 +1103,44 @@ export interface TwoSampleTest {
   p: number;
 }
 
-export function welchTTest(baseline: number[], comparison: number[]): TwoSampleTest | null {
+/**
+ * Welch's t-test. `effective`: how many independent years each side counts as, when years follow the
+ * year before (fewer than it has); each side's own count otherwise.
+ */
+export function welchTTest(baseline: number[], comparison: number[], effective?: { baseline: number; comparison: number }): TwoSampleTest | null {
   const a = baseline.filter(Number.isFinite);
   const b = comparison.filter(Number.isFinite);
   if (a.length < 2 || b.length < 2) return null;
+  const na = Math.max(2, Math.min(a.length, effective?.baseline ?? a.length));
+  const nb = Math.max(2, Math.min(b.length, effective?.comparison ?? b.length));
   const ma = mean(a);
   const mb = mean(b);
   const va = a.reduce((s, v) => s + (v - ma) ** 2, 0) / (a.length - 1);
   const vb = b.reduce((s, v) => s + (v - mb) ** 2, 0) / (b.length - 1);
-  const se2 = va / a.length + vb / b.length;
+  const se2 = va / na + vb / nb;
   const difference = mb - ma;
-  if (se2 === 0) return { difference, t: difference === 0 ? 0 : Math.sign(difference) * Infinity, df: a.length + b.length - 2, p: difference === 0 ? 1 : 0 };
+  if (se2 === 0) return { difference, t: difference === 0 ? 0 : Math.sign(difference) * Infinity, df: na + nb - 2, p: difference === 0 ? 1 : 0 };
   const t = difference / Math.sqrt(se2);
-  const df = se2 ** 2 / ((va / a.length) ** 2 / (a.length - 1) + (vb / b.length) ** 2 / (b.length - 1));
+  const df = se2 ** 2 / ((va / na) ** 2 / (na - 1) + (vb / nb) ** 2 / (nb - 1));
   return { difference, t, df, p: studentTTwoSided(t, df) };
+}
+
+/**
+ * How much each year follows the one before inside two periods (lag-1 autocorrelation around each
+ * period's own average, the two pooled), or null with too few years to tell.
+ */
+export function carryOverWithin(...periods: number[][]): number | null {
+  let numerator = 0;
+  let denominator = 0;
+  let n = 0;
+  for (const list of periods) {
+    if (list.length < 3) continue;
+    const m = mean(list);
+    list.forEach((v, i) => {
+      denominator += (v - m) ** 2;
+      if (i > 0) numerator += (v - m) * (list[i - 1] - m);
+    });
+    n += list.length;
+  }
+  return n >= 8 && denominator > 0 ? numerator / denominator : null;
 }

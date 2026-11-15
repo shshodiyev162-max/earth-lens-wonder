@@ -121,7 +121,7 @@ describe("Analysis page", () => {
     await start();
     expect(await screen.findByRole("heading", { name: "Checked against the ground" })).toBeInTheDocument();
     const ground = screen.getByRole("region", { name: "Checked against the ground" });
-    await waitFor(() => expect(within(ground).getAllByText("Agrees")).toHaveLength(2));
+    await waitFor(() => expect(within(ground).getAllByText("Consistent")).toHaveLength(2));
     expect(within(ground).getAllByText(/Over \d{4}–\d{4}, the Buhara, UZ weather station, 17 km away/)).toHaveLength(2);
     expect(stationRecords).toHaveBeenCalledTimes(1);
     expect(stationRecords.mock.calls[0][0]).toEqual([39.77, 64.42]);

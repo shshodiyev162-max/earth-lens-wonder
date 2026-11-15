@@ -9,8 +9,8 @@ import { levelNote } from "@/lib/analysis/insights";
 import { metricValues, type MetricDef } from "@/lib/analysis/metrics";
 import { formatSpan } from "@/lib/analysis/period";
 import { DATASET_BY_ID } from "@/lib/analysis/run";
-import { explainVerdict, formatP, signed, WEAK_EVIDENCE } from "@/lib/analysis/stats";
-import { directionOf, metricNotes, missingDatasets, rankTrends, rateText, turnLabel, turnOf, type MetricTrend } from "@/lib/analysis/trend";
+import { explainVerdict, formatP, shapeBreaks, signed, WEAK_EVIDENCE } from "@/lib/analysis/stats";
+import { chanceAmongMany, directionOf, metricNotes, missingDatasets, rankTrends, rateText, shapeOf, type MetricTrend } from "@/lib/analysis/trend";
 import type { AnalysisProgress, AnalysisResult } from "@/lib/analysis/types";
 import { METRIC_DEFINITIONS } from "@/lib/glossary";
 import { cn } from "@/lib/utils";
@@ -21,8 +21,8 @@ const COLUMNS = "grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1.15fr)_9
 const verdictTone = (trend: MetricTrend) => TONE_TEXT[toneOf(directionOf(trend), trend.metric.concern)];
 
 function verdictLabel(trend: MetricTrend): string {
-  const turn = turnOf(trend);
-  if (turn) return turnLabel(turn);
+  const shape = shapeOf(trend);
+  if (shape) return shape;
   if (trend.verdict) return trend.verdict.label;
   if (trend.comparison) return trend.comparison.label === "Not enough years to test" ? "Not tested" : trend.comparison.label;
   return "Not tested";
@@ -112,7 +112,7 @@ function Details({ trend, result, compare }: { trend: MetricTrend; result: Analy
       <div className="min-w-0 space-y-5 text-foreground">
         <figure>
           <figcaption className="mb-1 text-xs text-muted-foreground">
-            {turnOf(trend) ? "One value per year, with the trend before and after it turned" : verdict ? "One value per year, with the trend and its 95% range" : "One value per year"}
+            {shapeOf(trend) ? "One value per year, with the trend in its stretches" : verdict ? "One value per year, with the trend and its 95% range" : "One value per year"}
           </figcaption>
           <YearTrendChart
             series={yearly}
@@ -122,7 +122,7 @@ function Details({ trend, result, compare }: { trend: MetricTrend; result: Analy
             unit={metric.unit}
             decimals={metric.decimals}
             showRange={Boolean(verdict)}
-            turnYear={turnOf(trend)?.year}
+            {...shapeBreaks(verdict)}
             variant="page"
             label={`${metric.subject}, one value per year${verdict ? ", with the trend line and its 95% range" : ""}`}
           />
@@ -138,7 +138,7 @@ function Details({ trend, result, compare }: { trend: MetricTrend; result: Analy
   );
 }
 
-function Row({ trend, result, compare, startOpen }: { trend: MetricTrend; result: AnalysisResult; compare: ScoreboardProps["compare"]; startOpen: boolean }) {
+function Row({ trend, result, compare, startOpen, doubtful }: { trend: MetricTrend; result: AnalysisResult; compare: ScoreboardProps["compare"]; startOpen: boolean; doubtful: boolean }) {
   const [open, setOpen] = useState(startOpen);
   // The top row opens once the whole report is in, not while its order can still change.
   useEffect(() => {
@@ -146,7 +146,7 @@ function Row({ trend, result, compare, startOpen }: { trend: MetricTrend; result
   }, [startOpen]);
   const { metric, verdict, comparison, yearly } = trend;
   const rate = verdict ? rateText(verdict, metric) : null;
-  const lean = leanOf(trend);
+  const lean = doubtful ? "could be chance" : leanOf(trend);
   const p = verdict?.p ?? comparison?.p ?? null;
   const unit = metric.unit ? ` ${metric.unit}` : "";
   return (
@@ -182,7 +182,7 @@ function Row({ trend, result, compare, startOpen }: { trend: MetricTrend; result
           </span>
           <span className="hidden font-mono text-xs tabular-nums text-muted-foreground xl:block">{p !== null ? formatP(p) : "—"}</span>
           <span className={cn("justify-self-end", TONE_TEXT[toneOf(directionOf(trend), metric.concern)])}>
-            <YearTrendChart series={yearly} unit={metric.unit} decimals={metric.decimals} compact variant="page" turnYear={turnOf(trend)?.year} label={`${metric.label}, one value per year`} />
+            <YearTrendChart series={yearly} unit={metric.unit} decimals={metric.decimals} compact variant="page" {...shapeBreaks(trend.verdict)} label={`${metric.label}, one value per year`} />
           </span>
         </summary>
         {open && <Details trend={trend} result={result} compare={compare} />}
@@ -205,6 +205,7 @@ interface ScoreboardProps {
 /** Every measure on one line: its verdict, its rate and range, and its years. Details open in place. */
 export default function Scoreboard({ result, trends, compare, running, progress, onTryAllYears }: ScoreboardProps) {
   const ranked = rankTrends(trends);
+  const doubtful = chanceAmongMany(trends);
   const missing = missingDatasets(result);
   const done = new Set<string>([...Object.keys(result.satellite), ...(result.climate ? ["climate"] : [])]);
   const pending = running ? result.datasets.filter((id) => !done.has(id)) : [];
@@ -222,7 +223,7 @@ export default function Scoreboard({ result, trends, compare, running, progress,
       </div>
       <ul className="border-t border-border xl:border-t-0">
         {ranked.map((trend, index) => (
-          <Row key={trend.metric.id} trend={trend} result={result} compare={compare} startOpen={index === 0 && !running} />
+          <Row key={trend.metric.id} trend={trend} result={result} compare={compare} startOpen={index === 0 && !running} doubtful={doubtful.has(trend.metric.id)} />
         ))}
         {pending.map((id) => {
           const own = progress?.datasets?.[id];
@@ -248,7 +249,7 @@ export default function Scoreboard({ result, trends, compare, running, progress,
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
           <p className="max-w-prose text-[13px] leading-relaxed text-muted-foreground">
             {hint.verdict
-              ? `${hinted === 1 ? "One measure shows" : `${hinted} measures show`} no clear trend. A small trend can hide among normal ups and downs in a short record, so a longer one may give a clearer answer.`
+              ? `${hinted === 1 ? "One measure shows" : `${hinted} measures show`} no clear trend. A small trend can hide among normal ups and downs in a short record, so a longer one may give a clearer answer. Keep to the whole record rather than trying period after period: the more periods tried, the likelier one shows a trend by chance.`
               : hint.hint.text}
           </p>
           <button

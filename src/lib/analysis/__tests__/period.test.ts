@@ -62,6 +62,25 @@ describe("yearly aggregation", () => {
     expect(averageYear(values, [2021, 2021], [6])).toEqual([{ month: 6, value: 6, count: 1 }]);
   });
 
+  it("counts a lake's largest water only when the month that usually has the most was seen", () => {
+    // Water peaks in May (1,000 km²) and is 600 the rest of the season; in 2022 ice hid May.
+    const values = [2020, 2021, 2022].flatMap((y) =>
+      [3, 4, 5, 6].map((m) => ({ month: `${y}-0${m}`, value: y === 2022 && m === 5 ? null : m === 5 ? 1000 : 600 })),
+    );
+    const yearly = yearlyValues(values, [3, 4, 5, 6], "max");
+    expect(yearly.map((y) => y.value)).toEqual([1000, 1000, null]);
+  });
+
+  it("asks for stronger evidence of a difference when years follow the year before", () => {
+    // A slow swing: each period drifts in long runs, so its years are less independent than they look.
+    const swing = [0, 0.3, 0.6, 0.8, 0.9, 0.8, 0.6, 0.3, 0, -0.2];
+    const yearly = Array.from({ length: 20 }, (_, i) => ({ year: 2001 + i, value: (i < 10 ? 1 : 1.5) + swing[i % 10], count: 12, expected: 12, complete: true }));
+    const result = comparePeriods(yearly, [2001, 2010], [2011, 2020]);
+    expect(result.carryOver).toBeGreaterThan(0.5);
+    const plain = welchTTest(yearly.slice(0, 10).map((y) => y.value), yearly.slice(10).map((y) => y.value));
+    expect(result.p).toBeGreaterThan(plain!.p);
+  });
+
   it("tests a difference between two periods", () => {
     const yearly = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ year: 2000 + i, value: i <= 4 ? 1 + i * 0.01 : 2 + i * 0.01, count: 12, expected: 12, complete: true }));
     const result = comparePeriods(yearly, [2001, 2004], [2005, 2008]);

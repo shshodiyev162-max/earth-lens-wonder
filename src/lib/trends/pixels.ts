@@ -40,14 +40,72 @@ export function meanOfGrids(grids: Float32Array[], size: number, minValid: numbe
   return out;
 }
 
-/** One grid per year: the mean over the season's months (at least half of them must have data). */
+/** The season's months of each year, with their calendar month (1-12) and grid (when read). */
+function seasonMonthsOf(monthGrids: Map<string, Float32Array>, years: number[], months: number[]) {
+  return years.map((year) => seasonYearMonths(year, months).map((month) => ({ calendar: Number(month.slice(5, 7)), grid: monthGrids.get(month) })));
+}
+
+/** Each pixel's long-run mean for each calendar month of the season, over every year read (NaN = never read). */
+function monthNormals(perYear: ReturnType<typeof seasonMonthsOf>, months: number[], size: number): Map<number, Float32Array> {
+  const normals = new Map<number, Float32Array>();
+  for (const calendar of months) {
+    const total = new Float64Array(size);
+    const count = new Uint16Array(size);
+    for (const list of perYear) {
+      for (const { calendar: c, grid } of list) {
+        if (c !== calendar || !grid) continue;
+        for (let i = 0; i < size; i++) {
+          const v = grid[i];
+          if (Number.isFinite(v)) {
+            total[i] += v;
+            count[i] += 1;
+          }
+        }
+      }
+    }
+    normals.set(calendar, Float32Array.from(total, (t, i) => (count[i] ? t / count[i] : NaN)));
+  }
+  return normals;
+}
+
+/**
+ * One grid per year: the mean over the season's months (at least half of them must have data). When
+ * some months are missing (cloud), each month measured counts by how far it was from its own usual
+ * value, so a year that missed its greenest month doesn't look less green (as on the Analysis page).
+ */
 export function seasonMeanGrids(monthGrids: Map<string, Float32Array>, years: number[], months: number[], size: number): Float32Array[] {
   const minValid = Math.max(1, Math.ceil(months.length / 2));
-  return years.map((year) => {
-    const grids = seasonYearMonths(year, months)
-      .map((month) => monthGrids.get(month))
-      .filter((grid): grid is Float32Array => Boolean(grid));
-    return meanOfGrids(grids, size, minValid);
+  const perYear = seasonMonthsOf(monthGrids, years, months);
+  const normals = monthNormals(perYear, months, size);
+  return perYear.map((list) => {
+    const out = new Float32Array(size).fill(NaN);
+    for (let i = 0; i < size; i++) {
+      let total = 0;
+      let departures = 0;
+      let usual = 0;
+      let count = 0;
+      let complete = true;
+      for (const { calendar, grid } of list) {
+        const v = grid?.[i];
+        if (v === undefined || !Number.isFinite(v)) continue;
+        const normal = (normals.get(calendar) as Float32Array)[i];
+        total += v;
+        departures += v - normal;
+        count += 1;
+      }
+      if (count < minValid) continue;
+      if (count === list.length) {
+        out[i] = total / count;
+        continue;
+      }
+      for (const calendar of months) {
+        const normal = (normals.get(calendar) as Float32Array)[i];
+        if (!Number.isFinite(normal)) complete = false;
+        usual += normal;
+      }
+      out[i] = complete ? usual / months.length + departures / count : total / count;
+    }
+    return out;
   });
 }
 
@@ -59,21 +117,26 @@ export function seasonMeanGrids(monthGrids: Map<string, Float32Array>, years: nu
  */
 export function seasonAnyGrids(monthGrids: Map<string, Float32Array>, years: number[], months: number[], size: number): Float32Array[] {
   const minValid = Math.max(1, Math.ceil(months.length / 2));
-  return years.map((year) => {
-    const grids = seasonYearMonths(year, months)
-      .map((month) => monthGrids.get(month))
-      .filter((grid): grid is Float32Array => Boolean(grid));
+  const perYear = seasonMonthsOf(monthGrids, years, months);
+  // How often each pixel read as water in each calendar month, in the years it was read then: a year
+  // that saw no water but missed a month that is usually wet (ice that year) can't say it was dry.
+  const usuallyWet = monthNormals(perYear, months, size);
+  return perYear.map((list) => {
     const out = new Float32Array(size).fill(NaN);
     for (let i = 0; i < size; i++) {
       let count = 0;
       let top = 0;
-      for (const grid of grids) {
-        const v = grid[i];
-        if (!Number.isFinite(v)) continue;
+      let missedWet = false;
+      for (const { calendar, grid } of list) {
+        const v = grid?.[i];
+        if (v === undefined || !Number.isFinite(v)) {
+          if (((usuallyWet.get(calendar) as Float32Array)[i] ?? 0) >= 50) missedWet = true;
+          continue;
+        }
         count += 1;
         if (v > top) top = v;
       }
-      if (count >= minValid) out[i] = top;
+      if (count >= minValid && (top > 0 || !missedWet)) out[i] = top;
     }
     return out;
   });

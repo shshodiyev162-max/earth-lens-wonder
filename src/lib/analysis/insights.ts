@@ -5,8 +5,8 @@
 import { formatMonth } from "../gibs/time";
 import { formatValue, type MetricDef, type MetricId } from "./metrics";
 import { formatSpan, seasonPhrase } from "./period";
-import { explainVerdict, extremes, formatP, mean, signed, SIGNIFICANCE, sum, validValues, type MonthlyValue, type TrendTurn } from "./stats";
-import { analysisTrends, directionOf, isConcerning, periodOf, type MetricTrend, turnOf, turnLabel } from "./trend";
+import { explainVerdict, extremes, formatP, mean, signed, SIGNIFICANCE, sum, validValues, shapeSentence, type MonthlyValue } from "./stats";
+import { analysisTrends, directionOf, isConcerning, periodOf, type MetricTrend, chanceAmongMany, shapeOf } from "./trend";
 import type { AnalysisResult, ClimatePoint, DatasetId } from "./types";
 
 export type Tone = "positive" | "neutral" | "warning";
@@ -139,16 +139,13 @@ function buildHeadline(trends: MetricTrend[], counts: TrendCounts, comparing: bo
   if (!trends.length) return "No NASA readings for this area and period.";
   if (!tested) return comparing ? "Too few years in each period to test for a difference." : "Too few years to test for a trend.";
   const noChange = comparing ? "difference" : "trend";
-  // A rise and a fall that cancel out are a change, not "no clear trend": they get their own sentence.
-  const turned = comparing ? [] : trends.filter((t) => turnOf(t));
+  // A rise and a fall that cancel out, a jump, or a start or stop are changes, not "no clear trend":
+  // they get their own sentence.
+  const turned = comparing ? [] : trends.filter((t) => shapeOf(t));
   const turns =
     turned.length > 2
-      ? [`${turned.length} measures changed direction: up, then down, or the other way round.`]
-      : turned.map((t) => {
-          const turn = turnOf(t) as TrendTurn;
-          const up = turn.first === "increase";
-          return `${capitalise(t.metric.noun)} ${up ? "rose" : "fell"} until ${turn.year}, then ${up ? "fell" : "rose"}.`;
-        });
+      ? [`${turned.length} measures changed in ways a steady trend can't describe: up then down, a sudden jump, or a start or stop.`]
+      : turned.map((t) => `${capitalise(shapeSentence(t.verdict as NonNullable<MetricTrend["verdict"]>, t.metric.noun) as string)}.`);
   const steady = counts.steady - turned.length;
   if (turned.length && !counts.rising && !counts.falling) {
     const rest = steady ? ` ${steady === 1 ? "The other measure shows" : `The other ${steady} measures show`} no clear ${noChange}.` : "";
@@ -191,10 +188,20 @@ function buildSummary(result: AnalysisResult, trends: MetricTrend[], counts: Tre
   if (counts.steady) {
     sentences.push(`“No clear ${compare ? "difference" : "trend"}” means the test can't tell a change from normal ups and downs in this record. It doesn't prove nothing changed.`);
   }
-  // Several tests at once: about 1 in 20 unchanging measures looks significant by chance.
-  const borderline = trends.some((t) => directionOf(t) !== "none" && (t.verdict?.p ?? t.comparison?.p ?? 0) >= 0.01);
-  if (tested >= 5 && borderline) {
-    sentences.push(`With ${tested} measures tested at once, about 1 test in 20 can look real by chance, so treat a lone result close to p = ${SIGNIFICANCE} with care.`);
+  // Several tests at once: about 1 in 20 unchanging measures looks clear by chance. Every clear result
+  // is held to a 5% false discovery rate across all of them; those that don't hold up are marked.
+  const clear = trends.filter((t) => directionOf(t) !== "none").length;
+  if (tested >= 5 && clear) {
+    const doubtful = chanceAmongMany(trends).size;
+    const holds = clear - doubtful;
+    const lead = `With ${tested} measures tested at once, about 1 in 20 can look clear by chance`;
+    sentences.push(
+      !doubtful
+        ? `${lead}; ${clear === 1 ? "the clear result holds up" : `all ${clear} clear results hold up`} even allowing for that (a 5% false discovery rate).`
+        : !holds
+          ? `${lead}, and once that is allowed for (a 5% false discovery rate) ${clear === 1 ? "the clear result doesn't hold up, so it is" : `none of the ${clear} clear results hold up, so they are`} marked “could be chance”.`
+          : `${lead}. Allowing for that (a 5% false discovery rate), ${holds} of the ${clear} clear results hold up; ${doubtful === 1 ? "the other is" : `the other ${doubtful} are`} marked “could be chance”.`,
+    );
   }
   return sentences.join(" ");
 }
@@ -205,13 +212,13 @@ function buildFindings(result: AnalysisResult, trends: MetricTrend[]): Finding[]
   for (const trend of trends) {
     const { metric, verdict, comparison } = trend;
     const direction = directionOf(trend);
-    const turn = turnOf(trend);
-    if (turn && verdict) {
+    const shape = shapeOf(trend);
+    if (shape && verdict) {
       findings.push({
         id: `turn-${metric.id}`,
         dataset: metric.dataset,
         tone: "neutral",
-        title: `${metric.label}: ${turnLabel(turn).toLowerCase()}${trend.span ? `, ${formatSpan(trend.span)}` : ""}`,
+        title: `${metric.label}: ${shape.toLowerCase()}${trend.span ? `, ${formatSpan(trend.span)}` : ""}`,
         detail: explainVerdict(verdict, metric.subject, metric.unit, metric.decimals + 1),
       });
       continue;

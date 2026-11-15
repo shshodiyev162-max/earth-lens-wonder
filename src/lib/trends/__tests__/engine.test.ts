@@ -209,3 +209,31 @@ describe("traceOutline", () => {
     expect(simple[0]).toEqual(simple[simple.length - 1]);
   });
 });
+
+describe("a year with months missing", () => {
+  it("doesn't look less green because cloud hid its greenest month", async () => {
+    // June 0.3, July 0.6, August 0.5 every year; in 2021 cloud hid July.
+    const months = new Map<string, Float32Array>();
+    for (const year of [2019, 2020, 2021]) {
+      months.set(`${year}-06`, Float32Array.from([0.3]));
+      if (year !== 2021) months.set(`${year}-07`, Float32Array.from([0.6]));
+      months.set(`${year}-08`, Float32Array.from([0.5]));
+    }
+    const [first, , cloudy] = seasonMeanGrids(months, [2019, 2020, 2021], [6, 7, 8], 1);
+    expect(cloudy[0]).toBeCloseTo(first[0], 6);
+  });
+
+  it("open water: a year that saw no water but missed the months that are usually wet can't say it was dry", async () => {
+    const { seasonAnyGrids } = await import("../pixels");
+    // Pixel 0 is a lake seen wet every July; pixel 1 is dry land. In 2021, ice hid July.
+    const months = new Map<string, Float32Array>();
+    for (const year of [2019, 2020, 2021]) {
+      months.set(`${year}-06`, Float32Array.from([0, 0]));
+      months.set(`${year}-07`, year === 2021 ? Float32Array.from([NaN, NaN]) : Float32Array.from([100, 0]));
+      months.set(`${year}-08`, Float32Array.from([0, 0]));
+    }
+    const [, , iced] = seasonAnyGrids(months, [2019, 2020, 2021], [6, 7, 8], 2);
+    expect(iced[0]).toBeNaN();
+    expect(iced[1]).toBe(0);
+  });
+});

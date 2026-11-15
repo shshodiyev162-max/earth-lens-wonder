@@ -9,7 +9,7 @@ export type GroundCheckState =
   | { status: "idle" }
   | { status: "loading" }
   /** At least one measure compared; `missing` are the measures no station could check. */
-  | { status: "done"; comparisons: GroundComparison[]; missing: GroundMeasure[] }
+  | { status: "done"; comparisons: GroundComparison[]; missing: GroundMeasure[]; points: number }
   /** No station near enough with a long enough record. */
   | { status: "none" }
   | { status: "error" };
@@ -37,7 +37,7 @@ export function useGroundCheck(result: AnalysisResult | null, trends: MetricTren
       .then((records) => {
         const comparisons = checkable.map((trend) => compareWithStations(trend, records, months)).filter((c): c is GroundComparison => c !== null);
         const missing = checkable.map((trend) => trend.metric.id as GroundMeasure).filter((id) => !comparisons.some((c) => c.measure === id));
-        setState({ key, value: comparisons.length ? { status: "done", comparisons, missing } : { status: "none" } });
+        setState({ key, value: comparisons.length ? { status: "done", comparisons, missing, points: result?.climate?.samplePoints.length ?? 1 } : { status: "none" } });
       })
       .catch((error) => {
         if (!isAbortError(error)) setState({ key, value: { status: "error" } });

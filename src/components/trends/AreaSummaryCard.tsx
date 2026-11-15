@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { TONE_COLOUR, toneOf } from "@/components/analysis/tone";
 import { demoAttr } from "@/lib/demo/scripts";
-import { answerInWords, explainVerdict, formatP, grouped, signed, type TrendVerdict } from "@/lib/analysis/stats";
+import { answerInWords, explainVerdict, formatP, grouped, shapeBreaks, signed, type TrendVerdict } from "@/lib/analysis/stats";
 import { rateText, type LongerPeriodHint } from "@/lib/analysis/trend";
 import { formatArea } from "@/lib/geo/geometry";
 import { percentChangeMeansSomething, seriesUnit, type Indicator } from "@/lib/query/indicators";
@@ -106,7 +106,7 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
           unit={total.unit}
           decimals={total.decimals}
           showRange={Boolean(verdict)}
-          turnYear={verdict?.direction === "none" ? verdict.turn?.year : null}
+          {...shapeBreaks(verdict)}
           label={`${indicator.subject} across ${name}, year by year${verdict ? ", with the trend line and its 95% range" : ""}`}
         />
       </div>

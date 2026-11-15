@@ -2,7 +2,7 @@ import { Loader2 } from "lucide-react";
 import type { GroundCheckState } from "@/hooks/useGroundCheck";
 import type { YearValue } from "@/lib/analysis/aggregate";
 import { METRIC_BY_ID } from "@/lib/analysis/metrics";
-import { groundCheckText, type GroundComparison } from "@/lib/stations/groundCheck";
+import { groundCheckLabel, groundCheckText, nasaScale, type GroundComparison } from "@/lib/stations/groundCheck";
 import { STATION_RADIUS_KM } from "@/lib/stations/ncei";
 import { cn } from "@/lib/utils";
 
@@ -39,18 +39,18 @@ function TwoLines({ nasa, station, label }: { nasa: YearValue[]; station: YearVa
   );
 }
 
-function Comparison({ comparison }: { comparison: GroundComparison }) {
+function Comparison({ comparison, points }: { comparison: GroundComparison; points: number }) {
   const metric = METRIC_BY_ID[comparison.measure];
   return (
     <article className="border-t border-border pt-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h4 className="text-sm font-medium text-foreground">{metric.label}</h4>
-        <span className={cn("font-mono text-[11px] uppercase tracking-[0.14em]", comparison.agree ? "text-foreground" : "text-tone-warn")}>
-          {comparison.agree ? "Agrees" : "Differs"}
+        <span className={cn("font-mono text-[11px] uppercase tracking-[0.14em]", !comparison.agree ? "text-tone-warn" : comparison.weak ? "text-muted-foreground" : "text-foreground")}>
+          {groundCheckLabel(comparison)}
         </span>
       </div>
       <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
-        <span translate="no">{groundCheckText(comparison, metric.unit, metric.decimals)}</span>
+        <span translate="no">{groundCheckText(comparison, metric.unit, metric.decimals, points)}</span>
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-2">
         <TwoLines
@@ -59,7 +59,7 @@ function Comparison({ comparison }: { comparison: GroundComparison }) {
           label={`${metric.label} each year: NASA's record and the ${comparison.station.name} weather station`}
         />
         <p className="font-mono text-[10.5px] leading-relaxed text-muted-foreground">
-          <span aria-hidden>━</span> NASA, about 50 km across
+          <span aria-hidden>━</span> NASA, {nasaScale(points)}
           <br />
           <span aria-hidden>┅</span> <span translate="no">{comparison.station.name}</span> station
         </p>
@@ -77,7 +77,7 @@ export default function GroundCheck({ state }: { state: GroundCheckState }) {
         Checked against the ground
       </h3>
       <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
-        NASA's climate record here comes from a weather model kept on track by satellites and stations, about 50 km across. The nearest NOAA weather station measured the same thing on the ground, so its trend is tested the same way and set beside NASA's.
+        NASA's climate record comes from a weather model kept on track by satellites and stations, read here at {state.status === "done" ? nasaScale(state.points) : "spots about 50 km across"}. The nearest NOAA weather station measured the same thing at one spot on the ground, so its trend is tested the same way and set beside NASA's. Overlapping ranges mean the two can both be right; a station whose years vary a lot can't tell much either way.
       </p>
       <div aria-live="polite" className="mt-4 space-y-5">
         {state.status === "loading" && (
@@ -87,7 +87,7 @@ export default function GroundCheck({ state }: { state: GroundCheckState }) {
         )}
         {state.status === "none" && <p className="text-[13px] text-muted-foreground">No NOAA weather station within {STATION_RADIUS_KM} km has a long enough record for these years, so there's nothing on the ground to check against.</p>}
         {state.status === "error" && <p className="text-[13px] text-tone-warn">NOAA's station archive didn't answer. NASA's results above don't depend on it; try again later.</p>}
-        {state.status === "done" && state.comparisons.map((comparison) => <Comparison key={comparison.measure} comparison={comparison} />)}
+        {state.status === "done" && state.comparisons.map((comparison) => <Comparison key={comparison.measure} comparison={comparison} points={state.points} />)}
         {state.status === "done" && state.missing.length > 0 && (
           <p className="text-xs text-muted-foreground">
             No nearby station has a long enough record of {state.missing.map((id) => METRIC_BY_ID[id].noun).join(" or ")} for these years.

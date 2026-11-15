@@ -2,7 +2,7 @@
 // period, and a baseline-vs-comparison test. Seasons that cross New Year (Dec–Feb, Nov–Apr)
 // belong to the year they end in.
 
-import { SIGNIFICANCE, mean, welchTTest, type MonthlyValue } from "./stats";
+import { SIGNIFICANCE, mean, welchTTest, type MonthlyValue, carryOverWithin } from "./stats";
 
 export type YearSpan = [number, number];
 
@@ -84,8 +84,11 @@ export function yearlyValues(values: MonthlyValue[], months: number[], mode: "me
         value = valid.length === expected ? valid.reduce((s, v) => s + v.value, 0) : null;
       } else if (complete && mode === "max") {
         // The clearest month is the witness, so months left out (snow over a lake in winter) are
-        // expected: a third of them is enough.
-        value = valid.length >= Math.max(1, Math.ceil(expected / 3)) ? Math.max(...valid.map((v) => v.value)) : null;
+        // expected: a third of them is enough, as long as the month that usually has the most was
+        // seen. Without it, a year with a longer ice season would look smaller than it was.
+        const peak = [...normal].reduce<[number, number] | null>((best, entry) => (best === null || entry[1] > best[1] ? entry : best), null)?.[0];
+        const sawPeak = peak === undefined || valid.some((v) => calendar(v.month) === peak);
+        value = sawPeak && valid.length >= Math.max(1, Math.ceil(expected / 3)) ? Math.max(...valid.map((v) => v.value)) : null;
       } else if (complete && valid.length >= Math.ceil(MIN_YEAR_SHARE * expected)) {
         value =
           valid.length === expected || normalMean === null
@@ -131,6 +134,8 @@ export interface PeriodComparison {
   baselineYears: number;
   recentYears: number;
   label: ComparisonLabel;
+  /** Years clearly follow the year before (lag-1 autocorrelation), so the test counted fewer independent years. */
+  carryOver?: number | null;
 }
 
 /** Compares the yearly values of two periods with Welch's t-test. */
@@ -142,10 +147,15 @@ export function comparePeriods(yearly: YearValue[], baseline: YearSpan, recent: 
   const recentMean = b.length ? mean(b) : null;
   const change = baselineMean !== null && recentMean !== null ? recentMean - baselineMean : null;
   const percent = options.percent !== false && change !== null && baselineMean !== null && Math.abs(baselineMean) > 1e-6 ? (change / Math.abs(baselineMean)) * 100 : null;
-  const test = welchTTest(a, b);
+  // A slow swing (a warm sea stays warm) makes each year less new than it looks: as the trend test
+  // does, count fewer independent years when the years clearly follow the year before.
+  const r = carryOverWithin(a, b);
+  const clear = r !== null && r > 1.96 / Math.sqrt(a.length + b.length);
+  const keep = clear ? (1 - Math.min(r, 0.9)) / (1 + Math.min(r, 0.9)) : 1;
+  const test = welchTTest(a, b, clear ? { baseline: a.length * keep, comparison: b.length * keep } : undefined);
   let label: ComparisonLabel = "Not enough years to test";
   if (test && Number.isFinite(test.p)) {
     label = test.p < SIGNIFICANCE && test.difference !== 0 ? (test.difference < 0 ? "Significantly lower" : "Significantly higher") : "No clear difference";
   }
-  return { baselineMean, recentMean, change, percent, p: test ? test.p : null, baselineYears: a.length, recentYears: b.length, label };
+  return { baselineMean, recentMean, change, percent, p: test ? test.p : null, baselineYears: a.length, recentYears: b.length, label, carryOver: clear ? r : null };
 }

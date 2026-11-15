@@ -21,9 +21,13 @@ export function trendLines(result: AnalysisResult): string[] {
       return `# Comparison, ${metric.label}: ${parts.join(", ")}`;
     }
     if (!verdict) return `# Trend, ${metric.label}: not tested (${note ?? "too few years"})`;
-    const turn = verdict.turn
-      ? `; changed direction in ${verdict.turn.year}: ${verdict.turn.slopeBefore.toFixed(d)}${unit} per year before, ${verdict.turn.slopeAfter.toFixed(d)}${unit} per year after (turn test ${formatP(verdict.turn.p)})`
-      : "";
+    const turn = [
+      verdict.turn
+        ? `; changed direction in ${verdict.turn.year}${verdict.turn.second !== undefined ? ` and ${verdict.turn.second}` : ""}: ${verdict.turn.slopeBefore.toFixed(d)}${unit} per year before, ${verdict.turn.slopeAfter.toFixed(d)}${unit} per year after (turn test ${formatP(verdict.turn.p)})`
+        : "",
+      verdict.step ? `; one jump between ${verdict.step.before} and ${verdict.step.after}: about ${verdict.step.levelBefore.toFixed(d)}${unit} before, ${verdict.step.levelAfter.toFixed(d)}${unit} after (jump test ${formatP(verdict.step.p)})` : "",
+      verdict.bend ? `; pace changed in ${verdict.bend.year} (${verdict.bend.kind}): ${verdict.bend.slopeBefore.toFixed(d)}${unit} per year before, ${verdict.bend.slopeAfter.toFixed(d)}${unit} per year after (pace test ${formatP(verdict.bend.p)})` : "",
+    ].join("");
     return `# Trend, ${metric.label}: ${verdict.label}, ${verdict.slopePerYear.toFixed(d)}${unit} per year (95% range ${verdict.lowerPerYear.toFixed(d)} to ${verdict.upperPerYear.toFixed(d)}), Mann-Kendall ${formatP(verdict.p)}${span ? `, years ${formatSpan(span)}` : ""}${turn}`;
   });
 }

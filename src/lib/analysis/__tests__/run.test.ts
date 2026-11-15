@@ -4,8 +4,10 @@ import { bboxOf, circlePolygon } from "../../geo/geometry";
 import type { AnalysisRequest, AnalysisResult } from "../types";
 
 const sampleArea = vi.fn();
+const monthGrid = vi.fn();
 
 vi.mock("../../gibs/sample", async (original) => ({ ...((await original()) as object), sampleArea: (options: { layer: { id: string }; date: string }) => sampleArea(options) }));
+vi.mock("../../trends/grid", async (original) => ({ ...((await original()) as object), fetchMonthGrid: (layer: unknown, grid: unknown, month: string) => monthGrid(layer, grid, month) }));
 vi.mock("../../cache/store", async (original) => ({ ...((await original()) as object), cachedValue: (_key: string, _ttl: number, load: () => Promise<unknown>) => load() }));
 vi.mock("../../gibs/time", async (original) => ({ ...((await original()) as object), fetchTimeDomain: vi.fn().mockResolvedValue(null) }));
 
@@ -78,11 +80,22 @@ describe("reading an analysis", () => {
     expect(progress[firstHeat].vegetation.done).toBe(2);
   });
 
-  it("treats snow-free ground as no snow, for snow water as for snow cover", async () => {
+  it("reads snow from NASA's tiles: no snow is 0, and what the satellite couldn't see is left out", async () => {
     sampleArea.mockResolvedValue({ ...STATS, mean: 20, count: 5, total: 10, coverage: 0.5 });
+    // Columns in turn: can't see (night), no snow, no snow, 40%.
+    monthGrid.mockImplementation(async (_layer: unknown, grid: { width: number; height: number }) =>
+      Float32Array.from({ length: grid.width * grid.height }, (_, i) => [NaN, 0, 0, 40][(i % grid.width) % 4]),
+    );
     const result = await runAnalysis(request(["snow", "snowWater", "dust"], 44));
-    expect(result.satellite.snowWater?.points[0]).toMatchObject({ value: 10, coverage: 1 });
-    expect(result.satellite.snow?.points[0]).toMatchObject({ value: 10, coverage: 1 });
+    for (const id of ["snow", "snowWater"] as const) {
+      const point = result.satellite[id]?.points[0];
+      // About 40 × 1/3 where seen (not 40 × 1/4 over the whole area, as when night counted as bare).
+      expect(point?.value).toBeGreaterThan(11.5);
+      expect(point?.value).toBeLessThan(15.5);
+      expect(point?.coverage).toBeGreaterThan(0.65);
+      expect(point?.coverage).toBeLessThan(0.85);
+    }
+    expect(sampleArea.mock.calls.every(([options]) => !/Snow/.test(options.layer.id))).toBe(true);
     expect(result.satellite.dust?.points[0]).toMatchObject({ value: 20, coverage: 0.5 });
   });
 
@@ -112,18 +125,20 @@ describe("where climate is read for places added together", () => {
     const small = part("small", 10, 20, 20);
     const shape = { type: "MultiPolygon" as const, coordinates: [big.geometry, small.geometry].map((g) => (g.type === "Polygon" ? g.coordinates : [])) };
     const target = { geometry: shape, areaKm2: big.areaKm2 + small.areaKm2, parts: [big, small] };
-    expect(climatePointCount(target)).toBe(5);
+    // About 500,000 km²: nine points.
+    expect(climatePointCount(target)).toBe(9);
     const points = climatePoints(target);
-    expect(points).toHaveLength(5);
+    expect(points).toHaveLength(9);
     expect(points.filter(([lat]) => lat < 20)).toHaveLength(1);
   });
 
-  it("reads one point per place for many small places, up to eight", () => {
+  it("reads one point per place for many small places, up to sixteen", () => {
     const parts = Array.from({ length: 10 }, (_, i) => part(`p${i}`, 30, i * 5, 5 + i));
     const target = { geometry: parts[0].geometry, areaKm2: parts.reduce((s, p) => s + p.areaKm2, 0), parts };
-    expect(climatePointCount(target)).toBe(8);
-    // The eight largest places get one each.
-    expect(climatePoints(target).map(([, lon]) => Math.round(lon / 5))).toEqual([9, 8, 7, 6, 5, 4, 3, 2]);
-    expect(countClimateRequests({ datasets: ["climate"], target: { ...target, name: "", bbox: [0, 0, 1, 1], center: [0, 0], kind: "place", ref: { type: "bbox", bbox: [0, 0, 1, 1] } } })).toBe(16);
+    expect(climatePointCount(target)).toBe(10);
+    expect(climatePoints(target).map(([, lon]) => Math.round(lon / 5))).toEqual([9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
+    expect(countClimateRequests({ datasets: ["climate"], target: { ...target, name: "", bbox: [0, 0, 1, 1], center: [0, 0], kind: "place", ref: { type: "bbox", bbox: [0, 0, 1, 1] } } })).toBe(20);
+    const many = Array.from({ length: 20 }, (_, i) => part(`m${i}`, 30, i * 5, 5 + i));
+    expect(climatePointCount({ areaKm2: many.reduce((s, p) => s + p.areaKm2, 0), parts: many })).toBe(16);
   });
 });

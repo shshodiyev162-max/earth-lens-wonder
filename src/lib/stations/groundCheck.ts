@@ -26,6 +26,11 @@ export interface GroundComparison {
   nasaTrend: TrendVerdict;
   /** The two 95% ranges overlap: the ground and NASA give rates that can both be right. */
   agree: boolean;
+  /**
+   * The station's own range is too wide to have shown a difference: half of it is wider than NASA's
+   * rate and NASA's own half-range. Overlapping then says little (its years vary too much to tell).
+   */
+  weak: boolean;
   /** How closely the years rise and fall together (Pearson's r on the years both have). */
   correlation: number | null;
   sharedYears: number;
@@ -105,6 +110,7 @@ export function compareWithStations(nasa: MetricTrend, records: StationRecord[],
       stationTrend,
       nasaTrend,
       agree: stationTrend.lowerPerYear <= nasaTrend.upperPerYear && nasaTrend.lowerPerYear <= stationTrend.upperPerYear,
+      weak: (stationTrend.upperPerYear - stationTrend.lowerPerYear) / 2 > Math.max(Math.abs(nasaTrend.slopePerYear), (nasaTrend.upperPerYear - nasaTrend.lowerPerYear) / 2),
       correlation: r ? r.r : null,
       sharedYears: shared.length,
       span: [years[0], years[years.length - 1]],
@@ -115,8 +121,19 @@ export function compareWithStations(nasa: MetricTrend, records: StationRecord[],
   return candidates.find((c) => c.sharedYears >= GOOD_SHARE * nasaYears.length) ?? [...candidates].sort((a, b) => b.sharedYears - a.sharedYears)[0] ?? null;
 }
 
-/** The comparison in plain words. */
-export function groundCheckText(comparison: GroundComparison, unit: string, decimals: number): string {
+/** The answer in a word or two: "Consistent", "Too uncertain to tell" or "Differs". */
+export function groundCheckLabel(comparison: Pick<GroundComparison, "agree" | "weak">): string {
+  if (!comparison.agree) return "Differs";
+  return comparison.weak ? "Too uncertain to tell" : "Consistent";
+}
+
+/** What NASA's value here is: one spot about 50 km across, or an average of several. */
+export function nasaScale(points: number): string {
+  return points > 1 ? `an average of ${points} spots about 50 km across` : "one spot about 50 km across";
+}
+
+/** The comparison in plain words. `points`: how many climate points NASA's value averages. */
+export function groundCheckText(comparison: GroundComparison, unit: string, decimals: number, points = 1): string {
   const perDecade = (verdict: TrendVerdict) => `${signed(verdict.slopePerYear * 10, decimals)}${unit ? ` ${unit}` : ""} per decade`;
   const range = (verdict: TrendVerdict) => `95% range ${signed(verdict.lowerPerYear * 10, decimals)} to ${signed(verdict.upperPerYear * 10, decimals)}`;
   const { stationTrend: station, nasaTrend: nasa } = comparison;
@@ -124,9 +141,13 @@ export function groundCheckText(comparison: GroundComparison, unit: string, deci
   const [from, to] = comparison.span;
   const over = comparison.whole ? `Over ${from}–${to}, the` : `Over ${from}–${to}, the years its record covers, the`;
   const measured = `${over} ${where} measured ${perDecade(station)} (${range(station)}, ${formatP(station.p)}); NASA's record here gives ${perDecade(nasa)} over the same years (${range(nasa)}).`;
-  const verdict = comparison.agree
-    ? "Their ranges overlap: the ground agrees with NASA's rate."
-    : "Their ranges don't overlap: the station and NASA's record disagree here. A station measures one spot, which a growing town, a valley or a moved instrument can change on its own; NASA's record is an average over about 50 km.";
+  const verdict = !comparison.agree
+    ? `Their ranges don't overlap: the station and NASA's record disagree here. A station measures one spot, which a growing town, a valley or a moved instrument can change on its own; NASA's value here is ${nasaScale(points)}.`
+    : comparison.weak
+      ? "Their ranges overlap, but the station's range is wide (its years vary a lot), so it can neither confirm nor contradict NASA's rate."
+      : "Their ranges overlap, and the station's is narrow enough to have shown a real difference: the ground is consistent with NASA's rate.";
+  // NASA POWER's rainfall is corrected with rain-gauge records, which may include this station's.
+  const independence = comparison.measure === "rain" ? " NASA's rainfall is partly corrected with rain-gauge records, so for rain the two aren't fully independent." : "";
   const together =
     comparison.correlation === null
       ? ""
@@ -135,5 +156,5 @@ export function groundCheckText(comparison: GroundComparison, unit: string, deci
         : comparison.correlation >= 0.4
           ? ` Year by year they partly follow each other (r = ${comparison.correlation.toFixed(2)} over ${comparison.sharedYears} years).`
           : ` Year by year they follow each other only loosely (r = ${comparison.correlation.toFixed(2)} over ${comparison.sharedYears} years).`;
-  return `${measured} ${verdict}${together}`;
+  return `${measured} ${verdict}${together}${independence}`;
 }

@@ -8,6 +8,7 @@ import { clampBBox, type BBox } from "../geo/geometry";
 import { LAND_WATER_LAYER_ID, type GibsLayer } from "../gibs/catalog";
 import { applyTransform, decodePixel, fetchColorMap } from "../gibs/colormap";
 import { fetchRgba, wmsGetMapUrl } from "../gibs/sample";
+import { fetchPaletteGrid, readsPaletteTiles } from "../gibs/paletteTiles";
 import { addMonthsToMonth, dateForMonth } from "../gibs/time";
 import { defaultEndMonth } from "../analysis/period";
 import type { GridSpec } from "./hotspots";
@@ -37,13 +38,10 @@ function gridKey(grid: GridSpec): string {
 /** Decoded values of one monthly map (NaN where there is no measurement). */
 export function decodeGrid(rgba: Uint8ClampedArray, colormap: Awaited<ReturnType<typeof fetchColorMap>>, layer: GibsLayer, size: number): Float32Array {
   const values = new Float32Array(size);
-  // Snow-free land is transparent in the snow products: that's no snow, not missing data.
-  const transparentIsZero = /Snow_Cover|Snow_Water/.test(layer.id);
   for (let i = 0; i < size; i++) {
     const o = i * 4;
     const value = decodePixel(colormap, rgba[o], rgba[o + 1], rgba[o + 2], rgba[o + 3]);
-    if (value === null) values[i] = transparentIsZero && rgba[o + 3] < 128 ? 0 : NaN;
-    else values[i] = applyTransform(value, layer.transform);
+    values[i] = value === null ? NaN : applyTransform(value, layer.transform);
   }
   return values;
 }
@@ -51,7 +49,7 @@ export function decodeGrid(rgba: Uint8ClampedArray, colormap: Awaited<ReturnType
 /** One month of a layer over the grid, from cache or NASA GIBS. */
 export function fetchMonthGrid(layer: GibsLayer, grid: GridSpec, month: string, signal?: AbortSignal): Promise<Float32Array> {
   if (!layer.colormap) return Promise.reject(new Error(`${layer.name} has no measurable values`));
-  const key = `grid:${layer.id}|${gridKey(grid)}|${month}`;
+  const key = `grid:${readsPaletteTiles(layer) ? "tiles:" : ""}${layer.id}|${gridKey(grid)}|${month}`;
   const ttl = month >= addMonthsToMonth(defaultEndMonth(), -1) ? TTL.recentGrid : TTL.grid;
   return shared(
     key,
@@ -62,6 +60,8 @@ export function fetchMonthGrid(layer: GibsLayer, grid: GridSpec, month: string, 
             withRetry(
               async () => {
                 const date = await dateForMonth(layer, month);
+                // The snow maps draw "no snow" and "can't see" (night, cloud) alike see-through: their tiles tell them apart.
+                if (readsPaletteTiles(layer) && date) return fetchPaletteGrid(layer, grid, date, await fetchColorMap(layer.colormap as string), inner);
                 const [colormap, rgba] = await Promise.all([fetchColorMap(layer.colormap as string), fetchRgba(wmsGetMapUrl(layer, grid, date), grid, inner)]);
                 return decodeGrid(rgba, colormap, layer, grid.width * grid.height);
               },

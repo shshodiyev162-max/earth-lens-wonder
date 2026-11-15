@@ -2,12 +2,15 @@
 //
 // • The weather model (residual trend analysis, "RESTREND"): learn how a measure follows the weather
 //   from year to year, test that on years left out, then ask how much of the trend the weather
-//   accounts for and whether what's left still has a trend of its own.
+//   accounts for and whether what's left still has a trend of its own. It learns from the ups and
+//   downs alone (each series with its straight-line drift taken out): two things that both drift over
+//   the years for different reasons (greener fields from irrigation, warmer air) would otherwise look
+//   linked, and the weather would be credited with a trend it didn't cause.
 // • The shape of the change: one sudden jump (two flat levels that fit far better than a straight
 //   line, and differ clearly) or a gradual drift.
 // • Simple judgements of fire detections and population counts.
 
-import { annualTrendVerdict, mannKendall, mean, senSlope, SIGNIFICANCE, welchTTest, type TrendVerdict } from "../analysis/stats";
+import { annualTrendVerdict, findStep, linearRegression, mannKendall, mean, MIN_STEP_YEARS, senSlope, type TrendVerdict } from "../analysis/stats";
 
 export interface YearPoint {
   year: number;
@@ -30,7 +33,7 @@ export const MIN_WEATHER_YEARS = 8;
 /** The model must predict at least this share of the year-to-year ups and downs in years it didn't see. */
 export const MIN_SKILL = 0.2;
 /** Years needed to tell a sudden change from a gradual one. */
-export const MIN_SHAPE_YEARS = 8;
+export const MIN_SHAPE_YEARS = MIN_STEP_YEARS;
 
 // ---------------------------------------------------------------------------
 // Least squares
@@ -172,15 +175,40 @@ function aligned(response: YearPoint[], drivers: DriverInput[]): { years: number
   return { years, y, x };
 }
 
-/** How much of a measure's trend the weather accounts for, and whether anything is left over. */
+/** The values with their straight-line drift over the years taken out: what's left is the ups and downs. */
+export function detrend(years: number[], values: number[]): number[] {
+  const line = linearRegression(years, values);
+  const centre = mean(values);
+  return values.map((v, i) => v - (line ? line.intercept + line.slope * years[i] : centre));
+}
+
+/** Spread of some values (sample standard deviation). */
+const spread = (values: number[]) => {
+  const m = mean(values);
+  return Math.sqrt(values.reduce((s, v) => s + (v - m) ** 2, 0) / Math.max(1, values.length - 1));
+};
+
+/**
+ * How much of a measure's trend the weather accounts for, and whether anything is left over. How the
+ * measure follows each driver is learned from their ups and downs alone (drift taken out), and then
+ * applied to the driver's own trend: so a driver gets credit only for the part of the trend that its
+ * year-to-year link with the measure predicts.
+ */
 export function weatherCheck(response: YearPoint[], drivers: DriverInput[]): WeatherCheck {
   const { years, y, x } = aligned(response, drivers);
   const empty: WeatherCheck = { outcome: "tooFewYears", years: years.length, skill: null, explained: null, slopePerYear: null, residual: null, leftOver: false, effects: [] };
   if (years.length < MIN_WEATHER_YEARS) return empty;
-  // A driver that never changes (no snow, so no snowfall) can't explain anything: leave it out.
-  const usable = drivers.map((_, i) => i).filter((i) => standardize(x[i]) !== null);
-  const fit = usable.length ? fitLinear(y, usable.map((i) => x[i])) : null;
+  const yUps = detrend(years, y);
+  const xUps = x.map((values) => detrend(years, values));
+  // A driver with no ups and downs of its own (no snow, so no snowfall; or a perfectly straight line)
+  // can't be learned from: leave it out.
+  const usable = drivers
+    .map((_, i) => i)
+    .filter((i) => standardize(xUps[i]) !== null && spread(xUps[i]) > 1e-6 * (spread(x[i]) + Math.abs(mean(x[i]))));
+  const fit = usable.length ? fitLinear(yUps, usable.map((i) => xUps[i])) : null;
   if (!fit) return { ...empty, outcome: "noLink" };
+  // The weather's part of each year: the learned link applied to the drivers' own values, drift included.
+  const weatherPart = years.map((_, t) => usable.reduce((total, i, k) => total + fit.coefficients[k] * (x[i][t] - mean(x[i])), 0));
 
   const slope = senSlope(years, y)?.slope ?? 0;
   const effects: DriverEffect[] = usable.map((i, k) => {
@@ -195,11 +223,11 @@ export function weatherCheck(response: YearPoint[], drivers: DriverInput[]): Wea
       share: slope !== 0 ? (fit.coefficients[k] * own) / slope : 0,
     };
   });
-  const predictedSlope = senSlope(years, fit.predicted)?.slope ?? 0;
+  const predictedSlope = senSlope(years, weatherPart)?.slope ?? 0;
   const explained = slope !== 0 ? predictedSlope / slope : 0;
   const residual = annualTrendVerdict(
     years,
-    y.map((v, i) => v - fit.predicted[i]),
+    y.map((v, i) => v - weatherPart[i]),
   );
   const direction = slope < 0 ? "decline" : slope > 0 ? "increase" : "none";
   // A perfect fit leaves only rounding noise, which can look like a trend: it must also be big enough to matter.
@@ -229,45 +257,25 @@ export interface ChangeShape {
   recovering: boolean;
 }
 
-const sse = (values: number[], fitted: (i: number) => number) => values.reduce((s, v, i) => s + (v - fitted(i)) ** 2, 0);
-
-/** Sum of squared differences between the values within each side of a split and that side's average. */
-function stepError(values: number[], split: number): number {
-  const before = values.slice(0, split + 1);
-  const after = values.slice(split + 1);
-  return sse(before, () => mean(before)) + sse(after, () => mean(after));
-}
-
 /**
- * One sudden jump or a gradual drift. Every split with at least two years on each side is tried, and
- * the one where two flat levels fit best is kept. It counts as a jump when those two levels fit at
- * least twice as well as a straight line, and the years before and after differ clearly: Welch's
- * t-test, with the 5% cut-off divided by the number of splits tried (so that trying many years can't
- * manufacture a jump). Unlike rank tests, this still sees a jump in the last two years of a record.
- * `direction` is the measure's trend: a jump the other way doesn't count.
+ * One sudden jump or a gradual drift (see findStep, which the trend verdicts use too). `direction` is
+ * the measure's trend: a jump the other way doesn't count. Unlike rank tests, this still sees a jump in
+ * the last two years of a record.
  */
 export function changeShape(points: YearPoint[], direction: "decline" | "increase"): ChangeShape {
   const valid = points.filter((p): p is { year: number; value: number } => p.value !== null && Number.isFinite(p.value)).sort((a, b) => a.year - b.year);
   if (valid.length < MIN_SHAPE_YEARS) return { kind: "tooFewYears", recovering: false };
   const years = valid.map((p) => p.year);
   const values = valid.map((p) => p.value);
-  const verdict = annualTrendVerdict(years, values);
-
-  const candidates: number[] = [];
-  for (let split = 1; split <= values.length - 3; split++) candidates.push(split);
-  const split = candidates.reduce((best, candidate) => (stepError(values, candidate) < stepError(values, best) ? candidate : best), candidates[0]);
-  const before = values.slice(0, split + 1);
-  const after = values.slice(split + 1);
-  const step = mean(after) - mean(before);
-  const line = senSlope(years, values);
-  const lineError = line ? sse(values, (i) => line.intercept + line.slope * years[i]) : Infinity;
-  const rightWay = direction === "decline" ? step < 0 : step > 0;
-  const clear = (welchTTest(before, after)?.p ?? 1) < SIGNIFICANCE / candidates.length;
-  if (rightWay && clear && stepError(values, split) <= 0.5 * lineError) {
+  const step = findStep(years, values, direction);
+  if (step) {
+    const after = values.slice(step.split + 1);
     const afterTrend = after.length >= 4 ? mannKendall(after) : null;
-    const recovering = afterTrend !== null && afterTrend.p < 0.1 && Math.sign(afterTrend.s) === -Math.sign(step);
-    return { kind: "sudden", before: years[split], after: years[split + 1], step, recovering };
+    const jump = step.levelAfter - step.levelBefore;
+    const recovering = afterTrend !== null && afterTrend.p < 0.1 && Math.sign(afterTrend.s) === -Math.sign(jump);
+    return { kind: "sudden", before: step.before, after: step.after, step: jump, recovering };
   }
+  const verdict = annualTrendVerdict(years, values);
   return { kind: verdict && verdict.direction !== "none" ? "gradual" : "none", recovering: false };
 }
 

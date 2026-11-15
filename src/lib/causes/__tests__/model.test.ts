@@ -86,6 +86,17 @@ describe("the weather check", () => {
     expect(check.outcome).toBe("notWeather");
   });
 
+  it("doesn't credit the weather when both just drift the same way, for different reasons", () => {
+    // Fields greening year after year (say, irrigation) while the air warms: their ups and downs are unrelated.
+    const r = noise(19);
+    const q = noise(23);
+    const temp = series((t) => 15 + 0.06 * t + 0.3 * r());
+    const greenness = series((t) => 0.3 + 0.004 * t + 0.01 * q());
+    const check = weatherCheck(greenness, [driver("temp", temp)]);
+    expect(check.outcome).not.toBe("weather");
+    expect(check.explained ?? 0).toBeLessThan(0.5);
+  });
+
   it("can't say when the measure doesn't follow the weather at all", () => {
     const r = noise(3);
     const rain = series(() => 500 + 80 * r());

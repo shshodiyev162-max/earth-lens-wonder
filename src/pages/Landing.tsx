@@ -127,7 +127,7 @@ const STEPS = [
   },
   {
     title: "Checked against the ground",
-    text: "For a place's temperature and rainfall, NASA's record is compared with the nearest NOAA weather station over the years both measured, and the page says whether they agree.",
+    text: "For a place's temperature and rainfall, NASA's record is compared with the nearest NOAA weather station over the years both measured, and the page says whether they agree, or whether the station's years vary too much to tell.",
   },
   {
     title: "What may be behind it",

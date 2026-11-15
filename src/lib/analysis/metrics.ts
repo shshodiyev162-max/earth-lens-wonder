@@ -105,8 +105,9 @@ export const METRICS: MetricDef[] = [
 
 export const METRIC_BY_ID = Object.fromEntries(METRICS.map((m) => [m.id, m])) as Record<MetricId, MetricDef>;
 
-/** Satellite months where less than this share of the area was measured are left out. */
-export const MIN_COVERAGE = 0.1;
+/** A month counts when at least this share of the area was seen (as on the Trends page): an average of
+ * a sliver of the area (the dry lowlands, on a cloudy monsoon month) isn't the area's. */
+export const MIN_COVERAGE = 0.3;
 
 export function satelliteValues(series: SatelliteSeries | undefined): MonthlyValue[] {
   if (!series) return [];

@@ -99,6 +99,7 @@ function ReadyToStart({
         {mode === "changed" ? `Start again to read ${period}: ` : ""}
         {measures.join(", ")}. {reading}: {estimate} the first time, depending on how busy NASA's service is, and seconds after that, as they are kept on this device.
         {large ? " Fewer years, months or measures make it faster." : ""}
+        {mode === "changed" ? " Choosing the years or months after seeing a result makes a chance result likelier: the more you try, the likelier one shows a trend by luck." : ""}
       </p>
       <button type="button" onClick={onStart} className="btn-solid group">
         {mode === "new" ? "Start the analysis" : "Start the analysis again"}

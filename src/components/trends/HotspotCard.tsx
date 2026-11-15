@@ -86,7 +86,7 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
       {verdict && (
         <p className="mt-3 text-xs leading-relaxed text-panel-soft">
           {chance?.status === "done" ? `${hotspotChanceText(chance.check, hotspot.score)} ` : ""}
-          This patch was picked because its pixels changed, so its own yearly test can&apos;t confirm it; the chance check shuffles the years and tests every pixel again.
+          This patch was picked because its pixels changed, so its own yearly test can&apos;t confirm it; the chance check shuffles the years and tests every pixel again. Picked for changing most, its rate also leans high: the whole area&apos;s rate is the fairer figure.
         </p>
       )}
 

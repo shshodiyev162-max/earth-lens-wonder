@@ -296,12 +296,14 @@ describe("scanGrid and decoding", () => {
     expect(scanGrid([56, 37, 73, 46], 200, 0.5)).toMatchObject({ width: 34, height: 18 });
   });
 
-  it("reads snow-free (transparent) pixels as 0 % snow", () => {
+  it("reads a see-through pixel of a flattened map as not measured, for every map", () => {
+    // NASA's rendered maps flatten night, cloud and "no snow" alike to see-through: the snow maps are
+    // read from the tiles instead, which keep them apart (see paletteTiles).
     const colormap = { lookup: new Map(), dataEntries: [] } as unknown as ParsedColorMap;
     const rgba = new Uint8ClampedArray([0, 0, 0, 0]);
     const snow = { id: "MODIS_Terra_L3_Snow_Cover_Monthly_Average_Pct" } as GibsLayer;
     const ndvi = { id: "MODIS_Terra_L3_NDVI_Monthly" } as GibsLayer;
-    expect(decodeGrid(rgba, colormap, snow, 1)[0]).toBe(0);
+    expect(decodeGrid(rgba, colormap, snow, 1)[0]).toBeNaN();
     expect(decodeGrid(rgba, colormap, ndvi, 1)[0]).toBeNaN();
   });
 });

@@ -18,15 +18,17 @@ interface YearTrendChartProps {
   /** Map panels use the panel colours; full pages use the page colours. */
   variant?: "panel" | "page";
   label: string;
-  /** A rise and a fall that cancel out: drawn as two lines meeting at this year, instead of one flat one. */
-  turnYear?: number | null;
+  /** What no steady line describes: the trend is drawn in stretches between these years (a turn, a start or stop)… */
+  breaks?: number[];
+  /** …or, for one sudden jump, as the two flat levels either side of it. */
+  levels?: { before: number; after: number; levelBefore: number; levelAfter: number } | null;
 }
 
 const WIDTH = { full: 300, compact: 120 };
 const HEIGHT = { full: 84, compact: 32 };
 
 /** One measured value a year, the Sen's slope trend through them, its 95% range and the chosen windows shaded. */
-export default function YearTrendChart({ series, baseline, recent, color = "currentColor", unit, decimals, compact = false, showRange = false, variant = "panel", label, turnYear = null }: YearTrendChartProps) {
+export default function YearTrendChart({ series, baseline, recent, color = "currentColor", unit, decimals, compact = false, showRange = false, variant = "panel", label, breaks = [], levels = null }: YearTrendChartProps) {
   const clipId = `range-${useId().replace(/:/g, "")}`;
   const valid = useMemo(() => series.filter((p): p is { year: number; value: number } => p.value !== null), [series]);
   const geometry = useMemo(() => {
@@ -47,13 +49,22 @@ export default function YearTrendChart({ series, baseline, recent, color = "curr
       const fit = part.length >= 3 ? senSlope(part.map((p) => p.year), part.map((p) => p.value)) : null;
       return fit ? { from, to, y0: fit.intercept + fit.slope * from, y1: fit.intercept + fit.slope * to } : null;
     };
-    const turned = turnYear !== null && turnYear > x0 && turnYear < x1 ? [stretch(x0, turnYear), stretch(turnYear, x1)].filter((s): s is NonNullable<typeof s> => s !== null) : [];
-    const lines = turned.length === 2 ? turned : sen ? [{ from: x0, to: x1, y0: at(x0), y1: at(x1) }] : [];
+    const cuts = [x0, ...breaks.filter((year) => year > x0 && year < x1).sort((a, b) => a - b), x1];
+    const stretches = cuts.slice(1).map((to, i) => stretch(cuts[i], to));
+    const turned = levels
+      ? [
+          { from: x0, to: levels.before, y0: levels.levelBefore, y1: levels.levelBefore },
+          { from: levels.after, to: x1, y0: levels.levelAfter, y1: levels.levelAfter },
+        ]
+      : cuts.length > 2 && stretches.every(Boolean)
+        ? (stretches as NonNullable<(typeof stretches)[number]>[])
+        : [];
+    const lines = turned.length ? turned : sen ? [{ from: x0, to: x1, y0: at(x0), y1: at(x1) }] : [];
     const lineValues = lines.flatMap((l) => [l.y0, l.y1]);
     // The 95% range pivots on the middle year of the measured record.
     const xm = (x0 + x1) / 2;
     const cone =
-      sen && showRange && !compact && turned.length !== 2
+      sen && showRange && !compact && !turned.length
         ? [
             [x0, at(xm) + sen.lower * (x0 - xm)],
             [x1, at(xm) + sen.lower * (x1 - xm)],
@@ -76,7 +87,8 @@ export default function YearTrendChart({ series, baseline, recent, color = "curr
     const path = valid.map((p, i) => `${i ? "L" : "M"}${sx(p.year).toFixed(1)},${sy(p.value).toFixed(1)}`).join(" ");
     const conePath = cone ? `${cone.map(([x, y], i) => `${i ? "L" : "M"}${sx(x).toFixed(1)},${sy(y).toFixed(1)}`).join(" ")} Z` : null;
     return { width, height, pad, sx, sy, path, lines, x0, x1, conePath };
-  }, [valid, compact, showRange, turnYear]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the breaks are compared by value
+  }, [valid, compact, showRange, breaks.join(","), levels]);
 
   const muted = variant === "panel" ? "text-panel-muted" : "text-muted-foreground";
   if (!geometry) return <p className={`text-xs ${muted}`}>Not enough years with data for a chart.</p>;

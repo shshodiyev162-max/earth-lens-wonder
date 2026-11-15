@@ -56,7 +56,7 @@ export function parseInterval(text: string | null | undefined): { min: number | 
   return { min: NUMBER(parts[0]), max: NUMBER(parts[1]) };
 }
 
-const rgbKey = (r: number, g: number, b: number) => (r << 16) | (g << 8) | b;
+export const rgbKey = (r: number, g: number, b: number) => (r << 16) | (g << 8) | b;
 
 export function parseColorMapXml(xml: string, name = "colormap"): ParsedColorMap {
   const doc = new DOMParser().parseFromString(xml, "application/xml");

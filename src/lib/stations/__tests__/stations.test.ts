@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { METRIC_BY_ID } from "../../analysis/metrics";
 import { annualTrendVerdict, type MonthlyValue } from "../../analysis/stats";
 import type { MetricTrend } from "../../analysis/trend";
-import { compareWithStations, groundCheckText, stationYearly } from "../groundCheck";
+import { compareWithStations, groundCheckLabel, groundCheckText, stationYearly } from "../groundCheck";
 import { parseStationData, parseStationSearch, stationDataUrl, stationName, stationSearchUrl, type StationRecord } from "../ncei";
 
 const BUKHARA: [number, number] = [39.77, 64.42];
@@ -97,8 +97,18 @@ describe("checking NASA against the ground", () => {
     const text = groundCheckText(comparison!, "°C", 1);
     expect(text).toMatch(/^Over 2005–2024, the Bukhara, UZ weather station, 16 km away, measured \+0\.5 °C per decade/);
     expect(text).toMatch(/NASA's record here gives \+0\.5 °C per decade over the same years/);
-    expect(text).toMatch(/Their ranges overlap: the ground agrees with NASA's rate\./);
+    expect(text).toMatch(/Their ranges overlap, and the station's is narrow enough to have shown a real difference/);
     expect(text).toMatch(/rise and fall together \(r = 1\.00 over 20 years\)/);
+  });
+
+  it("says a station whose years vary a lot is too uncertain to tell, rather than agreeing", () => {
+    // The same rate, but the station's years swing eight times as much: its range is wide.
+    const comparison = compareWithStations(nasaTrend(0.05), [station("Valley", 30, monthly(0.05, 15, 8))], all);
+    expect(comparison).toMatchObject({ agree: true, weak: true });
+    expect(groundCheckLabel(comparison!)).toBe("Too uncertain to tell");
+    expect(groundCheckText(comparison!, "°C", 1, 9)).toMatch(/can neither confirm nor contradict NASA's rate/);
+    const close = compareWithStations(nasaTrend(0.05), [station("Bukhara", 16, monthly(0.05, 14.5))], all);
+    expect(groundCheckLabel(close!)).toBe("Consistent");
   });
 
   it("says plainly when they disagree, and why a station can", () => {

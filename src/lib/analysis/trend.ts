@@ -6,7 +6,7 @@ import { formatMonth } from "../gibs/time";
 import { comparePeriods, yearlyValues, type PeriodComparison, type YearValue } from "./aggregate";
 import { measuredMetrics, METRICS, metricValues, type MetricDef } from "./metrics";
 import { EARLIEST_YEAR } from "./period";
-import { annualTrendVerdict, monthlyTrendVerdict, signed, type MonthlyValue, type TrendDirection, type TrendTurn, type TrendVerdict } from "./stats";
+import { annualTrendVerdict, falseDiscoveryThreshold, monthlyTrendVerdict, shapeLabel, signed, SIGNIFICANCE, type MonthlyValue, type TrendDirection, type TrendVerdict } from "./stats";
 import type { AnalysisPeriod, AnalysisResult, DatasetId } from "./types";
 
 /** Years needed for a yearly trend test (Mann–Kendall needs at least four values). */
@@ -48,8 +48,9 @@ function firstYearOf(metric: MetricDef): number {
  * suggest testing the whole record: short records often can't separate a trend from year-to-year noise.
  */
 export function longerPeriodHint(verdict: TrendVerdict | null, firstYear: number, earliestYear = EARLIEST_YEAR): LongerPeriodHint | null {
-  // A rise and a fall that cancel out: a longer record isn't the answer, and the explanation says so.
-  if (verdict && (verdict.direction !== "none" || verdict.turn)) return null;
+  // A rise and a fall that cancel out, a jump, or a start or stop: a longer record isn't the answer,
+  // and the explanation says what happened.
+  if (verdict && (verdict.direction !== "none" || shapeLabel(verdict))) return null;
   if (firstYear - earliestYear < 3) return null;
   if (!verdict) return { text: `Too few years to test for a trend. Testing every year since ${earliestYear} gives the test enough years to work with.`, startYear: earliestYear };
   const years = Math.round(verdict.years);
@@ -62,8 +63,11 @@ export function longerPeriodHint(verdict: TrendVerdict | null, firstYear: number
   } else if (needed !== null && needed !== undefined && Math.ceil(needed) > whole) {
     text = `No clear trend over ${years} years. At this rate it would take about ${Math.ceil(needed)} years of records to tell it from the normal ups and downs, so even every year since ${earliestYear} (${whole}) may not settle it.`;
   }
-  return { text, startYear: earliestYear };
+  return { text: `${text} ${ONE_TRY}`, startYear: earliestYear };
 }
+
+/** Trying period after period until one shows a trend makes a chance result likelier. */
+const ONE_TRY = "Keep to the whole record rather than trying period after period: the more periods tried, the likelier one shows a trend by chance.";
 
 /** Trend (or comparison) for one measure's monthly values. */
 export function metricTrend(metric: MetricDef, values: MonthlyValue[], period: AnalysisPeriod, earliestYear = firstYearOf(metric)): MetricTrend {
@@ -77,7 +81,9 @@ export function metricTrend(metric: MetricDef, values: MonthlyValue[], period: A
     const note =
       comparison.label === "Not enough years to test"
         ? `Each period needs at least 2 measured years for a t-test (${comparison.baselineYears} and ${comparison.recentYears} here).`
-        : null;
+        : comparison.carryOver
+          ? `Years here tend to follow the year before (carry-over ${comparison.carryOver.toFixed(2)}), so the t-test counted them as fewer independent years and asked for stronger evidence.`
+          : null;
     return { ...base, comparison, note };
   }
 
@@ -117,14 +123,21 @@ export function directionOf(trend: Pick<MetricTrend, "verdict" | "comparison">):
   return "none";
 }
 
-/** A rise and a fall (or a fall and a rise) that cancel out, so the whole record shows no single direction. */
-export function turnOf(trend: Pick<MetricTrend, "verdict">): TrendTurn | null {
-  return trend.verdict?.direction === "none" ? (trend.verdict.turn ?? null) : null;
+/**
+ * Clear results that could be chance among many: with several measures tested at once, about 1 in 20
+ * unchanging ones looks clear by luck. The p-values are held to a 5% false discovery rate
+ * (Benjamini–Hochberg) across every measure tested; a clear result above that bar is returned.
+ */
+export function chanceAmongMany(trends: MetricTrend[]): Set<MetricTrend["metric"]["id"]> {
+  const tested = trends.map((t) => ({ id: t.metric.id, p: t.verdict?.p ?? t.comparison?.p ?? null, clear: directionOf(t) !== "none" })).filter((t): t is { id: MetricTrend["metric"]["id"]; p: number; clear: boolean } => t.p !== null && Number.isFinite(t.p));
+  if (tested.length < 5) return new Set();
+  const bar = falseDiscoveryThreshold(tested.map((t) => t.p), SIGNIFICANCE);
+  return new Set(tested.filter((t) => t.clear && t.p > bar).map((t) => t.id));
 }
 
-/** "Rose, then fell" or "Fell, then rose". */
-export function turnLabel(turn: Pick<TrendTurn, "first">): string {
-  return turn.first === "increase" ? "Rose, then fell" : "Fell, then rose";
+/** What no steady trend describes ("Rose, then fell", "Jumped up", "Started rising"), or null. */
+export function shapeOf(trend: Pick<MetricTrend, "verdict">): string | null {
+  return trend.verdict ? shapeLabel(trend.verdict) : null;
 }
 
 /** Whether a significant change is the worrying direction for this measure. */
@@ -182,6 +195,13 @@ export function metricNotes(result: AnalysisResult, metric: MetricDef): string[]
   }
   const months = series?.points.filter((p) => p.value !== null && p.coverage < 0.5).length ?? 0;
   if (months > 0) notes.push(`${months} month${months === 1 ? "" : "s"} cover less than half of the area (water, snow or persistent cloud).`);
+  // Climate comes from points, not a map of the whole area: say so where that matters.
+  const points = metric.dataset === "climate" ? (result.climate?.samplePoints.length ?? 0) : 0;
+  if (points > 1 && result.target.areaKm2 > 6_000) {
+    notes.push(
+      `Read at ${points} points spread over the area (each about 50 km across) and averaged: a sample of it, which can miss ${metric.id === "rain" ? "rain that falls in one part only" : "what happens in one part only"}.${result.target.areaKm2 > 300_000 ? " The Trends page reads this measure from NASA's maps over all of it." : ""}`,
+    );
+  }
   return notes;
 }
 

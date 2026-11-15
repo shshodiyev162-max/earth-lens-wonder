@@ -141,7 +141,7 @@ describe("the answer comes from the trend tests alone", () => {
       }),
     );
     expect(report.counts.rising).toBe(1);
-    expect(report.summary).toMatch(/about 1 test in 20 can look real by chance/);
+    expect(report.summary).toMatch(/With 6 measures tested at once, about 1 in 20 can look clear by chance, and once that is allowed for .* the clear result doesn't hold up, so it is marked “could be chance”/);
   });
 });
 
@@ -216,5 +216,17 @@ describe("only the climate measures chosen", () => {
     const csv = buildCsv(chosen);
     expect(csv).toMatch(/precip_mm/);
     expect(csv).not.toMatch(/air_temp_c|humidity_pct/);
+  });
+});
+
+describe("climate read at points", () => {
+  it("says a big area's climate is a sample of points, and where the whole area is read", async () => {
+    const { metricNotes } = await import("../trend");
+    const big = result({ climate: { status: "ok", samplePoints: Array.from({ length: 16 }, () => [30, 70] as [number, number]), points: climate(0, 1) } });
+    const country = { ...big, target: { ...big.target, areaKm2: 3_200_000 } };
+    const notes = metricNotes(country, METRIC_BY_ID.rain).join(" ");
+    expect(notes).toMatch(/Read at 16 points spread over the area .* can miss rain that falls in one part only/);
+    expect(notes).toMatch(/The Trends page reads this measure from NASA's maps over all of it/);
+    expect(metricNotes(big, METRIC_BY_ID.rain).join(" ")).not.toMatch(/points spread/);
   });
 });

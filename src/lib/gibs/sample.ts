@@ -112,23 +112,69 @@ function quantile(sorted: number[], q: number): number {
   return sorted[base + 1] !== undefined ? sorted[base] + rest * (sorted[base + 1] - sorted[base]) : sorted[base];
 }
 
-export function summarize(values: number[], total: number): AreaStats {
-  const sorted = [...values].sort((a, b) => a - b);
-  const count = sorted.length;
-  const mean = count ? sorted.reduce((sum, v) => sum + v, 0) / count : NaN;
-  const variance = count ? sorted.reduce((sum, v) => sum + (v - mean) ** 2, 0) / count : NaN;
+export function summarize(values: number[], total: number, weights?: number[], totalWeight?: number): AreaStats {
+  const count = values.length;
+  // Each value's share of the ground (pixels on a lat/lon map shrink towards the poles); equal without weights.
+  const w = weights ?? values.map(() => 1);
+  const order = values.map((_, i) => i).sort((a, b) => values[a] - values[b]);
+  const sumW = w.reduce((s, x) => s + x, 0);
+  const mean = count && sumW > 0 ? values.reduce((s, v, i) => s + v * w[i], 0) / sumW : NaN;
+  const variance = count && sumW > 0 ? values.reduce((s, v, i) => s + w[i] * (v - mean) ** 2, 0) / sumW : NaN;
+  const weightedQuantile = (q: number) => {
+    if (!count) return NaN;
+    if (!weights) return quantile(order.map((i) => values[i]), q);
+    let seen = 0;
+    for (const i of order) {
+      seen += w[i];
+      if (seen >= q * sumW) return values[i];
+    }
+    return values[order[order.length - 1]];
+  };
+  const whole = totalWeight ?? total;
   return {
     mean,
-    median: quantile(sorted, 0.5),
-    min: count ? sorted[0] : NaN,
-    max: count ? sorted[count - 1] : NaN,
-    p10: quantile(sorted, 0.1),
-    p90: quantile(sorted, 0.9),
+    median: weightedQuantile(0.5),
+    min: count ? values[order[0]] : NaN,
+    max: count ? values[order[count - 1]] : NaN,
+    p10: weightedQuantile(0.1),
+    p90: weightedQuantile(0.9),
     std: Math.sqrt(variance),
     count,
     total,
-    coverage: total ? count / total : 0,
+    coverage: whole ? (weights ? sumW : count) / whole : 0,
   };
+}
+
+/** How much ground a pixel in each row covers, relative to one at the equator (cos of its latitude). */
+export function rowWeights(grid: RasterGrid): Float64Array {
+  const [, south, , north] = grid.bbox;
+  const step = (north - south) / grid.height;
+  return Float64Array.from({ length: grid.height }, (_, r) => Math.max(0, Math.cos(((north - (r + 0.5) * step) * Math.PI) / 180)));
+}
+
+/** Area statistics of decoded values (NaN = not measured), each pixel weighted by the ground it covers. */
+export function statsFromValues(values: ArrayLike<number>, mask: Uint8Array, grid: RasterGrid, limits: { bottom: number | null; top: number | null } = { bottom: null, top: null }): AreaStats {
+  const weightOfRow = rowWeights(grid);
+  const kept: number[] = [];
+  const weights: number[] = [];
+  let total = 0;
+  let totalWeight = 0;
+  let capped = 0;
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i]) continue;
+    const weight = weightOfRow[Math.floor(i / grid.width)];
+    total += 1;
+    totalWeight += weight;
+    const value = values[i];
+    if (!Number.isFinite(value)) continue;
+    kept.push(value);
+    weights.push(weight);
+    if ((limits.bottom !== null && value <= limits.bottom) || (limits.top !== null && value >= limits.top)) capped += 1;
+  }
+  // Rows at one latitude (a small area): plain statistics.
+  const equal = weightOfRow.every((w) => Math.abs(w - weightOfRow[0]) < 1e-9);
+  const stats = equal ? summarize(kept, total) : summarize(kept, total, weights, totalWeight);
+  return { ...stats, capped: kept.length ? capped / kept.length : 0 };
 }
 
 export function statsFromPixels(
@@ -136,22 +182,18 @@ export function statsFromPixels(
   mask: Uint8Array,
   colormap: ParsedColorMap,
   transform?: GibsLayer["transform"],
+  grid?: RasterGrid,
 ): AreaStats {
-  const values: number[] = [];
-  const { bottom, top } = scaleLimits(colormap, transform);
-  let total = 0;
-  let capped = 0;
+  const values = new Float32Array(mask.length).fill(NaN);
   for (let i = 0; i < mask.length; i++) {
     if (!mask[i]) continue;
-    total += 1;
     const o = i * 4;
     const decoded = decodePixel(colormap, rgba[o], rgba[o + 1], rgba[o + 2], rgba[o + 3]);
-    if (decoded === null) continue;
-    const value = applyTransform(decoded, transform);
-    values.push(value);
-    if ((bottom !== null && value <= bottom) || (top !== null && value >= top)) capped += 1;
+    if (decoded !== null) values[i] = applyTransform(decoded, transform);
   }
-  return { ...summarize(values, total), capped: values.length ? capped / values.length : 0 };
+  // Without a grid every pixel counts the same (a small area, or a test).
+  const flat: RasterGrid = { bbox: [0, 0, 0, 0], width: mask.length, height: 1 };
+  return statsFromValues(values, mask, grid ?? flat, scaleLimits(colormap, transform));
 }
 
 function createCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {
@@ -196,7 +238,7 @@ export async function sampleArea(options: {
   if (!layer.colormap) throw new Error(`${layer.name} is imagery and has no measurable values`);
   const grid = gridFor(bboxOf(geometry), layer, options.maxSize);
   const [colormap, rgba] = await Promise.all([fetchColorMap(layer.colormap), fetchRgba(wmsGetMapUrl(layer, grid, date), grid, signal)]);
-  return statsFromPixels(rgba, rasterizeMask(geometry, grid), colormap, layer.transform);
+  return statsFromPixels(rgba, rasterizeMask(geometry, grid), colormap, layer.transform, grid);
 }
 
 /** Value of a science layer under a single point (null = cloud / no data). */
