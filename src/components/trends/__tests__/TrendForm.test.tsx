@@ -44,7 +44,7 @@ describe("the When step", () => {
 
   it("offers quick choices", () => {
     const onEdit = show("ind=vegetation&dir=any&place=Uzbekistan");
-    expect(screen.getByRole("button", { name: "Last 10" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Last 20" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "All since 2000" }));
     expect(onEdit).toHaveBeenLastCalledWith({ time: { kind: "since", start: 2000 } });
   });

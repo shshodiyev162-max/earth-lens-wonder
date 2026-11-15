@@ -1,7 +1,7 @@
 // Turns a per-pixel change map into ranked hotspots: neighbouring pixels that changed the same
 // way are grouped (8-connected), outlined exactly along pixel edges, measured and ranked.
 
-import { falseDiscoveryThreshold } from "../analysis/stats";
+import { falseDiscoveryThreshold, normalCdf } from "../analysis/stats";
 import type { BBox, LatLng, PolygonGeometry, Position } from "../geo/geometry";
 import type { Direction } from "../query/indicators";
 import type { PixelTrends } from "./pixels";
@@ -324,6 +324,51 @@ export interface HotspotFilter {
 
 /** The false discovery rate clear trends are held to. */
 export const STRICT_P = 0.05;
+
+/**
+ * Mann–Kendall's p-value for this many years at a given strength (Kendall's tau: 1 when every year is
+ * above the one before, 0.6 for a strong trend with a few years out of step).
+ */
+export function trendStrengthP(years: number, tau = 1): number {
+  if (years < 4) return 1;
+  const s = (tau * years * (years - 1)) / 2;
+  const z = Math.max(0, s - 1) / Math.sqrt((years * (years - 1) * (2 * years + 5)) / 18);
+  return 2 * (1 - normalCdf(z));
+}
+
+/** A strong, steady trend in one pixel, with a few years out of step. */
+const STRONG_TAU = 0.6;
+/** The share of an area that might change together. */
+const CHANGED_SHARE = 0.05;
+
+export interface StrictReach {
+  /** Pixels with a yearly test. */
+  tested: number;
+  /** Of those, how many show a trend at p < 0.05 on their own, and how many would by luck alone. */
+  clearAlone: number;
+  byLuck: number;
+  /**
+   * Whether the record is long enough for clear trends to pass: if 5% of the area had a strong, steady
+   * trend, those pixels would pass. Benjamini–Hochberg lets a share f of pixels through when their
+   * p-values are at most f × 5%, however many pixels there are; with too few years even strong
+   * trends don't get that low.
+   */
+  longEnough: boolean;
+}
+
+/** What the clear-trends rule can and can't find in a scan of this many years. */
+export function strictReach(trends: Pick<PixelTrends, "p">, years: number): StrictReach {
+  let tested = 0;
+  let clearAlone = 0;
+  for (let i = 0; i < trends.p.length; i++) {
+    const p = trends.p[i];
+    if (!Number.isFinite(p)) continue;
+    tested += 1;
+    if (p < 0.05) clearAlone += 1;
+  }
+  const longEnough = tested > 0 && trendStrengthP(years, STRONG_TAU) <= CHANGED_SHARE * STRICT_P;
+  return { tested, clearAlone, byLuck: Math.round(tested * 0.05), longEnough };
+}
 
 /**
  * The p-value a pixel's trend must be under. Clear trends use the Benjamini–Hochberg cut-off across

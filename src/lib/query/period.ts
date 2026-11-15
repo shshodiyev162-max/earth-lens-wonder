@@ -30,7 +30,12 @@ export interface PeriodPlan {
   notes: string[];
 }
 
-export const DEFAULT_YEARS = 10;
+/**
+ * Years a scan covers unless asked otherwise. Twenty, as on the Analysis page: with ten yearly values
+ * even a pixel that rose every single year can't stand out among thousands tested at once (see
+ * strictReach in lib/trends/hotspots), so hotspots almost never appeared.
+ */
+export const DEFAULT_YEARS = 20;
 /** At most this many monthly maps per scan, to stay polite to NASA's free services. */
 export const MAX_GRIDS = 180;
 

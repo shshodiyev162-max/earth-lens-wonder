@@ -4,7 +4,7 @@ import DemoPlayer, { type DemoControls } from "@/components/demo/DemoPlayer";
 import { useSearchParams } from "react-router-dom";
 import { GeoJSON, Pane, useMapEvents } from "react-leaflet";
 import type { Feature } from "geojson";
-import { AlertTriangle, ArrowLeft, ArrowRight, Loader2, RefreshCw, ScanSearch, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, History, Loader2, RefreshCw, ScanSearch, X } from "lucide-react";
 import AreasLayer from "@/components/map/AreasLayer";
 import BaseMap from "@/components/map/BaseMap";
 import DrawTools, { type DrawMode, type PickedPlace } from "@/components/map/DrawTools";
@@ -52,7 +52,8 @@ import { initialViewFrom } from "@/lib/mapView";
 import { INDICATOR_ORDER, INDICATORS, monthsLabel, ownMonths, SEASONS, type IndicatorId } from "@/lib/query/indicators";
 import { DEFAULT_YEARS, lastSeasonYear } from "@/lib/query/period";
 import { clearOfHotspotCard } from "@/lib/trends/cardRoom";
-import { PIXEL_SIGNIFICANCE, pixelCutoff, STRICT_P } from "@/lib/trends/hotspots";
+import { PIXEL_SIGNIFICANCE, pixelCutoff, STRICT_P, strictReach } from "@/lib/trends/hotspots";
+import { grouped } from "@/lib/analysis/stats";
 import { CHANCE_RUNS } from "@/lib/trends/chance";
 import {
   analysisHref,
@@ -256,6 +257,12 @@ export default function Trends() {
     if (activeHotspots?.length) requestNames(activeHotspots);
   }, [activeHotspots, requestNames]);
   const hotspots = useMemo(() => withDistinctLabels((activeHotspots ?? []).map((h) => ({ ...h, label: scan.labels[h.id] ?? h.label }))), [activeHotspots, scan.labels]);
+  // Why no hotspot passed the clear-trends rule, in numbers (worked out only when the list is empty).
+  const strictFilter = filter?.strict ?? true;
+  const reach = useMemo(
+    () => (result && result.plan.kind === "trend" && strictFilter && !hotspots.length ? strictReach(result.trends, result.plan.years.length) : null),
+    [result, strictFilter, hotspots.length],
+  );
 
   // Fly to the area once it is known, and start fresh with each new result or tab.
   useEffect(() => {
@@ -567,12 +574,26 @@ export default function Trends() {
                   />
                 </div>
               ) : (
-                <p className="border-t border-panel-line pt-3 text-xs leading-relaxed text-panel-soft">
-                  No area changed by at least {minChange} {indicator.unit} {filter.direction === "any" ? "either way" : "in this direction"}
-                  {filter.minAreaKm2 ? ` over ${filter.minAreaKm2.toLocaleString("en-US")} km² or more` : ""}
-                  {plan.kind === "trend" && filter.strict ? " with a clear trend" : ""}. Try “Both”, a smaller change, or another period or place
-                  {plan.kind === "trend" && filter.strict ? ", or “Also show weaker patches” (some of those may be chance)" : ""}.
-                </p>
+                <div className="space-y-3 border-t border-panel-line pt-3 text-xs leading-relaxed text-panel-soft">
+                  <p>
+                    No area changed by at least {minChange} {indicator.unit} {filter.direction === "any" ? "either way" : "in this direction"}
+                    {filter.minAreaKm2 ? ` over ${filter.minAreaKm2.toLocaleString("en-US")} km² or more` : ""}
+                    {plan.kind === "trend" && filter.strict ? " with a clear trend" : ""}. Try “Both”, a smaller change, or another period or place
+                    {plan.kind === "trend" && filter.strict ? ", or “Also show weaker patches” (some of those may be chance)" : ""}.
+                  </p>
+                  {reach && (
+                    <p>
+                      {reach.longEnough
+                        ? `${grouped(reach.clearAlone, 0)} of the ${grouped(reach.tested, 0)} pixels tested show a trend at p < 0.05 on their own, where about ${grouped(reach.byLuck, 0)} would by luck alone${reach.clearAlone > 1.5 * reach.byLuck ? ": there is a signal, but too scattered or too small for any pixel to stand out once all of them are allowed for." : ", so this is about what chance gives."}`
+                        : `${plan.years.length} years are too few for pixels to stand out once ${grouped(reach.tested, 0)} are tested at once: unless a large part of the area changed together, even a strong, steady trend in one pixel can't pass. ${grouped(reach.clearAlone, 0)} pixels show a trend at p < 0.05 on their own, where about ${grouped(reach.byLuck, 0)} would by luck alone${reach.clearAlone > 1.5 * reach.byLuck ? ", so there is something here; more years can show where." : "."}`}
+                    </p>
+                  )}
+                  {reach && !reach.longEnough && plan.startYear > 2002 && (
+                    <button type="button" onClick={tryAllYears} className="btn-line">
+                      <History className="h-3.5 w-3.5" aria-hidden /> Scan every year since 2000
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             <div className="space-y-2.5 border-t border-panel-line pt-4 text-[13px] leading-relaxed text-panel-muted">

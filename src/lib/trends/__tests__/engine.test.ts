@@ -237,3 +237,18 @@ describe("a year with months missing", () => {
     expect(iced[1]).toBe(0);
   });
 });
+
+describe("what the clear-trends rule can find", () => {
+  it("knows ten or twelve years are too few for a pixel to stand out among thousands, and twenty are enough", async () => {
+    const { trendStrengthP, strictReach } = await import("../hotspots");
+    // Every year above the one before: the best a pixel can do.
+    expect(trendStrengthP(10)).toBeCloseTo(8.3e-5, 5);
+    expect(trendStrengthP(20)).toBeLessThan(1e-8);
+    expect(strictReach({ p: Float32Array.from([0.5]) }, 12).longEnough).toBe(false);
+    expect(strictReach({ p: Float32Array.from([0.5]) }, 15).longEnough).toBe(true);
+    // 4,000 pixels, 400 of them at p < 0.05 (about 200 would be by luck).
+    const p = Float32Array.from({ length: 4000 }, (_, i) => (i < 400 ? 0.01 : 0.5));
+    expect(strictReach({ p }, 10)).toEqual({ tested: 4000, clearAlone: 400, byLuck: 200, longEnough: false });
+    expect(strictReach({ p }, 20).longEnough).toBe(true);
+  });
+});

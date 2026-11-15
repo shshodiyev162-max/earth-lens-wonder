@@ -96,8 +96,8 @@ function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Qu
 /** The quick choices above the timeline; dragging it gives any other span. */
 const PRESETS: { label: string; time: TimeSpec; matches: (time: TimeSpec) => boolean }[] = [
   { label: "Last 5 years", time: { kind: "last", years: 5 }, matches: (t) => t.kind === "last" && t.years === 5 },
-  { label: "Last 10", time: { kind: "default" }, matches: (t) => t.kind === "default" || (t.kind === "last" && t.years === 10) },
-  { label: "Last 20", time: { kind: "last", years: 20 }, matches: (t) => t.kind === "last" && t.years === 20 },
+  { label: "Last 10", time: { kind: "last", years: 10 }, matches: (t) => t.kind === "last" && t.years === 10 },
+  { label: "Last 20", time: { kind: "default" }, matches: (t) => t.kind === "default" || (t.kind === "last" && t.years === 20) },
   { label: "All since 2000", time: { kind: "since", start: 2000 }, matches: (t) => t.kind === "since" && t.start === 2000 },
 ];
 

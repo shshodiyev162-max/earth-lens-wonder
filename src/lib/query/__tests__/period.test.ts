@@ -32,12 +32,12 @@ describe("completeSeasonYears", () => {
 });
 
 describe("planPeriod", () => {
-  it("defaults to the last 10 complete seasons", () => {
+  it("defaults to the last 20 complete seasons (ten are too few for hotspots to show)", () => {
     const p = plan({ kind: "default" }, GROWING, NDVI);
-    expect([p.startYear, p.endYear]).toEqual([2016, 2025]);
-    expect(p.baseline).toEqual([2016, 2018]);
-    expect(p.recent).toEqual([2023, 2025]);
-    expect(p.years).toHaveLength(10);
+    expect([p.startYear, p.endYear]).toEqual([2006, 2025]);
+    expect(p.baseline).toEqual([2006, 2010]);
+    expect(p.recent).toEqual([2021, 2025]);
+    expect(p.years).toHaveLength(20);
   });
 
   it("'since 2015' runs to the latest complete season, with 3-year windows", () => {
@@ -81,7 +81,7 @@ describe("planPeriod", () => {
 
 describe("the years a timeline shows", () => {
   it("are the years each time choice covers", () => {
-    expect(timeSpan({ kind: "default" }, 2025)).toEqual([2016, 2025]);
+    expect(timeSpan({ kind: "default" }, 2025)).toEqual([2006, 2025]);
     expect(timeSpan({ kind: "last", years: 5 }, 2025)).toEqual([2021, 2025]);
     expect(timeSpan({ kind: "since", start: 2003 }, 2025)).toEqual([2003, 2025]);
     expect(timeSpan({ kind: "range", start: 2005, end: 2012 }, 2025)).toEqual([2005, 2012]);
