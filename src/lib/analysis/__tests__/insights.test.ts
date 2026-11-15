@@ -189,3 +189,32 @@ describe("level notes", () => {
     expect(levelNote(METRIC_BY_ID.ndvi, [{ month: "2024-01", value: null }])).toBeNull();
   });
 });
+
+describe("a rise and a fall that cancel out", () => {
+  // Up 0.01 a year to 2014, then down 0.01 a year, with a small wobble.
+  const hump = (m: string) => 0.4 + 0.01 * (9 - Math.abs(year(m) - 2014)) + (((year(m) * 7) % 5) - 2) * 0.001;
+
+  it("is named in the answer and explained, not counted as no trend", async () => {
+    const report = buildInsights(result({ satellite: { vegetation: series("vegetation", hump), air: series("air", steady) } }));
+    expect(report.headline).toMatch(/ rose until 2014, then fell\. The other measure shows no clear trend\.$/);
+    const finding = report.findings.find((f) => f.id === "turn-ndvi");
+    expect(finding?.title).toMatch(/rose, then fell/);
+    expect(finding?.detail).toMatch(/The two cancel out/);
+    const { trendLines } = await import("../export");
+    expect(trendLines(result({ satellite: { vegetation: series("vegetation", hump) } })).join("\n")).toMatch(/changed direction in 2014/);
+  });
+});
+
+describe("only the climate measures chosen", () => {
+  it("are tested, compared with the normal and written to the CSV", async () => {
+    const chosen = result({ datasets: ["climate"], climate: { status: "ok", samplePoints: [[39.77, 64.42]], points: climate(0, 1) }, climateMeasures: ["rain"] });
+    const report = buildInsights(chosen);
+    expect(report.recent?.figures.map((f) => f.id)).toEqual(["rain"]);
+    const { analysisTrends } = await import("../trend");
+    expect(analysisTrends(chosen).map((t) => t.metric.id)).toEqual(["rain"]);
+    const { buildCsv } = await import("../export");
+    const csv = buildCsv(chosen);
+    expect(csv).toMatch(/precip_mm/);
+    expect(csv).not.toMatch(/air_temp_c|humidity_pct/);
+  });
+});

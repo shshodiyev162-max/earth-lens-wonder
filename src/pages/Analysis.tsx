@@ -16,7 +16,7 @@ import type { PickedCountry } from "@/components/map/DrawTools";
 import { useGroundCheck } from "@/hooks/useGroundCheck";
 import { useAnalysisRun } from "@/hooks/useAnalysisRun";
 import { useAnalysisTarget } from "@/hooks/useAnalysisTarget";
-import { DATASETS, DEFAULT_DATASETS, countClimateRequests, countMaps } from "@/lib/analysis/run";
+import { DATASETS, countClimateRequests, countMaps } from "@/lib/analysis/run";
 import {
   LARGE_RUN_MAPS,
   describePeriod,
@@ -32,22 +32,13 @@ import {
 } from "@/lib/analysis/period";
 import { analysisTrends } from "@/lib/analysis/trend";
 import type { AnalysisPeriod, DatasetId } from "@/lib/analysis/types";
+import { CLIMATE_METRICS, METRIC_BY_ID, type MetricId } from "@/lib/analysis/metrics";
+import { parseDatasets, writeDatasets } from "@/lib/analysis/measures";
 import type { PlaceResult } from "@/lib/geo/geocode";
 import { formatArea, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
 import { findNamedRegion } from "@/lib/geo/regions";
 import { togetherLabel } from "@/lib/areas/resolve";
 import { cn } from "@/lib/utils";
-
-const ALL_DATASETS = DATASETS.map((d) => d.id);
-
-/** What a lake is read for when nothing else is chosen: its area of open water, with the climate around it. */
-const LAKE_DATASETS: DatasetId[] = ["climate", "water", "vegetation"];
-
-function parseDatasets(value: string | null, lake = false): DatasetId[] {
-  if (!value) return lake ? LAKE_DATASETS : DEFAULT_DATASETS;
-  const wanted = value.split(",").filter((id): id is DatasetId => (ALL_DATASETS as string[]).includes(id));
-  return wanted.length ? ALL_DATASETS.filter((id) => wanted.includes(id)) : DEFAULT_DATASETS;
-}
 
 // Places for a quick first try, one of each kind: a circle around a city, a known lake's own outline,
 // and a whole country (Nepal: its forests have been growing back, and NASA's maps show it greening).
@@ -134,7 +125,8 @@ export default function Analysis() {
     }),
     [calendarMonths, selection],
   );
-  const datasets = useMemo(() => parseDatasets(params.get("ds"), Boolean(findNamedRegion(params.get("region") ?? "")?.lake)), [params]);
+  const chosenMeasures = useMemo(() => parseDatasets(params.get("ds"), Boolean(findNamedRegion(params.get("region") ?? "")?.lake)), [params]);
+  const { datasets, climate: climateMeasures } = chosenMeasures;
   const problems = periodProblems(selection, months.length);
   const hints = periodHints(selection, calendarMonths, months.length);
 
@@ -151,7 +143,7 @@ export default function Analysis() {
   const started = Boolean(target) && startedRun === runKey;
   const stopped = !started && stoppedRun === runKey;
   const large = maps > LARGE_RUN_MAPS;
-  const run = useAnalysisRun(target, { start, end, months, period: analysisPeriod }, datasets, started && !problems.length && !adding);
+  const run = useAnalysisRun(target, { start, end, months, period: analysisPeriod }, datasets, started && !problems.length && !adding, climateMeasures);
   // The last report stays, faded, while the same place waits for a new start with other choices.
   const samePlace = Boolean(run.result && target && run.result.target.bbox.join(",") === target.bbox.join(",") && Math.round(run.result.target.areaKm2) === Math.round(target.areaKm2));
   const shownResult = samePlace && !stopped ? run.result : null;
@@ -276,12 +268,13 @@ export default function Analysis() {
 
   const onPeriod = (edit: PeriodEdit) => setParams((current) => writePeriod(current, selection, edit), { replace: true });
 
-  const onDatasets = (next: DatasetId[]) =>
+  const onDatasets = (next: DatasetId[], climate: MetricId[]) =>
     setParams(
       (current) => {
         const updated = new URLSearchParams(current);
-        if (next.length === DEFAULT_DATASETS.length && DEFAULT_DATASETS.every((id) => next.includes(id))) updated.delete("ds");
-        else updated.set("ds", next.join(","));
+        const written = writeDatasets(next, climate);
+        if (written === null) updated.delete("ds");
+        else updated.set("ds", written);
         return updated;
       },
       { replace: true },
@@ -342,7 +335,7 @@ export default function Analysis() {
 
           <section className="mt-5 space-y-3 border-t border-border pt-4">
             <StepLabel number={3}>Measures</StepLabel>
-            <DatasetPicker selected={datasets} onChange={onDatasets} note={sizeNote} />
+            <DatasetPicker selected={datasets} climate={climateMeasures} onChange={onDatasets} note={sizeNote} />
           </section>
         </div>
       </aside>
@@ -463,7 +456,9 @@ export default function Analysis() {
                   mode={stopped ? "stopped" : stale ? "changed" : "new"}
                   large={large}
                   period={describePeriod(selection, calendarMonths, "long")}
-                  measures={DATASETS.filter((d) => datasets.includes(d.id)).map((d) => d.label)}
+                  measures={DATASETS.filter((d) => datasets.includes(d.id)).flatMap((d) =>
+                    d.id === "climate" && climateMeasures.length < CLIMATE_METRICS.length ? climateMeasures.map((id) => METRIC_BY_ID[id].label) : [d.label],
+                  )}
                   maps={maps}
                   estimate={formatEstimate(estimateSeconds(maps, climateRequests))}
                   onStart={startAnalysis}

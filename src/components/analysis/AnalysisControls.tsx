@@ -1,8 +1,10 @@
 import { useId } from "react";
-import { Check } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
 import YearTimeline from "@/components/common/YearTimeline";
+import { CLIMATE_METRICS, METRIC_BY_ID, type MetricId } from "@/lib/analysis/metrics";
+import { MEASURE_COUNT } from "@/lib/analysis/measures";
 import { DATASETS, DATASET_BY_ID } from "@/lib/analysis/run";
+import { METRIC_DEFINITIONS } from "@/lib/glossary";
 import type { DatasetId } from "@/lib/analysis/types";
 import { formatMonth } from "@/lib/gibs/time";
 import { MEASURE_GROUPS, monthsLabel, SEASONS } from "@/lib/query/indicators";
@@ -168,28 +170,35 @@ export function MonthsPicker({ selection, latitude, onChange }: { selection: Per
   );
 }
 
-/** The climate dataset on its own line (six measures from one quick request), then every map-based measure by group. */
-export function DatasetPicker({ selected, onChange, note }: { selected: DatasetId[]; onChange: (next: DatasetId[]) => void; note?: string }) {
+/** The climate measures first (six from one quick request), then every map-based measure by group. */
+export function DatasetPicker({ selected, climate, onChange, note }: { selected: DatasetId[]; climate: MetricId[]; onChange: (next: DatasetId[], climate: MetricId[]) => void; note?: string }) {
+  const ordered = (ids: DatasetId[]) => DATASETS.map((d) => d.id).filter((d) => ids.includes(d));
   const toggle = (id: DatasetId) => {
     const next = selected.includes(id) ? selected.filter((d) => d !== id) : [...selected, id];
-    if (next.length) onChange(DATASETS.map((d) => d.id).filter((d) => next.includes(d)));
+    if (next.length) onChange(ordered(next), climate);
   };
-  const climateOn = selected.includes("climate");
+  // A climate measure: the climate request is read while any of the six is chosen.
+  const toggleClimate = (id: MetricId) => {
+    const next = climate.includes(id) ? climate.filter((c) => c !== id) : CLIMATE_METRICS.filter((c) => c === id || climate.includes(c));
+    const maps = selected.filter((d) => d !== "climate");
+    if (!next.length && !maps.length) return;
+    onChange(ordered(next.length ? [...maps, "climate"] : maps), next);
+  };
   return (
     <div className="space-y-3.5">
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={climateOn}
-        onClick={() => toggle("climate")}
-        className={cn("flex w-full items-start gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors pointer-coarse:min-h-11", climateOn ? "border-panel-foreground" : "border-panel-line-strong hover:border-panel-foreground/50")}
-      >
-        <Check className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 text-panel-foreground", climateOn ? "opacity-100" : "opacity-0")} aria-hidden />
-        <span className="min-w-0">
-          <span className="block text-[13px] font-medium text-foreground">{DATASET_BY_ID.climate.label}</span>
-          <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{DATASET_BY_ID.climate.description}</span>
-        </span>
-      </button>
+      <p className="text-xs text-muted-foreground">{MEASURE_COUNT} measures. Pick any mix; each is tested on its own.</p>
+      <div className="space-y-1.5">
+        <p id="dataset-group-climate" className="text-xs text-muted-foreground">
+          {DATASET_BY_ID.climate.label} <span className="text-panel-muted">· NASA POWER, one request, ready in seconds</span>
+        </p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="dataset-group-climate">
+          {CLIMATE_METRICS.map((id) => (
+            <button key={id} type="button" role="checkbox" aria-checked={climate.includes(id)} title={METRIC_DEFINITIONS[id]} onClick={() => toggleClimate(id)} className={climate.includes(id) ? "chip-on" : "chip"}>
+              {METRIC_BY_ID[id].label}
+            </button>
+          ))}
+        </div>
+      </div>
       {MEASURE_GROUPS.map((group) => (
         <div key={group.id} className="space-y-1.5">
           <p id={`dataset-group-${group.id}`} className="text-xs text-muted-foreground">
@@ -208,7 +217,13 @@ export function DatasetPicker({ selected, onChange, note }: { selected: DatasetI
       <details className="border-t border-panel-line pt-2.5">
         <summary className="flex cursor-pointer items-center text-xs text-panel-soft hover:text-panel-foreground pointer-coarse:min-h-11">What does each one measure?</summary>
         <dl className="mt-2.5 space-y-2 text-xs leading-relaxed">
-          {DATASETS.map((dataset) => (
+          {CLIMATE_METRICS.map((id) => (
+            <div key={id}>
+              <dt className="font-medium text-foreground">{METRIC_BY_ID[id].label}</dt>
+              <dd className="text-muted-foreground">{METRIC_DEFINITIONS[id]} From NASA POWER, compared with the 2001–2020 normal.</dd>
+            </div>
+          ))}
+          {DATASETS.filter((dataset) => dataset.id !== "climate").map((dataset) => (
             <div key={dataset.id}>
               <dt className="font-medium text-foreground">{dataset.label}</dt>
               <dd className="text-muted-foreground">{dataset.description}</dd>

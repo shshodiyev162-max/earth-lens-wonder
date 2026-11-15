@@ -1,3 +1,4 @@
+import { isShown, type MetricId } from "./metrics";
 import { monthRange } from "../gibs/time";
 import { formatSpan } from "./period";
 import { formatP } from "./stats";
@@ -20,7 +21,10 @@ export function trendLines(result: AnalysisResult): string[] {
       return `# Comparison, ${metric.label}: ${parts.join(", ")}`;
     }
     if (!verdict) return `# Trend, ${metric.label}: not tested (${note ?? "too few years"})`;
-    return `# Trend, ${metric.label}: ${verdict.label}, ${verdict.slopePerYear.toFixed(d)}${unit} per year (95% range ${verdict.lowerPerYear.toFixed(d)} to ${verdict.upperPerYear.toFixed(d)}), Mann-Kendall ${formatP(verdict.p)}${span ? `, years ${formatSpan(span)}` : ""}`;
+    const turn = verdict.turn
+      ? `; changed direction in ${verdict.turn.year}: ${verdict.turn.slopeBefore.toFixed(d)}${unit} per year before, ${verdict.turn.slopeAfter.toFixed(d)}${unit} per year after (turn test ${formatP(verdict.turn.p)})`
+      : "";
+    return `# Trend, ${metric.label}: ${verdict.label}, ${verdict.slopePerYear.toFixed(d)}${unit} per year (95% range ${verdict.lowerPerYear.toFixed(d)} to ${verdict.upperPerYear.toFixed(d)}), Mann-Kendall ${formatP(verdict.p)}${span ? `, years ${formatSpan(span)}` : ""}${turn}`;
   });
 }
 
@@ -64,18 +68,20 @@ export function buildCsv(result: AnalysisResult): string {
   satColumn("heatLeaving", "outgoing_longwave_w_m2", 1);
 
   if (result.climate?.points.length) {
-    columns.push(
-      { header: "air_temp_c", value: (m) => fmt(climate.get(m)?.temp, 2) },
-      { header: "air_temp_normal_c", value: (m) => fmt(climate.get(m)?.tempNormal, 2) },
-      { header: "air_temp_month_max_c", value: (m) => fmt(climate.get(m)?.tempMax, 2) },
-      { header: "air_temp_month_min_c", value: (m) => fmt(climate.get(m)?.tempMin, 2) },
-      { header: "precip_mm", value: (m) => fmt(climate.get(m)?.precip, 1) },
-      { header: "precip_normal_mm", value: (m) => fmt(climate.get(m)?.precipNormal, 1) },
-      { header: "solar_kwh_m2_day", value: (m) => fmt(climate.get(m)?.solar, 2) },
-      { header: "humidity_pct", value: (m) => fmt(climate.get(m)?.humidity, 1) },
-      { header: "wind_m_s", value: (m) => fmt(climate.get(m)?.wind, 2) },
-      { header: "soil_wetness_pct", value: (m) => fmt(climate.get(m)?.soil, 1) },
-    );
+    // Only the climate measures chosen (all six are read together).
+    const climateColumns: [MetricId, (typeof columns)[number]][] = [
+      ["airTemp", { header: "air_temp_c", value: (m) => fmt(climate.get(m)?.temp, 2) }],
+      ["airTemp", { header: "air_temp_normal_c", value: (m) => fmt(climate.get(m)?.tempNormal, 2) }],
+      ["airTemp", { header: "air_temp_month_max_c", value: (m) => fmt(climate.get(m)?.tempMax, 2) }],
+      ["airTemp", { header: "air_temp_month_min_c", value: (m) => fmt(climate.get(m)?.tempMin, 2) }],
+      ["rain", { header: "precip_mm", value: (m) => fmt(climate.get(m)?.precip, 1) }],
+      ["rain", { header: "precip_normal_mm", value: (m) => fmt(climate.get(m)?.precipNormal, 1) }],
+      ["sunshine", { header: "solar_kwh_m2_day", value: (m) => fmt(climate.get(m)?.solar, 2) }],
+      ["humidity", { header: "humidity_pct", value: (m) => fmt(climate.get(m)?.humidity, 1) }],
+      ["wind", { header: "wind_m_s", value: (m) => fmt(climate.get(m)?.wind, 2) }],
+      ["soil", { header: "soil_wetness_pct", value: (m) => fmt(climate.get(m)?.soil, 1) }],
+    ];
+    columns.push(...climateColumns.filter(([id]) => isShown(result, id)).map(([, column]) => column));
   }
 
   const header = [

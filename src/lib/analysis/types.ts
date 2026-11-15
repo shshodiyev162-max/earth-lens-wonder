@@ -1,5 +1,6 @@
 import type { BBox, LatLng, PolygonGeometry } from "../geo/geometry";
 import type { MeasureGroup } from "../query/indicators";
+import type { MetricId } from "./metrics";
 
 export type DatasetId =
   | "climate"
@@ -150,6 +151,8 @@ export interface AnalysisResult {
   start: string;
   end: string;
   datasets: DatasetId[];
+  /** The climate measures chosen (all six when missing). All six are read together; the others aren't shown. */
+  climateMeasures?: MetricId[];
   /** The months that were read (missing in older saved results: every month from start to end). */
   months?: string[];
   period?: AnalysisPeriod;

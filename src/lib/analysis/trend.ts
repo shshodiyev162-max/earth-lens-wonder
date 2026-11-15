@@ -6,7 +6,7 @@ import { formatMonth } from "../gibs/time";
 import { comparePeriods, yearlyValues, type PeriodComparison, type YearValue } from "./aggregate";
 import { measuredMetrics, METRICS, metricValues, type MetricDef } from "./metrics";
 import { EARLIEST_YEAR } from "./period";
-import { annualTrendVerdict, monthlyTrendVerdict, signed, type MonthlyValue, type TrendDirection, type TrendVerdict } from "./stats";
+import { annualTrendVerdict, monthlyTrendVerdict, signed, type MonthlyValue, type TrendDirection, type TrendTurn, type TrendVerdict } from "./stats";
 import type { AnalysisPeriod, AnalysisResult, DatasetId } from "./types";
 
 /** Years needed for a yearly trend test (Mann–Kendall needs at least four values). */
@@ -48,7 +48,8 @@ function firstYearOf(metric: MetricDef): number {
  * suggest testing the whole record: short records often can't separate a trend from year-to-year noise.
  */
 export function longerPeriodHint(verdict: TrendVerdict | null, firstYear: number, earliestYear = EARLIEST_YEAR): LongerPeriodHint | null {
-  if (verdict && verdict.direction !== "none") return null;
+  // A rise and a fall that cancel out: a longer record isn't the answer, and the explanation says so.
+  if (verdict && (verdict.direction !== "none" || verdict.turn)) return null;
   if (firstYear - earliestYear < 3) return null;
   if (!verdict) return { text: `Too few years to test for a trend. Testing every year since ${earliestYear} gives the test enough years to work with.`, startYear: earliestYear };
   const years = Math.round(verdict.years);
@@ -114,6 +115,16 @@ export function directionOf(trend: Pick<MetricTrend, "verdict" | "comparison">):
   if (trend.comparison?.label === "Significantly lower") return "decline";
   if (trend.comparison?.label === "Significantly higher") return "increase";
   return "none";
+}
+
+/** A rise and a fall (or a fall and a rise) that cancel out, so the whole record shows no single direction. */
+export function turnOf(trend: Pick<MetricTrend, "verdict">): TrendTurn | null {
+  return trend.verdict?.direction === "none" ? (trend.verdict.turn ?? null) : null;
+}
+
+/** "Rose, then fell" or "Fell, then rose". */
+export function turnLabel(turn: Pick<TrendTurn, "first">): string {
+  return turn.first === "increase" ? "Rose, then fell" : "Fell, then rose";
 }
 
 /** Whether a significant change is the worrying direction for this measure. */

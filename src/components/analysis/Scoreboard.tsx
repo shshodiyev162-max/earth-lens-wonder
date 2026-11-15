@@ -10,7 +10,7 @@ import { metricValues, type MetricDef } from "@/lib/analysis/metrics";
 import { formatSpan } from "@/lib/analysis/period";
 import { DATASET_BY_ID } from "@/lib/analysis/run";
 import { explainVerdict, formatP, signed, WEAK_EVIDENCE } from "@/lib/analysis/stats";
-import { directionOf, metricNotes, missingDatasets, rankTrends, rateText, type MetricTrend } from "@/lib/analysis/trend";
+import { directionOf, metricNotes, missingDatasets, rankTrends, rateText, turnLabel, turnOf, type MetricTrend } from "@/lib/analysis/trend";
 import type { AnalysisProgress, AnalysisResult } from "@/lib/analysis/types";
 import { METRIC_DEFINITIONS } from "@/lib/glossary";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,8 @@ const COLUMNS = "grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1.15fr)_9
 const verdictTone = (trend: MetricTrend) => TONE_TEXT[toneOf(directionOf(trend), trend.metric.concern)];
 
 function verdictLabel(trend: MetricTrend): string {
+  const turn = turnOf(trend);
+  if (turn) return turnLabel(turn);
   if (trend.verdict) return trend.verdict.label;
   if (trend.comparison) return trend.comparison.label === "Not enough years to test" ? "Not tested" : trend.comparison.label;
   return "Not tested";
@@ -109,7 +111,9 @@ function Details({ trend, result, compare }: { trend: MetricTrend; result: Analy
       </div>
       <div className="min-w-0 space-y-5 text-foreground">
         <figure>
-          <figcaption className="mb-1 text-xs text-muted-foreground">{verdict ? "One value per year, with the trend and its 95% range" : "One value per year"}</figcaption>
+          <figcaption className="mb-1 text-xs text-muted-foreground">
+            {turnOf(trend) ? "One value per year, with the trend before and after it turned" : verdict ? "One value per year, with the trend and its 95% range" : "One value per year"}
+          </figcaption>
           <YearTrendChart
             series={yearly}
             baseline={compare?.baseline}
@@ -118,6 +122,7 @@ function Details({ trend, result, compare }: { trend: MetricTrend; result: Analy
             unit={metric.unit}
             decimals={metric.decimals}
             showRange={Boolean(verdict)}
+            turnYear={turnOf(trend)?.year}
             variant="page"
             label={`${metric.subject}, one value per year${verdict ? ", with the trend line and its 95% range" : ""}`}
           />
@@ -177,7 +182,7 @@ function Row({ trend, result, compare, startOpen }: { trend: MetricTrend; result
           </span>
           <span className="hidden font-mono text-xs tabular-nums text-muted-foreground xl:block">{p !== null ? formatP(p) : "—"}</span>
           <span className={cn("justify-self-end", TONE_TEXT[toneOf(directionOf(trend), metric.concern)])}>
-            <YearTrendChart series={yearly} unit={metric.unit} decimals={metric.decimals} compact variant="page" label={`${metric.label}, one value per year`} />
+            <YearTrendChart series={yearly} unit={metric.unit} decimals={metric.decimals} compact variant="page" turnYear={turnOf(trend)?.year} label={`${metric.label}, one value per year`} />
           </span>
         </summary>
         {open && <Details trend={trend} result={result} compare={compare} />}

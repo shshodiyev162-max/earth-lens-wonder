@@ -135,8 +135,17 @@ export function metricValues(result: AnalysisResult, id: MetricId): MonthlyValue
 }
 
 /** Metrics with at least one measured month (snow only when some snow was seen). */
+/** The six measures of NASA POWER's climate record: read together in one quick request, each shown only when chosen. */
+export const CLIMATE_METRICS: MetricId[] = METRICS.filter((metric) => metric.dataset === "climate").map((metric) => metric.id);
+
+/** Whether a measure was chosen: every map measure read was, and the climate measures picked. */
+export function isShown(result: Pick<AnalysisResult, "climateMeasures">, id: MetricId): boolean {
+  return !result.climateMeasures || METRIC_BY_ID[id]?.dataset !== "climate" || result.climateMeasures.includes(id);
+}
+
 export function measuredMetrics(result: AnalysisResult): MetricDef[] {
   return METRICS.filter((metric) => {
+    if (!isShown(result, metric.id)) return false;
     const values = metricValues(result, metric.id);
     if (metric.minLevel !== undefined) return values.some((v) => (v.value ?? 0) >= (metric.minLevel as number));
     return values.some((v) => v.value !== null);

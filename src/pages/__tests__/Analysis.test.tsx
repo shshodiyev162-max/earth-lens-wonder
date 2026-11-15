@@ -253,17 +253,34 @@ describe("Analysis page", () => {
     expect(screen.getAllByText(/95% range/).length).toBeGreaterThanOrEqual(7);
   });
 
+  it("lists all 30 measures, each climate measure on its own, and hides one without reading again", async () => {
+    renderAt(BUKHARA);
+    expect(screen.getByText(/^30 measures\./)).toBeInTheDocument();
+    for (const label of ["Air temperature", "Rainfall", "Soil moisture", "Humidity", "Wind", "Sunshine"]) {
+      expect(screen.getByRole("checkbox", { name: label })).toHaveAttribute("aria-checked", "true");
+    }
+    await start();
+    await screen.findByRole("heading", { name: "Is it changing?" });
+    expect(within(board()).getByText("Rainfall")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Rainfall" }));
+    expect(screen.getByRole("checkbox", { name: "Rainfall" })).toHaveAttribute("aria-checked", "false");
+    await waitFor(() => expect(within(board()).queryByText("Rainfall")).not.toBeInTheDocument());
+    expect(within(board()).getByText("Air temperature")).toBeInTheDocument();
+    // All six come from one request, so nothing new is read.
+    expect(runAnalysis).toHaveBeenCalledTimes(1);
+  });
+
   it("opens one measure's details at a time, in place", async () => {
     renderAt(BUKHARA);
     await start();
     await screen.findByRole("heading", { name: "Is it changing?" });
     // The top row starts open; the others keep their definitions out of the way.
-    expect(screen.getByText(/What a thermometer in the shade would read/i)).toBeInTheDocument();
-    expect(screen.queryByText(/How close the air 2 metres above the ground/)).not.toBeInTheDocument();
+    expect(within(board()).getByText(/What a thermometer in the shade would read/i)).toBeInTheDocument();
+    expect(within(board()).queryByText(/How close the air 2 metres above the ground/)).not.toBeInTheDocument();
     const humidity = within(board()).getByText("Humidity").closest("details") as HTMLDetailsElement;
     humidity.open = true;
     fireEvent(humidity, new Event("toggle"));
-    expect(await screen.findByText(/How close the air 2 metres above the ground/)).toBeInTheDocument();
+    expect(await within(board()).findByText(/How close the air 2 metres above the ground/)).toBeInTheDocument();
   });
 
   it("offers the whole record once when there's no clear trend", async () => {

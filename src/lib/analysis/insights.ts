@@ -3,10 +3,10 @@
 // one month's reading or one hot summer says nothing about whether a place is changing.
 
 import { formatMonth } from "../gibs/time";
-import { formatValue, type MetricDef } from "./metrics";
+import { formatValue, type MetricDef, type MetricId } from "./metrics";
 import { formatSpan, seasonPhrase } from "./period";
-import { explainVerdict, extremes, formatP, mean, signed, SIGNIFICANCE, sum, validValues, type MonthlyValue } from "./stats";
-import { analysisTrends, directionOf, isConcerning, periodOf, type MetricTrend } from "./trend";
+import { explainVerdict, extremes, formatP, mean, signed, SIGNIFICANCE, sum, validValues, type MonthlyValue, type TrendTurn } from "./stats";
+import { analysisTrends, directionOf, isConcerning, periodOf, type MetricTrend, turnOf, turnLabel } from "./trend";
 import type { AnalysisResult, ClimatePoint, DatasetId } from "./types";
 
 export type Tone = "positive" | "neutral" | "warning";
@@ -91,30 +91,31 @@ export function levelNote(metric: MetricDef, values: MonthlyValue[]): string | n
  * The latest months against the 2001–2020 normal for the same calendar months. This is what the
  * normals are for: a whole period's rainfall total would mean nothing beside them.
  */
-export function recentConditions(points: ClimatePoint[], count = 12): RecentConditions | null {
+export function recentConditions(points: ClimatePoint[], count = 12, chosen?: MetricId[]): RecentConditions | null {
   const latest = points.filter((p) => p.temp !== null || p.precip !== null).slice(-count);
   if (!latest.length) return null;
   const figures: RecentFigure[] = [];
+  const on = (id: MetricId) => !chosen || chosen.includes(id);
 
   const temps = latest.filter((p) => p.temp !== null && p.tempNormal !== null);
-  if (temps.length) {
+  if (temps.length && on("airTemp")) {
     const gap = mean(temps.map((p) => (p.temp as number) - (p.tempNormal as number)));
     figures.push({ id: "temp", label: "Air temperature", value: `${signed(gap)} °C`, note: Math.abs(gap) < 0.05 ? "same as normal" : gap > 0 ? "warmer than normal" : "cooler than normal" });
   }
   const rain = latest.filter((p) => p.precip !== null && p.precipNormal !== null);
   const rainNormal = sum(rain.map((p) => p.precipNormal as number));
-  if (rain.length && rainNormal > 1) {
+  if (rain.length && rainNormal > 1 && on("rain")) {
     const total = sum(rain.map((p) => p.precip as number));
     figures.push({ id: "rain", label: "Rainfall", value: `${Math.round((total / rainNormal) * 100)}%`, note: `of normal (${Math.round(total)} mm vs ${Math.round(rainNormal)} mm)` });
   }
   const soil = latest.filter((p) => p.soil !== null && p.soilNormal !== null);
-  if (soil.length) {
+  if (soil.length && on("soil")) {
     const gap = mean(soil.map((p) => (p.soil as number) - (p.soilNormal as number)));
     figures.push({ id: "soil", label: "Soil wetness", value: `${signed(gap, 0)} ${Math.abs(Math.round(gap)) === 1 ? "point" : "points"}`, note: Math.abs(gap) < 0.5 ? "same as normal" : gap > 0 ? "wetter than normal" : "drier than normal" });
   }
   const solar = latest.filter((p) => p.solar !== null && p.solarNormal !== null);
   const solarNormal = sum(solar.map((p) => p.solarNormal as number));
-  if (solar.length && solarNormal > 0) {
+  if (solar.length && solarNormal > 0 && on("sunshine")) {
     figures.push({ id: "solar", label: "Sunshine", value: `${Math.round((sum(solar.map((p) => p.solar as number)) / solarNormal) * 100)}%`, note: "of normal" });
   }
   return figures.length ? { from: latest[0].month, to: latest[latest.length - 1].month, months: latest.length, figures } : null;
@@ -138,6 +139,21 @@ function buildHeadline(trends: MetricTrend[], counts: TrendCounts, comparing: bo
   if (!trends.length) return "No NASA readings for this area and period.";
   if (!tested) return comparing ? "Too few years in each period to test for a difference." : "Too few years to test for a trend.";
   const noChange = comparing ? "difference" : "trend";
+  // A rise and a fall that cancel out are a change, not "no clear trend": they get their own sentence.
+  const turned = comparing ? [] : trends.filter((t) => turnOf(t));
+  const turns =
+    turned.length > 2
+      ? [`${turned.length} measures changed direction: up, then down, or the other way round.`]
+      : turned.map((t) => {
+          const turn = turnOf(t) as TrendTurn;
+          const up = turn.first === "increase";
+          return `${capitalise(t.metric.noun)} ${up ? "rose" : "fell"} until ${turn.year}, then ${up ? "fell" : "rose"}.`;
+        });
+  const steady = counts.steady - turned.length;
+  if (turned.length && !counts.rising && !counts.falling) {
+    const rest = steady ? ` ${steady === 1 ? "The other measure shows" : `The other ${steady} measures show`} no clear ${noChange}.` : "";
+    return `${turns.join(" ")}${rest}`;
+  }
   if (!counts.rising && !counts.falling) {
     return tested === 1 ? `No clear ${noChange} in ${trends[0].metric.noun}.` : `No clear ${noChange} in any of the ${tested} measures tested.`;
   }
@@ -146,8 +162,8 @@ function buildHeadline(trends: MetricTrend[], counts: TrendCounts, comparing: bo
   const parts: string[] = [];
   if (counts.rising) parts.push(clause(names("increase"), comparing ? "higher" : "rising"));
   if (counts.falling) parts.push(clause(names("decline"), comparing ? "lower" : "falling"));
-  const others = counts.steady ? ` ${counts.steady === 1 ? "The other measure shows" : `The other ${counts.steady} measures show`} no clear ${noChange}.` : "";
-  return `${capitalise(parts.join(", and "))}.${others}`;
+  const others = steady ? ` ${steady === 1 ? "The other measure shows" : `The other ${steady} measures show`} no clear ${noChange}.` : "";
+  return `${capitalise(parts.join(", and "))}.${turns.length ? ` ${turns.join(" ")}` : ""}${others}`;
 }
 
 /** "Mar 2016 – Feb 2026 (Apr–Sep only)" or "2001–2010 and 2016–2025". */
@@ -189,6 +205,17 @@ function buildFindings(result: AnalysisResult, trends: MetricTrend[]): Finding[]
   for (const trend of trends) {
     const { metric, verdict, comparison } = trend;
     const direction = directionOf(trend);
+    const turn = turnOf(trend);
+    if (turn && verdict) {
+      findings.push({
+        id: `turn-${metric.id}`,
+        dataset: metric.dataset,
+        tone: "neutral",
+        title: `${metric.label}: ${turnLabel(turn).toLowerCase()}${trend.span ? `, ${formatSpan(trend.span)}` : ""}`,
+        detail: explainVerdict(verdict, metric.subject, metric.unit, metric.decimals + 1),
+      });
+      continue;
+    }
     if (direction === "none") continue;
     const tone: Tone = isConcerning(metric, direction) ? "warning" : metric.concern === "none" ? "neutral" : "positive";
     if (comparison && compare && comparison.baselineMean !== null && comparison.recentMean !== null && comparison.change !== null && comparison.p !== null) {
@@ -243,7 +270,7 @@ export function buildInsights(result: AnalysisResult): InsightReport {
     summary: buildSummary(result, trends, counts),
     counts,
     findings: buildFindings(result, trends),
-    recent: result.climate?.status === "ok" ? recentConditions(result.climate.points) : null,
+    recent: result.climate?.status === "ok" ? recentConditions(result.climate.points, 12, result.climateMeasures) : null,
     caveats: buildCaveats(result),
   };
 }

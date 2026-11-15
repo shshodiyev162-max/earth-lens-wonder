@@ -106,6 +106,7 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
           unit={total.unit}
           decimals={total.decimals}
           showRange={Boolean(verdict)}
+          turnYear={verdict?.direction === "none" ? verdict.turn?.year : null}
           label={`${indicator.subject} across ${name}, year by year${verdict ? ", with the trend line and its 95% range" : ""}`}
         />
       </div>

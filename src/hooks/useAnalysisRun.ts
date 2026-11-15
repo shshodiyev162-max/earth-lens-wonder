@@ -1,3 +1,4 @@
+import type { MetricId } from "@/lib/analysis/metrics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAbortError } from "@/lib/async";
 import { buildInsights, type InsightReport } from "@/lib/analysis/insights";
@@ -28,7 +29,7 @@ export interface AnalysisWindow {
  * "Start the analysis" is pressed for these choices). Turned off, nothing is fetched and a run under
  * way stops; the last result is kept, so the page can show it as the report for earlier choices.
  */
-export function useAnalysisRun(target: AnalysisTarget | null, window: AnalysisWindow, datasets: DatasetId[], enabled = true): AnalysisRunState {
+export function useAnalysisRun(target: AnalysisTarget | null, window: AnalysisWindow, datasets: DatasetId[], enabled = true, climateMeasures?: MetricId[]): AnalysisRunState {
   const [status, setStatus] = useState<AnalysisRunState["status"]>("idle");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
@@ -102,8 +103,10 @@ export function useAnalysisRun(target: AnalysisTarget | null, window: AnalysisWi
 
   // Re-label with the current name (e.g. once a dropped pin has been reverse-geocoded).
   const displayName = target?.name;
-  const report = useMemo(() => (result ? buildInsights(displayName ? { ...result, target: { ...result.target, name: displayName } } : result) : null), [result, displayName]);
+  // All six climate measures are read together; only the ones chosen are shown, so changing them needs no new reading.
+  const shown = useMemo(() => (result && climateMeasures ? { ...result, climateMeasures } : result), [result, climateMeasures]);
+  const report = useMemo(() => (shown ? buildInsights(displayName ? { ...shown, target: { ...shown.target, name: displayName } } : shown) : null), [shown, displayName]);
   const rerun = useCallback(() => setNonce((n) => n + 1), []);
 
-  return { status, result, report, progress, error, current, rerun };
+  return { status, result: shown, report, progress, error, current, rerun };
 }

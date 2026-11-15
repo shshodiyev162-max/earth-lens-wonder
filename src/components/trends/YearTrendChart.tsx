@@ -18,13 +18,15 @@ interface YearTrendChartProps {
   /** Map panels use the panel colours; full pages use the page colours. */
   variant?: "panel" | "page";
   label: string;
+  /** A rise and a fall that cancel out: drawn as two lines meeting at this year, instead of one flat one. */
+  turnYear?: number | null;
 }
 
 const WIDTH = { full: 300, compact: 120 };
 const HEIGHT = { full: 84, compact: 32 };
 
 /** One measured value a year, the Sen's slope trend through them, its 95% range and the chosen windows shaded. */
-export default function YearTrendChart({ series, baseline, recent, color = "currentColor", unit, decimals, compact = false, showRange = false, variant = "panel", label }: YearTrendChartProps) {
+export default function YearTrendChart({ series, baseline, recent, color = "currentColor", unit, decimals, compact = false, showRange = false, variant = "panel", label, turnYear = null }: YearTrendChartProps) {
   const clipId = `range-${useId().replace(/:/g, "")}`;
   const valid = useMemo(() => series.filter((p): p is { year: number; value: number } => p.value !== null), [series]);
   const geometry = useMemo(() => {
@@ -39,11 +41,19 @@ export default function YearTrendChart({ series, baseline, recent, color = "curr
     const values = valid.map((p) => p.value);
     const sen = valid.length >= 3 ? senSlope(years, values) : null;
     const at = (x: number) => (sen ? sen.intercept + sen.slope * x : 0);
-    const lineValues = sen ? [at(x0), at(x1)] : [];
+    // Two stretches: a Sen's line through each, from the first year to the turn and from the turn to the last.
+    const stretch = (from: number, to: number) => {
+      const part = valid.filter((p) => p.year >= from && p.year <= to);
+      const fit = part.length >= 3 ? senSlope(part.map((p) => p.year), part.map((p) => p.value)) : null;
+      return fit ? { from, to, y0: fit.intercept + fit.slope * from, y1: fit.intercept + fit.slope * to } : null;
+    };
+    const turned = turnYear !== null && turnYear > x0 && turnYear < x1 ? [stretch(x0, turnYear), stretch(turnYear, x1)].filter((s): s is NonNullable<typeof s> => s !== null) : [];
+    const lines = turned.length === 2 ? turned : sen ? [{ from: x0, to: x1, y0: at(x0), y1: at(x1) }] : [];
+    const lineValues = lines.flatMap((l) => [l.y0, l.y1]);
     // The 95% range pivots on the middle year of the measured record.
     const xm = (x0 + x1) / 2;
     const cone =
-      sen && showRange && !compact
+      sen && showRange && !compact && turned.length !== 2
         ? [
             [x0, at(xm) + sen.lower * (x0 - xm)],
             [x1, at(xm) + sen.lower * (x1 - xm)],
@@ -65,17 +75,19 @@ export default function YearTrendChart({ series, baseline, recent, color = "curr
     const sy = (y: number) => pad.t + (1 - (y - y0) / (y1 - y0)) * (height - pad.t - pad.b);
     const path = valid.map((p, i) => `${i ? "L" : "M"}${sx(p.year).toFixed(1)},${sy(p.value).toFixed(1)}`).join(" ");
     const conePath = cone ? `${cone.map(([x, y], i) => `${i ? "L" : "M"}${sx(x).toFixed(1)},${sy(y).toFixed(1)}`).join(" ")} Z` : null;
-    return { width, height, pad, sx, sy, path, sen, at, x0, x1, conePath };
-  }, [valid, compact, showRange]);
+    return { width, height, pad, sx, sy, path, lines, x0, x1, conePath };
+  }, [valid, compact, showRange, turnYear]);
 
   const muted = variant === "panel" ? "text-panel-muted" : "text-muted-foreground";
   if (!geometry) return <p className={`text-xs ${muted}`}>Not enough years with data for a chart.</p>;
-  const { width, height, pad, sx, sy, path, sen, at, x0, x1, conePath } = geometry;
+  const { width, height, pad, sx, sy, path, lines, x0, x1, conePath } = geometry;
 
   if (compact) {
     return (
       <svg viewBox={`0 0 ${width} ${height}`} className="h-8 w-[7.5rem]" role="img" aria-label={label}>
-        {sen && <line x1={sx(x0)} y1={sy(at(x0))} x2={sx(x1)} y2={sy(at(x1))} style={{ stroke: color }} strokeWidth={1} strokeDasharray="3 3" opacity={0.55} vectorEffect="non-scaling-stroke" />}
+        {lines.map((l) => (
+          <line key={l.from} x1={sx(l.from)} y1={sy(l.y0)} x2={sx(l.to)} y2={sy(l.y1)} style={{ stroke: color }} strokeWidth={1} strokeDasharray="3 3" opacity={0.55} vectorEffect="non-scaling-stroke" />
+        ))}
         <path d={path} fill="none" stroke="currentColor" strokeWidth={1.25} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
       </svg>
     );
@@ -106,7 +118,9 @@ export default function YearTrendChart({ series, baseline, recent, color = "curr
           </g>
         ))}
         {conePath && <path d={conePath} style={{ fill: color }} opacity={0.15} clipPath={`url(#${clipId})`} />}
-        {sen && <line x1={sx(x0)} y1={sy(at(x0))} x2={sx(x1)} y2={sy(at(x1))} style={{ stroke: color }} strokeWidth={1.25} strokeDasharray="5 4" opacity={0.95} vectorEffect="non-scaling-stroke" />}
+        {lines.map((l) => (
+          <line key={l.from} x1={sx(l.from)} y1={sy(l.y0)} x2={sx(l.to)} y2={sy(l.y1)} style={{ stroke: color }} strokeWidth={1.25} strokeDasharray="5 4" opacity={0.95} vectorEffect="non-scaling-stroke" />
+        ))}
         <path d={path} fill="none" stroke="currentColor" strokeWidth={1.25} strokeLinejoin="round" strokeLinecap="round" opacity={0.85} vectorEffect="non-scaling-stroke" />
         {valid.map((p) => (
           <circle key={p.year} cx={sx(p.year)} cy={sy(p.value)} r={1.5} fill="currentColor" />

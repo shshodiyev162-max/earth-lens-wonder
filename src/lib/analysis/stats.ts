@@ -559,6 +559,78 @@ export interface TrendVerdict {
   carryOver?: number | null;
   /** Years of records needed to tell a trend this size from the ups and downs around it (Weatherhead et al. 1998). */
   yearsNeeded?: number | null;
+  /** A clear change of direction (a rise then a fall, or the other way round), when there is one. */
+  turn?: TrendTurn | null;
+}
+
+/** A rise then a fall (or a fall then a rise) that a single trend line would average away. */
+export interface TrendTurn {
+  /** The year it turned: the peak or the low point, the end of one stretch and the start of the other. */
+  year: number;
+  /** Which way it went first. */
+  first: "increase" | "decline";
+  /** Sen's slope per year before and after the turn. */
+  slopeBefore: number;
+  slopeAfter: number;
+  from: number;
+  to: number;
+  /** Chance of a turn this clear anywhere in the record from a straight line plus random ups and downs (permutation test). */
+  p: number;
+}
+
+/** Each stretch either side of a turn needs this many years (the turning year counts in both). */
+const MIN_TURN_SIDE = 6;
+
+/** The clearest turn: both stretches tested with Mann-Kendall, scored by the weaker of the two. */
+function turnScore(ys: number[]): { k: number; score: number } {
+  let best = { k: -1, score: 0 };
+  for (let k = MIN_TURN_SIDE - 1; k <= ys.length - MIN_TURN_SIDE; k++) {
+    const before = mannKendall(ys.slice(0, k + 1));
+    const after = mannKendall(ys.slice(k));
+    if (!before || !after || Math.sign(before.z) * Math.sign(after.z) >= 0) continue;
+    const score = Math.min(Math.abs(before.z), Math.abs(after.z));
+    if (score > best.score) best = { k, score };
+  }
+  return best;
+}
+
+/**
+ * Finds a clear change of direction in yearly values, which a single trend test can't see when the
+ * rise and the fall cancel out. Both stretches must each be clear (|z| >= 1.96), and the turn must
+ * beat 999 records made of the same straight line with the ups and downs shuffled (p < 0.05), so
+ * trying every possible turning year can't make chance pass for a turn. Same data, same answer.
+ */
+export function findTurn(xs: number[], ys: number[], shuffles = 999): TrendTurn | null {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 2 * MIN_TURN_SIDE - 1) return null;
+  const observed = turnScore(ys);
+  if (observed.k < 0 || observed.score < 1.96) return null;
+  const line = senSlope(xs, ys);
+  if (!line) return null;
+  const fit = xs.map((x) => line.intercept + line.slope * x);
+  const shuffled = ys.map((y, i) => y - fit[i]);
+  let seed = 0x2545f491;
+  const random = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  let asClear = 0;
+  for (let s = 0; s < shuffles; s++) {
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    if (turnScore(shuffled.map((r, i) => fit[i] + r)).score >= observed.score) asClear += 1;
+  }
+  const p = (asClear + 1) / (shuffles + 1);
+  if (p >= SIGNIFICANCE) return null;
+  const k = observed.k;
+  const before = senSlope(xs.slice(0, k + 1), ys.slice(0, k + 1));
+  const after = senSlope(xs.slice(k), ys.slice(k));
+  if (!before || !after) return null;
+  return { year: xs[k], first: before.slope > 0 ? "increase" : "decline", slopeBefore: before.slope, slopeAfter: after.slope, from: xs[0], to: xs[n - 1], p };
 }
 
 export const SIGNIFICANCE = 0.05;
@@ -613,6 +685,7 @@ export function annualTrendVerdict(years: number[], values: number[]): TrendVerd
     ...verdictFrom(p, sen, span, "Mann–Kendall + Sen's slope"),
     carryOver: factor > 1 ? r1 : null,
     yearsNeeded: yearsToDetect(xs, ys, sen.slope, sen.intercept, r1),
+    turn: findTurn(xs, ys),
   };
 }
 
@@ -644,7 +717,11 @@ export function formatP(p: number): string {
  * The verdict as the answer to "is it changing?", graded by the evidence, in the voice of the home
  * page's findings: "Yes, clearly." for a very strong result, "Probably" for one that only just passes.
  */
-export function answerInWords(verdict: Pick<TrendVerdict, "direction" | "p" | "slopePerYear">): string {
+export function answerInWords(verdict: Pick<TrendVerdict, "direction" | "p" | "slopePerYear"> & { turn?: TrendTurn | null }): string {
+  if (verdict.direction === "none" && verdict.turn) {
+    const up = verdict.turn.first === "increase";
+    return `Not in one direction. It ${up ? "rose" : "fell"} until ${verdict.turn.year}, then ${up ? "fell" : "rose"}.`;
+  }
   if (verdict.direction === "none") {
     if (verdict.p < WEAK_EVIDENCE && verdict.slopePerYear !== 0) return `Not clearly. It leans ${verdict.slopePerYear > 0 ? "upward" : "downward"}.`;
     return "No clear trend.";
@@ -660,9 +737,24 @@ export function answerInWords(verdict: Pick<TrendVerdict, "direction" | "p" | "s
  * A run this consistent would appear by chance in fewer than 1 in 100 records without a real trend (p = 0.004)."
  */
 export function explainVerdict(verdict: TrendVerdict, subject: string, unit: string, decimals: number): string {
-  const extra = [carryOverText(verdict), detectabilityText(verdict)].filter(Boolean).join(" ");
+  // A rise and a fall that cancel out are a strong pattern, not a weak one: say what happened instead.
+  if (verdict.turn && verdict.direction === "none") return turnText(verdict, verdict.turn, subject, unit, decimals);
+  const extra = [carryOverText(verdict), detectabilityText(verdict), verdict.turn ? turnText(verdict, verdict.turn, subject, unit, decimals) : null].filter(Boolean).join(" ");
   const text = explainTest(verdict, subject, unit, decimals);
   return extra ? `${text} ${extra}` : text;
+}
+
+/** A change of direction, in words: the whole story when it cancels out, one more sentence otherwise. */
+function turnText(verdict: TrendVerdict, turn: TrendTurn, subject: string, unit: string, wanted: number): string {
+  const decimals = Math.max(Math.abs(turn.slopeBefore), Math.abs(turn.slopeAfter)) >= 100 ? 0 : wanted;
+  const rate = (value: number) => `${signed(value, decimals)}${unit ? ` ${unit}` : ""} a year`;
+  const up = turn.first === "increase";
+  const chance = turn.p < 0.001 ? "fewer than 1 in 1,000" : turn.p < 0.01 ? "fewer than 1 in 100" : "fewer than 1 in 20";
+  const proof = `a turn this clear would appear by chance in ${chance} records (${formatP(turn.p)})`;
+  if (verdict.direction === "none") {
+    return `${subject} ${up ? "rose" : "fell"} from ${turn.from} to ${turn.year} (${rate(turn.slopeBefore)}), then ${up ? "fell" : "rose"} to ${turn.to} (${rate(turn.slopeAfter)}). The two cancel out, so over all ${Math.round(verdict.years)} years there is no single direction (${formatP(verdict.p)}), but this isn't a weak or random pattern: ${proof}. It may be a lasting change of direction or a long natural swing; more years will tell.`;
+  }
+  return `It hasn't moved one way throughout, though: it ${up ? "rose" : "fell"} until ${turn.year}, then ${up ? "fell" : "rose"} (${rate(turn.slopeAfter)} since); ${proof}.`;
 }
 
 /** When the test allowed for years that follow the year before, in words. */
