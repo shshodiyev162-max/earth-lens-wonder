@@ -3,13 +3,12 @@ import { demoAttr } from "@/lib/demo/scripts";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
 import StepLabel from "@/components/common/StepLabel";
+import YearTimeline, { type TimelineMark } from "@/components/common/YearTimeline";
 import { MEASURE_DEFINITIONS } from "@/lib/glossary";
 import { CORE_INDICATORS, INDICATOR_ORDER, INDICATORS, MEASURE_GROUPS, monthsLabel, recordTag, SEASONS, type Direction, type IndicatorId } from "@/lib/query/indicators";
-import type { TimeSpec } from "@/lib/query/period";
+import { timeSpan, trendWindows, type TimeSpec } from "@/lib/query/period";
 import { DEFAULT_FILTER, filterFor, type QueryEdit, type SeasonChoice, type TrendQuery } from "@/lib/trends/query";
 import { cn } from "@/lib/utils";
-
-const yearInput = "w-20 rounded-md border border-panel-line-strong bg-transparent px-2 py-1.5 font-mono text-sm tabular-nums text-panel-foreground outline-none focus:border-panel-foreground/70 pointer-coarse:min-h-11";
 
 function Field({ number, label, htmlFor, children }: { number: number; label: string; htmlFor?: string; children: ReactNode }) {
   return (
@@ -94,76 +93,100 @@ function MeasurePicker({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Qu
 // ---------------------------------------------------------------------------
 // When
 
-type PeriodChoice = "default" | "last5" | "last20" | "all" | "last" | "since" | "range" | "versus" | "year";
+/** The quick choices above the timeline; dragging it gives any other span. */
+const PRESETS: { label: string; time: TimeSpec; matches: (time: TimeSpec) => boolean }[] = [
+  { label: "Last 5 years", time: { kind: "last", years: 5 }, matches: (t) => t.kind === "last" && t.years === 5 },
+  { label: "Last 10", time: { kind: "default" }, matches: (t) => t.kind === "default" || (t.kind === "last" && t.years === 10) },
+  { label: "Last 20", time: { kind: "last", years: 20 }, matches: (t) => t.kind === "last" && t.years === 20 },
+  { label: "All since 2000", time: { kind: "since", start: 2000 }, matches: (t) => t.kind === "since" && t.start === 2000 },
+];
 
-function periodChoice(time: TimeSpec): PeriodChoice {
-  if (time.kind === "last" && time.years === 5) return "last5";
-  if (time.kind === "last" && time.years === 20) return "last20";
-  if (time.kind === "since" && time.start === 2000) return "all";
-  return time.kind;
+/** Measures whose record is shorter than the timeline, as marks under it. */
+function shortRecords(ids: IndicatorId[], first: number, last: number): TimelineMark[] {
+  return ids.flatMap((id) => {
+    const info = INDICATORS[id];
+    const from = info.firstMonth ? Math.max(first, Number(info.firstMonth.slice(0, 4))) : first;
+    const to = info.lastMonth ? Math.min(last, Number(info.lastMonth.slice(0, 4))) : last;
+    return from > first || to < last ? [{ label: info.label, span: [from, to] as [number, number] }] : [];
+  });
 }
 
-function PeriodField({ time, first, last, onEdit }: { time: TimeSpec; first: number; last: number; onEdit: (edit: QueryEdit) => void }) {
-  const id = useId();
-  const choice = periodChoice(time);
-  const clamp = (y: number) => Math.min(last, Math.max(first, Math.round(y) || first));
-  const a = time.kind === "since" ? time.start : time.kind === "range" ? time.start : time.kind === "versus" ? time.baseline : time.kind === "year" ? time.year : last - 9;
-  const b = time.kind === "range" ? time.end : time.kind === "versus" ? time.recent : last;
-  const choose = (value: PeriodChoice) => {
-    const presets: Partial<Record<PeriodChoice, TimeSpec>> = {
-      default: { kind: "default" },
-      last5: { kind: "last", years: 5 },
-      last20: { kind: "last", years: 20 },
-      all: { kind: "since", start: 2000 },
-      last: { kind: "last", years: time.kind === "last" ? time.years : 15 },
-      since: { kind: "since", start: clamp(a) },
-      range: { kind: "range", start: clamp(Math.min(a, b)), end: clamp(Math.max(a, b)) },
-      versus: { kind: "versus", baseline: clamp(Math.min(a, b - 10)), recent: clamp(b) },
-      year: { kind: "year", year: clamp(b) },
-    };
-    onEdit({ time: presets[value] as TimeSpec });
-  };
-  const year = (label: string, value: number, onChange: (v: number) => void) => (
-    <label className="flex items-center gap-1.5">
-      {label}
-      <input type="number" min={first} max={last} defaultValue={value} key={`${label}-${value}`} onBlur={(event) => onChange(clamp(Number(event.target.value)))} className={yearInput} />
-    </label>
-  );
+const yearsText = (span: [number, number]) => (span[0] === span[1] ? String(span[0]) : `${span[0]}–${span[1]}`);
+
+/**
+ * When: a trend over a span of years, dragged on a timeline (with quick choices), or two single
+ * years compared then vs now. The timeline shows which years the change compares and where a chosen
+ * measure's record is shorter.
+ */
+function PeriodField({ time, first, last, indicators, onEdit }: { time: TimeSpec; first: number; last: number; indicators: IndicatorId[]; onEdit: (edit: QueryEdit) => void }) {
+  const versus = time.kind === "versus";
+  const span = timeSpan(time, last);
+  const value: [number, number] = [Math.max(first, Math.min(last, span[0])), Math.max(first, Math.min(last, span[1]))];
+  const windows = versus ? null : trendWindows(value[0], value[1], first);
+  const records = shortRecords(indicators, first, last);
+  const setSpan = ([a, b]: [number, number]) => onEdit({ time: b === last ? { kind: "since", start: a } : { kind: "range", start: a, end: b } });
   return (
-    <Field number={3} label="When" htmlFor={id}>
-      <select id={id} value={choice} onChange={(event) => choose(event.target.value as PeriodChoice)} className="field">
-        <option value="default">Last 10 years</option>
-        <option value="last5">Last 5 years</option>
-        <option value="last20">Last 20 years</option>
-        <option value="all">All data (since 2000)</option>
-        <option value="last">The last … years</option>
-        <option value="since">Since a year…</option>
-        <option value="range">Between two years…</option>
-        <option value="versus">Compare two years…</option>
-        <option value="year">One year vs the 10 before…</option>
-      </select>
-      <div className="flex flex-wrap items-center gap-2 text-xs text-panel-muted">
-        {time.kind === "last" && choice === "last" && (
-          <label className="flex items-center gap-1.5">
-            Years
-            <input type="number" min={2} max={40} defaultValue={time.years} key={time.years} onBlur={(event) => onEdit({ time: { kind: "last", years: Math.max(2, Math.min(40, Math.round(Number(event.target.value)) || 10)) } })} className={yearInput} />
-          </label>
-        )}
-        {time.kind === "since" && choice === "since" && year("From", time.start, (v) => onEdit({ time: { kind: "since", start: v } }))}
-        {time.kind === "range" && (
-          <>
-            {year("From", time.start, (v) => onEdit({ time: { kind: "range", start: Math.min(v, time.end), end: Math.max(v, time.end) } }))}
-            {year("To", time.end, (v) => onEdit({ time: { kind: "range", start: Math.min(v, time.start), end: Math.max(v, time.start) } }))}
-          </>
-        )}
-        {time.kind === "versus" && (
-          <>
-            {year("Then", time.baseline, (v) => onEdit({ time: { kind: "versus", baseline: Math.min(v, time.recent), recent: Math.max(v, time.recent) } }))}
-            {year("Now", time.recent, (v) => onEdit({ time: { kind: "versus", baseline: Math.min(v, time.baseline), recent: Math.max(v, time.baseline) } }))}
-          </>
-        )}
-        {time.kind === "year" && year("Year", time.year, (v) => onEdit({ time: { kind: "year", year: v } }))}
+    <Field number={3} label="When">
+      <div className="segmented flex w-full" role="radiogroup" aria-label="What to compare">
+        {(
+          [
+            [false, "A trend over years"],
+            [true, "Two years, then vs now"],
+          ] as const
+        ).map(([pair, label]) => (
+          <button
+            key={label}
+            type="button"
+            role="radio"
+            aria-checked={versus === pair}
+            onClick={() => versus !== pair && onEdit({ time: pair ? { kind: "versus", baseline: Math.max(first, value[1] - 10), recent: value[1] } : { kind: "default" } })}
+            className={cn("flex-1", versus === pair ? "segment-on" : "segment")}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+      {!versus && (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick choices">
+          {PRESETS.map((preset) => (
+            <button key={preset.label} type="button" aria-pressed={preset.matches(time)} onClick={() => onEdit({ time: preset.time })} className={preset.matches(time) ? "chip-on" : "chip"}>
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <YearTimeline
+        first={first}
+        last={last}
+        value={value}
+        labels={versus ? ["Then", "Now"] : ["First year", "Last year"]}
+        minYears={versus ? 2 : 1}
+        windows={versus ? [{ label: "Then", span: [value[0], value[0]] }, { label: "Now", span: [value[1], value[1]] }] : windows ? [{ label: "Compared first", span: windows.baseline }, { label: "Compared last", span: windows.recent }] : []}
+        records={records}
+        onChange={(next) => (versus ? onEdit({ time: { kind: "versus", baseline: next[0], recent: next[1] } }) : setSpan(next))}
+      />
+      <p className="text-xs leading-relaxed text-panel-muted" aria-live="polite">
+        {versus ? (
+          <>
+            <span className="text-panel-foreground">{value[0]} against {value[1]}.</span> Two single years compared directly: with only two values there is no trend test.
+          </>
+        ) : value[1] - value[0] + 1 <= 4 ? (
+          windows ? (
+            <>
+              <span className="text-panel-foreground">{yearsText(value)}</span> against the years before, {yearsText(windows.baseline)}.
+            </>
+          ) : (
+            <>There is no earlier record to compare {yearsText(value)} with: choose later years, or a longer span.</>
+          )
+        ) : (
+          <>
+            <span className="text-panel-foreground">
+              {yearsText(value)} · {value[1] - value[0] + 1} years.
+            </span>{" "}
+            Every year is tested for a trend; the change compares {yearsText(windows!.baseline)} with {yearsText(windows!.recent)} (the solid parts).
+          </>
+        )}
+      </p>
     </Field>
   );
 }
@@ -180,7 +203,7 @@ function MonthsField({ query, onEdit }: { query: TrendQuery; onEdit: (edit: Quer
   useEffect(() => setPicking(query.months ?? []), [query.months]);
   const usual = query.indicators.length
     ? query.indicators.map((i) => `${INDICATORS[i].label} ${monthsLabel(SEASONS[INDICATORS[i].season].months)}`).join(", ")
-    : "each measure's own season";
+    : "Each measure's own season";
   return (
     <Field number={4} label="Months compared" htmlFor={id}>
       <select
@@ -241,7 +264,7 @@ export default function TrendForm({ query, where, years, onEdit, onRun, dirty, c
           <MeasurePicker query={query} onEdit={onEdit} />
         </Field>
         <div className="border-t border-panel-line pt-4">{where}</div>
-        <PeriodField time={query.time} first={years.first} last={years.last} onEdit={onEdit} />
+        <PeriodField time={query.time} first={years.first} last={years.last} indicators={query.indicators} onEdit={onEdit} />
         <MonthsField query={query} onEdit={onEdit} />
       </div>
       {/* Always in reach, however long the list of measures. */}

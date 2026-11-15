@@ -41,12 +41,15 @@ describe("the Atlas page", () => {
     expect(screen.getByRole("heading", { level: 2, name: /^Sea temperature, / })).toBeInTheDocument();
   });
 
-  it("offers a closer look at a change on the Trends page", () => {
+  it("offers a closer look at a change on the Trends page, with its chance check", () => {
     show("/atlas?m=heat");
     const measure = atlasMeasure("heat");
     expect(screen.queryByRole("link", { name: /Look closer/ })).not.toBeInTheDocument();
     const list = screen.getByRole("list", { name: "Biggest changes, largest first" });
+    expect(within(list).getAllByRole("listitem")[0]).toHaveTextContent(/beyond chance|could be chance/);
+    expect(list).not.toHaveTextContent(/p [<=] /);
     fireEvent.click(within(list).getAllByRole("button")[0]);
+    expect(screen.getByText(/^(Beyond chance|Could be chance): with the years shuffled 19 times/)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /Look closer on the Trends page/ });
     expect(link.getAttribute("href")).toMatch(/^\/trends\?ind=heat&dir=(decline|increase)&poly=/);
     expect(link.getAttribute("href")).toContain(`t=since-${measure.startYear}`);

@@ -85,12 +85,18 @@ export default function ResultFilters({ indicator, filter, tested, onChange }: R
         </label>
         {tested && (
           <label htmlFor={strictId} className="flex items-center gap-1.5">
-            <input id={strictId} type="checkbox" checked={filter.strict} onChange={(event) => set({ strict: event.target.checked })} className="h-3.5 w-3.5 accent-panel-foreground pointer-coarse:h-5 pointer-coarse:w-5" />
-            Only clear trends
-            <span className="sr-only"> (allowing for thousands of pixels tested at once)</span>
+            <input id={strictId} type="checkbox" checked={!filter.strict} onChange={(event) => set({ strict: !event.target.checked })} className="h-3.5 w-3.5 accent-panel-foreground pointer-coarse:h-5 pointer-coarse:w-5" />
+            Also show weaker patches
           </label>
         )}
       </div>
+      {tested && (
+        <p className="text-[11px] leading-relaxed text-panel-muted">
+          {filter.strict
+            ? "Only clear trends: each pixel's trend must stay clear once thousands of pixels tested at once are allowed for."
+            : "Weaker patches are shown too (each pixel at p < 0.1). Some of these may be chance: about one pixel in ten passes by luck, and neighbours share the same weather."}
+        </p>
+      )}
     </div>
   );
 }

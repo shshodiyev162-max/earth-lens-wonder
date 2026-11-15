@@ -2,6 +2,7 @@ import { signed } from "@/lib/analysis/stats";
 import { formatArea } from "@/lib/geo/geometry";
 import type { Indicator } from "@/lib/query/indicators";
 import type { PeriodPlan } from "@/lib/query/period";
+import { beyondChance, type ChanceCheck } from "@/lib/trends/chance";
 import { hotspotTitle } from "@/lib/trends/query";
 import type { HotspotDetail } from "@/lib/trends/scan";
 import { cn } from "@/lib/utils";
@@ -14,10 +15,12 @@ interface HotspotListProps {
   plan: PeriodPlan;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** The chance check, once it has run: patches no stronger than chance made are marked. */
+  chance?: ChanceCheck | null;
 }
 
 /** The ranked hotspots: biggest area × strongest change first. */
-export default function HotspotList({ hotspots, labels, indicator, plan, selectedId, onSelect }: HotspotListProps) {
+export default function HotspotList({ hotspots, labels, indicator, plan, selectedId, onSelect, chance }: HotspotListProps) {
   return (
     <ol className="border-t border-panel-line" aria-label="Hotspots, largest change first">
       {hotspots.map((hotspot) => {
@@ -39,6 +42,7 @@ export default function HotspotList({ hotspots, labels, indicator, plan, selecte
                 <span className="mt-0.5 block font-mono text-[10.5px] leading-snug tabular-nums text-panel-muted">
                   {formatArea(hotspot.areaKm2)} · {signed(hotspot.meanChange, indicator.decimals)} {indicator.unit}
                   {plan.kind === "trend" && hotspot.significantShare > 0 ? ` · ${Math.round(hotspot.significantShare * 100)}% clear trend` : ""}
+                  {chance && !beyondChance(chance, hotspot.score) ? " · could be chance" : ""}
                 </span>
               </span>
               <span className="text-panel-soft">

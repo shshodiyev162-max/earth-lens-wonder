@@ -69,12 +69,18 @@ export function presetRange(preset: PresetId, latest = defaultEndMonth()): { sta
   return { start: start < EARLIEST_MONTH ? EARLIEST_MONTH : start, end: latest };
 }
 
+/** "2001-2010" in a link; an en dash (older links) and a single year ("2010") are read too. */
 function parseSpan(value: string | null): YearSpan | null {
-  const match = value?.match(/^(\d{4})-(\d{4})$/);
+  const match = value?.match(/^(\d{4})(?:[-–](\d{4}))?$/);
   if (!match) return null;
   const a = Number(match[1]);
-  const b = Number(match[2]);
+  const b = Number(match[2] ?? match[1]);
   return a <= b ? [a, b] : [b, a];
+}
+
+/** A span as written in a link: plain characters, so it survives being copied and typed. */
+function linkSpan(span: YearSpan): string {
+  return `${span[0]}-${span[1]}`;
 }
 
 export function formatSpan(span: YearSpan): string {
@@ -164,8 +170,8 @@ export function writePeriod(current: URLSearchParams, selection: PeriodSelection
   }
   if (kind === "compare") {
     const fallback = defaultComparison();
-    next.set("base", formatSpan(edit.baseline ?? selection.baseline ?? fallback.baseline));
-    next.set("recent", formatSpan(edit.recent ?? selection.recent ?? fallback.recent));
+    next.set("base", linkSpan(edit.baseline ?? selection.baseline ?? fallback.baseline));
+    next.set("recent", linkSpan(edit.recent ?? selection.recent ?? fallback.recent));
   }
   const customMonths = edit.customMonths !== undefined ? edit.customMonths : edit.season !== undefined ? null : selection.customMonths;
   const season = edit.season ?? (edit.customMonths ? "all" : selection.season);

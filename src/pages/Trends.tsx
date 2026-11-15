@@ -24,6 +24,8 @@ import { MEASURE_DEFINITIONS } from "@/lib/glossary";
 import GridImageLayer from "@/components/trends/GridImageLayer";
 import HotspotLayer from "@/components/trends/HotspotLayer";
 import HotspotList from "@/components/trends/HotspotList";
+import ChanceNote from "@/components/trends/ChanceNote";
+import { useChanceCheck } from "@/hooks/useChanceCheck";
 import FirstLook from "@/components/trends/FirstLook";
 import HotspotCard from "@/components/trends/HotspotCard";
 import MeasureTabs from "@/components/trends/MeasureTabs";
@@ -48,7 +50,8 @@ import { initialViewFrom } from "@/lib/mapView";
 import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type IndicatorId } from "@/lib/query/indicators";
 import { DEFAULT_YEARS } from "@/lib/query/period";
 import { clearOfHotspotCard } from "@/lib/trends/cardRoom";
-import { PIXEL_SIGNIFICANCE, STRICT_P } from "@/lib/trends/hotspots";
+import { PIXEL_SIGNIFICANCE, pixelCutoff, STRICT_P } from "@/lib/trends/hotspots";
+import { CHANCE_RUNS } from "@/lib/trends/chance";
 import {
   analysisHref,
   withDistinctLabels,
@@ -215,6 +218,8 @@ export default function Trends() {
     [draft, applied],
   );
   const filter = active ? filterOf(active) : null;
+  // Could chance alone make patches like these? Checked in the background once results are in.
+  const chance = useChanceCheck(result, filter);
 
   // Hotspots for the current filter of every finished measure (re-clustered locally, no new maps).
   const rebuilt = useMemo(() => {
@@ -343,7 +348,9 @@ export default function Trends() {
   const setFilter = (next: ResultFilter) => active && draft && edit({ filters: { ...draft.filters, [active]: next } });
 
   const scale = useMemo(() => (result && indicator ? changeScale(result.trends, indicator, result.plan.kind === "trend") : null), [result, indicator]);
-  const changeRgba = useMemo(() => (result && scale ? changeImage(result.trends, scale) : null), [result, scale]);
+  // Bright pixels are the ones that pass the same test as the hotspots.
+  const strict = filter?.strict ?? true;
+  const changeRgba = useMemo(() => (result && scale ? changeImage(result.trends, scale, pixelCutoff({ strict }, result.trends)) : null), [result, scale, strict]);
   const { frames, layer: frameLayer, loading: framesLoading } = useFrames(result, frameMode, viewMode === "frames");
   const frameRgba = viewMode === "frames" ? (frames[Math.min(frameIndex, frames.length - 1)]?.rgba ?? null) : null;
 
@@ -530,14 +537,25 @@ export default function Trends() {
               <p className="eyebrow text-panel-muted">Where it changed most</p>
               <h2 className="font-editorial text-[1.6rem] leading-[1.12] text-panel-foreground">{resultsHeading(hotspots.length, active, filter.direction, area, plan)}</h2>
               <ResultFilters indicator={indicator} filter={filter} tested={plan.kind === "trend"} onChange={setFilter} />
+              {hotspots.length > 0 && <ChanceNote state={chance} />}
               {hotspots.length > 0 ? (
                 <div {...demoAttr("hotspots")}>
-                  <HotspotList hotspots={hotspots} labels={scan.labels} indicator={indicator} plan={plan} selectedId={selectedId} onSelect={select} />
+                  <HotspotList
+                    hotspots={hotspots}
+                    labels={scan.labels}
+                    indicator={indicator}
+                    plan={plan}
+                    selectedId={selectedId}
+                    onSelect={select}
+                    chance={chance.status === "done" ? chance.check : null}
+                  />
                 </div>
               ) : (
                 <p className="border-t border-panel-line pt-3 text-xs leading-relaxed text-panel-soft">
                   No area changed by at least {minChange} {indicator.unit} {filter.direction === "any" ? "either way" : "in this direction"}
-                  {filter.minAreaKm2 ? ` over ${filter.minAreaKm2.toLocaleString("en-US")} km² or more` : ""}. Try “Both”, a smaller change, or another period or place.
+                  {filter.minAreaKm2 ? ` over ${filter.minAreaKm2.toLocaleString("en-US")} km² or more` : ""}
+                  {plan.kind === "trend" && filter.strict ? " with a clear trend" : ""}. Try “Both”, a smaller change, or another period or place
+                  {plan.kind === "trend" && filter.strict ? ", or “Also show weaker patches” (some of those may be chance)" : ""}.
                 </p>
               )}
             </div>
@@ -561,10 +579,17 @@ export default function Trends() {
                   {plan.kind === "trend"
                     ? filter.strict
                       ? `, with their own yearly trend pointing the same way and clear after allowing for every pixel tested at once (Mann–Kendall, Benjamini–Hochberg false discovery rate ${STRICT_P * 100}%)`
-                      : `, with their own yearly trend pointing the same way (Mann–Kendall p < ${PIXEL_SIGNIFICANCE})`
+                      : `, with their own yearly trend pointing the same way (Mann–Kendall p < ${PIXEL_SIGNIFICANCE}; weaker patches are shown too, and some of these may be chance)`
                     : ""}
-                  . Ranked by area × size of change.
+                  . A pixel that clouds or gaps left with too few years to test never counts. Ranked by area × size of change.
                 </li>
+                {plan.kind === "trend" && (
+                  <li>
+                    Chance check: the years are put in {CHANCE_RUNS} different orders and every pixel is tested again with the same rules. That keeps the clouds, the
+                    ups and downs and neighbours sharing the same weather, but takes away any real trend, so whatever patches pass there are chance. A patch stronger
+                    than chance made in every one of them is beyond chance. A patch&apos;s own yearly test isn&apos;t used as proof: it was picked because it changed.
+                  </li>
+                )}
                 {plan.kind === "trend" && <li>Each pixel's yearly values are tested with Mann–Kendall; the slope is Sen's slope (robust to outliers).</li>}
                 <li>Changing what is shown re-groups the pixels already read — no new maps are needed.</li>
                 <li>
@@ -746,6 +771,7 @@ export default function Trends() {
               compareHref={compareHref(selected, active, plan, months)}
               onScanHere={() => scanHere(selected)}
               causes={hotspotCauses}
+              chance={chance}
               onClose={() => setSelectedId(null)}
               className="max-h-[calc(100dvh-14.5rem)] overflow-y-auto"
             />
@@ -760,6 +786,7 @@ export default function Trends() {
               compareHref={compareHref(selected, active, plan, months)}
               onScanHere={() => scanHere(selected)}
               causes={hotspotCauses}
+              chance={chance}
               onClose={() => setSelectedId(null)}
               className="max-h-[45dvh] overflow-y-auto"
             />
@@ -797,9 +824,15 @@ export default function Trends() {
             ))}
         </div>
       )}
+      {result && scale && indicator && viewMode === "change" && (
+        // Phones: a small legend under the top row, clear of the controls along the bottom.
+        <div className="absolute right-3 top-16 sm:hidden">
+          <TrendLegend compact scale={scale} strict={strict} title={`${indicator.label}: ${scale.mode === "perDecade" ? "trend" : "change"}`} />
+        </div>
+      )}
       {result && scale && indicator && (
         <div className="absolute bottom-24 right-4 hidden sm:block">
-          {viewMode === "change" ? <TrendLegend scale={scale} title={`${indicator.label}: ${scale.mode === "perDecade" ? "trend" : "change"}`} /> : frameLayer && <LayerLegend layer={frameLayer} />}
+          {viewMode === "change" ? <TrendLegend scale={scale} strict={strict} title={`${indicator.label}: ${scale.mode === "perDecade" ? "trend" : "change"}`} /> : frameLayer && <LayerLegend layer={frameLayer} />}
         </div>
       )}
     </>

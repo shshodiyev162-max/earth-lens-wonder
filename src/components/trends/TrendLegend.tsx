@@ -7,19 +7,26 @@ function format(value: number): string {
   return value > 0 ? `+${text}` : value < 0 ? `−${text.replace("-", "")}` : "0";
 }
 
-/** Diverging legend for the change map, in real units (per decade for trends). */
-export default function TrendLegend({ scale, title }: { scale: ChangeScale; title: string }) {
+/**
+ * Diverging legend for the change map, in real units (per decade for trends). `compact` is the
+ * phone version: the colours, their ends and the unit, small enough to sit over the map.
+ */
+export default function TrendLegend({ scale, title, strict = true, compact = false }: { scale: ChangeScale; title: string; strict?: boolean; compact?: boolean }) {
   return (
-    <div className="float-surface pointer-events-auto w-60 p-3 text-panel-foreground">
-      <p className="text-xs font-medium">{title}</p>
-      <p className="mb-2 font-mono text-[10px] text-panel-muted">{scale.unit}</p>
+    <div className={compact ? "float-surface pointer-events-auto w-44 px-2.5 py-2 text-panel-foreground" : "float-surface pointer-events-auto w-60 p-3 text-panel-foreground"}>
+      <p className={compact ? "truncate text-[11px] font-medium" : "text-xs font-medium"}>{title}</p>
+      <p className={compact ? "mb-1.5 font-mono text-[9.5px] text-panel-muted" : "mb-2 font-mono text-[10px] text-panel-muted"}>{scale.unit}</p>
       <div className="h-1.5 rounded-full" style={{ background: `linear-gradient(to right, ${rgb(scale.decline)}, rgb(226,232,240), ${rgb(scale.increase)})` }} aria-hidden />
       <div className="mt-1.5 flex justify-between font-mono text-[10px] tabular-nums text-panel-soft">
         <span>{format(-scale.max)}</span>
         <span>0</span>
         <span>{format(scale.max)}</span>
       </div>
-      {scale.mode === "perDecade" && <p className="mt-2 text-[11px] leading-snug text-panel-muted">Faded pixels: no significant trend (Mann–Kendall p ≥ 0.05).</p>}
+      {scale.mode === "perDecade" && !compact && (
+        <p className="mt-2 text-[11px] leading-snug text-panel-muted">
+          {strict ? "Faded pixels: no clear trend, allowing for the many pixels tested at once." : "Faded pixels: no trend at p < 0.1 (Mann–Kendall)."}
+        </p>
+      )}
     </div>
   );
 }

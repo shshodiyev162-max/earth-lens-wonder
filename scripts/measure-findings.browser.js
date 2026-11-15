@@ -9,7 +9,8 @@
 //   5. npm test: the tests fail if the new numbers contradict the page's words ("Yes. Clearly." etc.).
 //
 // Each PNG holds one pixel per grid cell: red = rate per decade (0–255 maps to −scale…+scale),
-// green = significant at p < 0.05, blue = measured. The scan's whole-area numbers use the same grid
+// green = a clear trend (the same cut-off as the hotspots: allowing for every pixel tested at once),
+// blue = measured. The top hotspot also gets the chance check (lib/trends/chance). The scan's whole-area numbers use the same grid
 // as the Trends page. Antarctica's map is drawn from a finer grid, because its default one is
 // too coarse to show near the pole. Uzbekistan's numbers stay on the Trends page's grid, but its
 // picture ("picture" in the JSON, <id>-fine.png) is the same test on a grid 4× finer (about 2.5 km),
@@ -23,6 +24,8 @@
   const countries = await import("/src/lib/geo/countries.ts");
   const geom = await import("/src/lib/geo/geometry.ts");
   const geocode = await import("/src/lib/geo/geocode.ts");
+  const hotspots = await import("/src/lib/trends/hotspots.ts");
+  const chance = await import("/src/lib/trends/chance.ts");
 
   // window.__terrascopeSave, when set, takes the files instead of the browser's downloads.
   const save =
@@ -61,6 +64,8 @@
   async function drawMap(result, name, scale = colourScale(result)) {
     const { width, height, bbox } = result.grid;
     const { slope, p } = result.trends;
+    // A pixel is clear by the same rule as the hotspots: Benjamini–Hochberg across every pixel tested.
+    const cutoff = hotspots.pixelCutoff({ strict: true }, result.trends);
     const canvas = Object.assign(document.createElement("canvas"), { width, height });
     const context = canvas.getContext("2d");
     const image = context.createImageData(width, height);
@@ -71,7 +76,7 @@
     for (let i = 0; i < slope.length; i++) {
       const valid = result.mask[i] && Number.isFinite(slope[i]);
       const rate = valid ? Math.max(-1, Math.min(1, (slope[i] * 10) / scale)) : 0;
-      const significant = valid && Number.isFinite(p[i]) && p[i] < 0.05;
+      const significant = valid && Number.isFinite(p[i]) && p[i] < cutoff;
       if (valid) {
         measured += 1;
         if (slope[i] > 0) rising += 1;
@@ -127,6 +132,9 @@
     let hotspot = null;
     if (top) {
       const zoom = top.areaKm2 >= 50000 ? 5 : top.areaKm2 >= 5000 ? 8 : 10;
+      // Could chance make a patch this strong? The years shuffled, every pixel tested again.
+      const shuffled = await chance.shuffledTrends(result, { chunk: 50_000 });
+      const check = chance.chanceCheck(shuffled, result.grid, result.filter, info.minChange, result.coarse);
       hotspot = {
         name: await geocode.reverseGeocode(top.center, { zoom }).catch(() => null),
         center: top.center.map((v) => round(v, 3)),
@@ -135,6 +143,9 @@
         meanChange: round(top.meanChange, d),
         series: top.series.map((y) => ({ year: y.year, value: round(y.value, d) })),
         verdict: verdict(top.verdict, d),
+        // Shuffles (of chanceRuns) whose strongest chance patch was at least as strong as this one.
+        chance: chance.timesBeaten(check, top.score),
+        chanceRuns: check.runs,
       };
     }
     findings[s.id] = {

@@ -68,6 +68,40 @@ function windowLength(years: number): number {
   return Math.max(2, Math.min(5, Math.round(years / 4)));
 }
 
+/** The years a time choice covers, before a product's record trims them. */
+export function timeSpan(time: TimeSpec, last: number): [number, number] {
+  switch (time.kind) {
+    case "since":
+      return [time.start, last];
+    case "range":
+      return [time.start, time.end];
+    case "last":
+      return [last - time.years + 1, last];
+    case "year":
+      return [time.year, time.year];
+    case "versus":
+      return [time.baseline, time.recent];
+    default:
+      return [last - DEFAULT_YEARS + 1, last];
+  }
+}
+
+/**
+ * The years a trend scan compares for its change: the first and last few years of the span, or, for
+ * a span of four years or less, those years against the decade before them. null when there is no
+ * earlier record to compare a short span with.
+ */
+export function trendWindows(start: number, end: number, first: number): { baseline: [number, number]; recent: [number, number] } | null {
+  const span = end - start + 1;
+  if (span <= 4) {
+    const baselineEnd = start - 1;
+    const baselineStart = Math.max(first, start - 10);
+    return baselineEnd < baselineStart ? null : { baseline: [baselineStart, baselineEnd], recent: [start, end] };
+  }
+  const k = windowLength(span);
+  return { baseline: [start, start + k - 1], recent: [end - k + 1, end] };
+}
+
 /** Keeps the baseline and recent years and samples the years between to fit the grid budget. */
 function thinYears(years: number[], baseline: [number, number], recent: [number, number], monthsPerYear: number, maxGrids: number): number[] {
   if (years.length * monthsPerYear <= maxGrids) return years;
@@ -106,29 +140,7 @@ export function planPeriod(time: TimeSpec, months: number[], window: DataWindow,
     return { kind: "comparison", startYear: a, endYear: b, baseline: [a, a], recent: [b, b], years: [a, b], months, notes: ["Two seasons compared directly: there is no trend test with only two values."] };
   }
 
-  let start: number;
-  let end: number;
-  switch (time.kind) {
-    case "since":
-      start = time.start;
-      end = last;
-      break;
-    case "range":
-      start = time.start;
-      end = time.end;
-      break;
-    case "last":
-      end = last;
-      start = last - time.years + 1;
-      break;
-    case "year":
-      start = time.year;
-      end = time.year;
-      break;
-    default:
-      end = last;
-      start = last - DEFAULT_YEARS + 1;
-  }
+  let [start, end] = timeSpan(time, last);
   if (start < first) {
     notes.push(`The record starts in ${first}, so the scan starts there.`);
     start = first;
@@ -140,19 +152,17 @@ export function planPeriod(time: TimeSpec, months: number[], window: DataWindow,
   if (start > end) return { error: `No complete seasons between those years (this product covers ${first}–${last}).` };
 
   const span = end - start + 1;
+  const windows = trendWindows(start, end, first);
   if (span <= 4) {
     // "drought in 2021–2023": compare those years with the decade before them.
-    const baselineEnd = start - 1;
-    const baselineStart = Math.max(first, start - 10);
-    if (baselineEnd < baselineStart) return { error: `There is no earlier record to compare ${start}${span > 1 ? `–${end}` : ""} with (data start in ${first}).` };
+    if (!windows) return { error: `There is no earlier record to compare ${start}${span > 1 ? `–${end}` : ""} with (data start in ${first}).` };
+    const [baselineStart, baselineEnd] = windows.baseline;
     notes.push(`${start}${span > 1 ? `–${end}` : ""} compared with ${baselineStart}–${baselineEnd}.`);
     const years = thinYears(range(baselineStart, end), [baselineStart, baselineEnd], [start, end], months.length, maxGrids);
     return { kind: "trend", startYear: baselineStart, endYear: end, baseline: [baselineStart, baselineEnd], recent: [start, end], years, months, notes };
   }
 
-  const k = windowLength(span);
-  const baseline: [number, number] = [start, start + k - 1];
-  const recent: [number, number] = [end - k + 1, end];
+  const { baseline, recent } = windows as NonNullable<typeof windows>;
   const all = range(start, end);
   const years = thinYears(all, baseline, recent, months.length, maxGrids);
   if (years.length < all.length) notes.push(`${years.length} of ${all.length} years are read, to keep the scan quick.`);

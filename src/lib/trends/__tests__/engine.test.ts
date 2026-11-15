@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computePixelTrends, meanOfGrids, seasonMeanGrids } from "../pixels";
-import { buildHotspots, clusterPixels, flagPixels, pixelAreaKm2, simplifyRing, traceOutline, type GridSpec } from "../hotspots";
-import { polygonsOf, type Position } from "../../geo/geometry";
+import { buildHotspots, clusterPixels, flagPixels, insidePoint, pixelAreaKm2, pixelCenter, simplifyRing, traceOutline, type GridSpec } from "../hotspots";
+import { pointInGeometry, polygonsOf, type Position } from "../../geo/geometry";
 
 const W = 10;
 const H = 10;
@@ -117,6 +117,35 @@ describe("hotspots", () => {
     expect(buildHotspots(trends, GRID, { ...base, maxP: 0 })).toHaveLength(0);
   });
 
+  it("never counts a pixel that clouds left untested, however much it changed", async () => {
+    const grids = yearGrids([{ rows: [2, 4], cols: [2, 4], rate: -0.02 }]);
+    // Clouds hide the block's middle pixel in 5 of the 10 years: enough for a change, too few to test.
+    const middle = 3 * W + 3;
+    grids.forEach((grid, k) => {
+      if (k >= 2 && k <= 6) grid[middle] = NaN;
+    });
+    const trends = await run(grids);
+    expect(trends.tested).toBe(true);
+    expect(Number.isFinite(trends.change[middle])).toBe(true);
+    expect(trends.p[middle]).toBeNaN();
+    expect(flagPixels(trends, -1, 0.02)[middle]).toBe(0);
+    // Not even when the cut-off rejects every tested pixel (as a strict test can).
+    expect(flagPixels(trends, -1, 0.02, 0).some(Boolean)).toBe(false);
+    // Comparing two periods has no yearly test: there the change alone decides.
+    expect(flagPixels(await run(grids, false), -1, 0.02)[middle]).toBe(1);
+  });
+
+  it("labels and names a ring-shaped patch at a point inside it, not in the hole", async () => {
+    // A shore around a lake: the ring's middle is the lake, where nothing changed.
+    const ring = [];
+    for (let r = 2; r <= 6; r++) for (let c = 2; c <= 6; c++) if (r === 2 || r === 6 || c === 2 || c === 6) ring.push({ rows: [r, r] as [number, number], cols: [c, c] as [number, number], rate: -0.02 });
+    const [patch] = buildHotspots(await run(yearGrids(ring)), GRID, { direction: "decline", minChange: 0.02 });
+    expect(patch.pixels).toHaveLength(16);
+    expect(pointInGeometry([patch.center[1], patch.center[0]], patch.geometry)).toBe(true);
+    expect(patch.pixels.map((i) => pixelCenter(GRID, i).join())).toContain(patch.center.join());
+    expect(insidePoint([0], GRID, [0, 0])).toEqual(pixelCenter(GRID, 0));
+  });
+
   it("measures area with latitude", () => {
     const equator: GridSpec = { bbox: [0, -0.5, 1, 0.5], width: 1, height: 1 };
     expect(pixelAreaKm2(equator, 0)).toBeCloseTo(12309, -1);
@@ -150,8 +179,19 @@ describe("traceOutline", () => {
     expect(ringCount([0, 1, 2, 4, 6, 8, 9, 10])).toEqual([2]);
   });
 
-  it("splits pixels that only touch at a corner", () => {
-    expect(ringCount([0, 5])).toEqual([1, 1]);
+  it("keeps pixels that only touch at a corner in one outline", () => {
+    // One patch is one shape on the map, not scattered squares.
+    expect(ringCount([0, 5])).toEqual([1]);
+    const outline = traceOutline([0, 5, 10], grid);
+    for (const [x, y] of [
+      [0.5, 3.5],
+      [1.5, 2.5],
+      [2.5, 1.5],
+    ])
+      expect(pointInGeometry([x, y], outline)).toBe(true);
+    expect(pointInGeometry([1.5, 3.5], outline)).toBe(false);
+    // Pixels apart stay apart.
+    expect(ringCount([0, 2])).toEqual([1, 1]);
   });
 
   it("simplifies without opening the ring", () => {

@@ -111,7 +111,7 @@ function Chapter({ number, place, question, answer, figure, unit, evidence, chil
 const STEPS = [
   {
     title: "One NASA map a month",
-    text: "MODIS, MERRA-2 and AIRS monthly maps are read from NASA's map service, and each colour is turned back into a number using NASA's own colour scale.",
+    text: "Monthly maps from MODIS, MERRA-2, AIRS and other NASA missions are read from NASA's map service, and each colour is turned back into a number using NASA's own colour scale.",
   },
   {
     title: "Seasons can't fake it",
@@ -119,7 +119,19 @@ const STEPS = [
   },
   {
     title: "A real test, every pixel",
-    text: "A Mann–Kendall test and Sen's slope, with its 95% range, run on every pixel and on the whole area. If it doesn't pass, the page says so.",
+    text: "A Mann–Kendall test and Sen's slope, with its 95% range, run on every pixel and on the whole area, allowing for years that carry over into the next. If it doesn't pass, the page says so.",
+  },
+  {
+    title: "Checked against chance",
+    text: "Thousands of pixels throw up false alarms, so each one is held to a 5% false discovery rate. Then the years are shuffled 19 times and tested again: a hotspot is beyond chance only if chance never made one as strong.",
+  },
+  {
+    title: "Checked against the ground",
+    text: "For a place's temperature and rainfall, NASA's record is compared with the nearest NOAA weather station over the years both measured, and the page says whether they agree.",
+  },
+  {
+    title: "What may be behind it",
+    text: "For a clear change, NASA's weather, fire, population and land-cover records are checked, and up to three possible causes are listed, each with its evidence and how strong it is.",
   },
 ];
 
@@ -127,18 +139,25 @@ const STEPS = [
 const MEASURE_COUNT = numberInWords(INDICATOR_ORDER.length).replace(/^./, (first) => first.toUpperCase());
 
 const TOOLS = [
-  { to: "/trends", name: "Trends", text: "Choose a measure, a place and the years. Get the tested answer and the places that changed most." },
+  { to: "/trends", name: "Trends", text: "Choose a measure, a place and the years. Get the tested answer, the places that changed most, and what may be behind them." },
   { to: "/atlas", name: "Atlas", text: "Where six NASA records changed most across the world since 2003, already tested pixel by pixel. Pick a change to look closer." },
   { to: "/analysis", name: "Analysis", text: "A full measured report on any place, with a trend test for every measure, or then against now." },
   { to: "/map", name: "Explore", text: "Browse NASA's satellite layers on a map, for any date they have published, and read real values." },
   { to: "/split", name: "Compare", text: "Swipe between two dates on one map, or watch them side by side." },
 ];
 
+const COUNT_WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven"];
+/** "Five ways in.": counted from the list, so adding a tool can't leave the heading wrong. */
+const TOOLS_HEADING = `${COUNT_WORDS[TOOLS.length] ?? TOOLS.length} ways in.`;
+
 const LIMITS = [
-  { title: "Why it changed", text: "It measures change. It doesn't prove what caused it." },
+  {
+    title: "Why it changed, for certain",
+    text: "It suggests what may be behind a change, with the evidence for each, but it doesn't prove what caused it, and it can't see grazing, irrigation, dams or policy.",
+  },
   { title: "Everything", text: "Sea level, lake and river levels, river flow, burned area, NO₂, CO₂ and ground-level ozone aren't measured." },
   { title: "Finer than the colours", text: "Values come from the colour steps of NASA's maps, so they are only as precise as that scale." },
-  { title: "Beyond doubt", text: "Testing many pixels at once throws up some false alarms, so a hotspot also needs a connected patch, a minimum change and a minimum area." },
+  { title: "Beyond doubt", text: "Testing thousands of pixels at once throws up false alarms. Pixels are held to a 5% false discovery rate and every hotspot is checked against chance, which narrows the odds but never closes them." },
 ];
 
 const DATA_SOURCES = [
@@ -265,7 +284,7 @@ export default function Landing() {
             legend={{ colour: DATA_MAPS.mediterranean.rise, text: `Warming, up to +${med.overlay.scalePerDecade.toFixed(2)} °C per decade` }}
             reducedMotion={reducedMotion}
           >
-            Of the {med.overlay.measuredPixels.toLocaleString("en-US")} pixels of sea tested, every one is warming, and {shareText(med.overlay.significantRising)} pass the test on their own.
+            Of the {med.overlay.measuredPixels.toLocaleString("en-US")} pixels of sea tested, every one is warming, and {shareText(med.overlay.significantRising)} pass the test on their own, even allowing for the many pixels tested at once.
             {med.verdict.carryOver !== null && (
               <>
                 {" "}
@@ -292,10 +311,10 @@ export default function Landing() {
             }
             source={`Plant greenness (NDVI) from ${uzb.product.split(",")[0]}, ${uzb.months}, ${uzb.startYear} to ${uzb.endYear}. ${uzb.mapsRead} monthly NASA maps over ${areaText(uzb.scannedKm2)}.`}
             link={uzb.link}
-            legend={{ colour: DATA_MAPS.uzbekistan.fall, text: "Orange: less green. Green: more green. Faint: not significant." }}
+            legend={{ colour: DATA_MAPS.uzbekistan.fall, text: "Orange: less green. Green: more green. Faint: no clear trend." }}
             reducedMotion={reducedMotion}
           >
-            About {shareText(uzb.overlay.significantRising)} of its land is getting significantly greener and {shareText(uzb.overlay.significantFalling)} significantly less green. Together, the range includes zero. So the honest answer is that there is no clear trend.
+            About {shareText(uzb.overlay.significantRising)} of its land is clearly getting greener and {shareText(uzb.overlay.significantFalling)} clearly less green. Together, the range includes zero. So the honest answer is that there is no clear trend.
           </Chapter>
 
           <Chapter
@@ -305,17 +324,17 @@ export default function Landing() {
             answer="There, yes."
             figure={signedNumber(aral.verdict.slopePerYear, 4)}
             unit="NDVI a year"
-            evidence={`${rangeText(aral.verdict.lowerPerYear, aral.verdict.upperPerYear, 4)} · ${pText(aral.verdict.p)}`}
+            evidence={`${rangeText(aral.verdict.lowerPerYear, aral.verdict.upperPerYear, 4)} · ${aral.chance === 0 ? "beyond chance" : "could be chance"}`}
             chart={
               <TrendChart
                 series={aral.series}
                 verdict={aral.verdict}
                 colour={DATA_MAPS.uzbekistan.fall}
                 format={(value) => `${value.toFixed(2)} NDVI`}
-                label={`Yearly growing-season greenness in Muynoq district, ${uzb.startYear} to ${uzb.endYear}, with a significant decline.`}
+                label={`Yearly growing-season greenness in ${aral.name}, ${uzb.startYear} to ${uzb.endYear}, with a clear decline.`}
               />
             }
-            source={`The top-ranked of ${uzb.hotspotCount} hotspots found in Uzbekistan, ${areaText(aral.areaKm2)}. Hotspots are picked because they changed, then shown with their own test.`}
+            source={`The top-ranked of ${uzb.hotspotCount} declines with a clear trend found in Uzbekistan, ${areaText(aral.areaKm2)}. A hotspot is picked because it changed, so its own test can't prove it; ${aral.chance === 0 ? `with the years shuffled ${aral.chanceRuns} times, no patch came out this strong` : `with the years shuffled ${aral.chanceRuns} times, a patch this strong came out ${aral.chance} times, so it could be chance`}.`}
             link={uzb.link}
             reducedMotion={reducedMotion}
           >
@@ -419,7 +438,7 @@ export default function Landing() {
       {/* The tools */}
       <section id="tools" className="border-t border-border bg-background px-6 py-24 md:px-12 md:py-36">
         <div className="mx-auto max-w-[1400px]">
-          <SectionHeading eyebrow="Tools">Four ways in.</SectionHeading>
+          <SectionHeading eyebrow="Tools">{TOOLS_HEADING}</SectionHeading>
           <ul className="mt-16 border-t border-border">
             {TOOLS.map((tool) => (
               <li key={tool.to} className="border-b border-border">

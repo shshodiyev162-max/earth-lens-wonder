@@ -29,7 +29,8 @@ export const ATLAS = {
         2025
       ],
       "minChange": 0.06,
-      "strict": true,
+      "chanceRuns": 19,
+      "chanceRunsWithPatches": 0,
       "grid": {
         "bbox": [
           -180,
@@ -65,8 +66,8 @@ export const ATLAS = {
           "name": "China",
           "sign": 1,
           "center": [
-            32,
-            110.62
+            32.25,
+            110.75
           ],
           "bbox": [
             98,
@@ -74,7 +75,7 @@ export const ATLAS = {
             125,
             48.5
           ],
-          "outline": "ogr\\oqwiA~oR??~oR~oR?owHnh\\~oRowH_pRnh\\~`f@owHowH_pRnwHowH~`f@??nh\\owH?nwH~oR~`f@owH?owH_pR??owH~oR??_pRoh\\?nwH_pRowH??_pRowH??nh\\_af@??owHnh\\??owH_pR?~oR_pR?_pR_pR??nwH_pRowHowHnwH?_pRowH??~`f@oh\\owHowH~oR;_x_X_fsgAowHnh\\~oR?nwH_pR_pRowH;_glW_dlfAowHnh\\_pRowHnwHnh\\~oRowHoh\\nh\\?~oR~oRowH?~oR~oRnwH?nwHoh\\owHnwH~`f@nwH??_pR~oR??nwH~oRowH?~oRnwH?owHnh\\~`f@oh\\?oh\\_af@owHnwH_pRowH??_pRnwH?nwHoh\\_pR?_pRnh\\_pR?~oR_pRowHoyo@owH?;_c~T_qqdA~oRnwHnwH_pR_pRowHowH~oR;ol{Uov`cA~oR??owH~oRnwH?oh\\oh\\nwHowH~oR;_tqU_k|`Anh\\nwH?nwHoh\\owH?~oR~oRnwH?owH~oR?nwH_af@_pRnwH?owHoh\\??nwH;_rjT_iu_AowH??nh\\_pRnwH?~oR~oR??_pRnyo@owH?_pR~oR??_pR~oR?nwH~oRnh\\owH?~oR_af@nwH?~oR~`f@owHnh\\oh\\?~oR_pR?_pR~oR?nwHnh\\??owH~`f@?_pRoh\\~`f@owHowH_af@~`f@~oRowH~oR_pR?nwH~oRnh\\owH?oyo@owHowHnh\\nwH?_af@_af@owH?~oRowH??_pR_pRowHowH~`f@nwHnwH_pRnwH?_pR_pRnwHowH_pR~`f@owH?oh\\oh\\nwHnwH_pR_pRowH?nh\\_pR~oR_pR??owH_pRnwHowHowHowHnh\\~oR~oR_pRnwHowHojcAoh\\nwH?oh\\_pR?nwH~`f@~oR?nwHnwHowH~oR~oRnwH?~oR_pRowH?~oRoh\\owH?nwH;_{aPogtcA_pR??~oR_af@??nwHnh\\?owH~oR~oR?nwH_af@nwH??owH;_{aPogtcAnh\\nwH~oR_pR?~oR_pR??nwH~`f@nwHowH_pR~oRnwHnwHowHowH~oRnwH??~oR~oR?owH_pR~oRnwH?oh\\_af@owHnwHowHowH_af@~oR??owHowHowH_af@??_pR_af@?owHnwH?nh\\~oR~oR_pR~oR?nwH;_ulLoembA?~oRnh\\owH?owHoh\\?;o`qN_eg}@owHnh\\nh\\owH?~oRnwH?owH_af@_pR?;o~iMol}|@?~`f@nwH??_af@owH?;oqdOo{i|@?_pRoh\\??nwH~oR??~oR~oR??owHowH?;owyR_~vbA?_pR_pR??~oR~oR?;o{gUo_x~@nwH??_pR_pRowH?~oRnwH??nwH;otwZomigA_pR?~oR~oR~oRowH_pR_pR?nwH",
+          "outline": "ogr\\oqwiA~oR??~oR~oR??nwHowH??~oRnwH??nwHowH??nwH~`f@owHowH~oR_pR??nwHowH??nwHnwH??owH~oR?nwH~oR~oR??owHnwH??owHowH??nwH_pR?nwH_pRowH??owHnwH??owH_pRowH?owHnwH??owH~`f@??nh\\_pRnwH?nwH~oRowHnwH~oRnwH?owH_pRnh\\??~oRowH??nwH~oR?owH~oR~oRowH?~oR_pRnwH?owHowH??~oRnwH??nwHowH??nwHnwH??nwHowH??~oR~oRowH?~oRnwH??nwH_pR??owHowH??nwH~oRnwH?nh\\nwH??_pR~oR?owH~oRnwH?nwH_pRnwH??~oR_pRnwH?nwHnwH??owHnwH??~oRowH??nh\\nwH??oh\\nwH??owH~oRnwH?nwHowH??~oRnwH??nwHowH??~oR~oRnwH?nwHowH??~oR~oR??_pRnh\\??owH~oR??_pR~oR??nwHnwH??owHnwH??nwHnwH?nwH_pR~oR??~oR_af@nwH?~oR_pR??nwH~`f@owH?owH~oR?owH~oRnh\\??owH~`f@??nh\\nwH??~oRowH??nwHowH??_pRoh\\??owHowH??nwHnwH??nwH~oR??~oR~oR??owH~oR??owHnwH??~oRnwH??oh\\nwH??~`f@oh\\??owHowH??nwHowH??~oR~oR??nwHnwH?owH_pRnh\\?owH~oRnwH??owH~oR??owH_pR??owHnwH??_af@owH??owHnwH??owH_pRnwH?nwHowH??owH_pR??oh\\_pRowH?owHowH??owH~oR??nwHnwH?owH_pR~oR?nwH~oRnwH??nwH~oR??owH_pR??owH~oR??oyo@~oR??~oRnwH??_pRowH??_af@nwH??owH~oR??owHoh\\??oh\\owH??owHnwH??_pRowH??~oRoh\\??owHnwH??_pRowH??_pR~oR?owH_pR_af@??_pR_af@??nwHowH??nh\\nwH??~oRowH??nwHnwH??nwHowH??nwH_pR??~oR_af@??nwHnh\\?owH~oR_pRowH?nwHowH?owH_pRowH??_pR_pR??~oR~oR??nwH_pR??nwHowH??oh\\_pR?owH~oR~oRowH?nh\\~oR??nwHnwH?owH~oR~oRnwH?~oR_pRowH?~oRowH??owH_pR??_pR~oRnwH?owHowH??_pR_pRnwH?owHoh\\?nwH_pRnwH??nwH~oR??owH_pR??oh\\oh\\??owH~oR??owH~oRnwH?oh\\_af@~oR?owHowH??_pRnwH??_pRnwH??~oR~oR??owHnwH?nwH~oRnwH??nwH~oR??owH_pR??owHowH?nwH_pRnwH??owH_pRnwH?owHowH?owH~oRowH?owH_pR_pR?owH~oRowH??nwH_pR?nwH_pRnwH??_pRowH??oh\\_pRowH?owHnwH?owH_pRnwH??_pR_pR??_pRoh\\?nwH_pRowH??_pRowH??owHowH??_pRnwH??owHowH??nwH_pR??nwH_pRowH?nwHowH??_pRowH??~`f@owH??owH_pR?owH~oR",
           "areaKm2": 1511638,
           "meanChange": 0.09436,
           "significantShare": 1,
@@ -87,15 +88,16 @@ export const ATLAS = {
             "slopePerDecade": 0.05395,
             "years": 23,
             "carryOver": 0.55
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 2,
           "name": "India",
           "sign": 1,
           "center": [
-            23.93,
-            78.76
+            23.75,
+            78.75
           ],
           "bbox": [
             68.5,
@@ -103,7 +105,7 @@ export const ATLAS = {
             92.5,
             33.5
           ],
-          "outline": "ohmSonsj@nh\\nwHowH_pR_pR??nwH;__pRonsj@nwH?owH~oR~oR??nwH~oRowHowHoyo@owH??~oR_pR??nwH;_}hQopzk@nwH??~oRnwH??_pRnwH?nwHnh\\nwH??owH~`f@nwHowH_af@owH??~oRowH?owHoh\\nh\\?nwHnh\\nh\\_pR_pRnh\\~oRnwH?nwHnh\\owH_pR~`f@nh\\nwH?owHnwH??_pRowH?nwHoh\\_pR??owHoh\\nwH?owH~oR??owHnwH??nwHnwH??owH~oR??nwH~oRowH?nwHnwH??oh\\_af@??nwHowH?nwH_pRowH??owHnwH??nwH~`f@??nwH~oRowH~oRnh\\~oR??owHowH??_af@~oRnwH?oh\\_pRnwH?owHowH??oh\\_pR?nwH~oR_pRnwH?owH_pR??owH~oR??owH_pR??owHoh\\nwHowH_pR~oR??owH_pRowH?nwH_pR??nwHnwH??nh\\_pRnwH?nh\\nwH??_pR~oR??_pR~oRnwH?nwH_pR?owH~oRowH?nwH~oRowH??~oRoh\\owH?owH~oR?owHoyo@nwH?nwH_af@oh\\nwHowH_pRnwH??owHowH??owHowH??~oRowH??_pR_pRnwH?owH_pR?~oRnh\\oh\\?nwH~oRowH??nwH~oR??owHnwH??nwHoh\\nwHnwH~oR_pRowH?nwHowH?owH~qy@;_brJoe|n@nwH??_pRowH?nwH_pR_pR??nh\\nwH??nwH;oxtIoe|n@nwH??nh\\~oRowH?nwHnwH??_pR_pRowH?_pR_pR??~oR;_wsM_evi@?nh\\nwH??oh\\owH?;o`qNonsj@_pR?nwH~oRnwH??_pR;o`qN_evi@owH??nwH~oR??_pRowH??nwH;_jnO_`mp@nwH??_pRoyo@owH?~oR~`f@??nwH;oqdO_q`q@~oRowH?~oRnwH??oh\\oh\\owH?nwH_pR??nwH~oR??nwH;o`qNoz}q@nh\\owH?oh\\_pRowH?owHnh\\nwHowH_pRnyo@owH?owHoyo@nwHnwHoh\\_pR??owH~oR?~oRoh\\_af@owH?nh\\_pR??~oRowH?nwHoh\\_pR??~oR_pRnwHnwH~oRnwH?owHnjcAnwH??_pR~`f@nwH?nwH_pR??~oR;omvLomxs@~oRnwH?nh\\owH??_pRowH??~oR_pRnwH?nwHnh\\nwH?_pRnwH?nwH~oR~oR??nh\\nwH??_pRnh\\?owHoh\\_pRnwH?owHowH??nwH_pRowH?_pR~oRowH?_pRoyo@owH?nwH;_seK_d{r@owH??nwH~oR??_pRowH??nwH;_pcS_zwl@nwH??_pRnwH??owH_pR??nh\\;offR_|~m@~oRowH?owH_pR??~oR",
+          "outline": "ohmSonsj@~qy@nh\\?owHnwH??_pRowH??oh\\~oRowH?~oRowH??nwHnwH??owHnwH??_pRnwH??~oR~oRnwH?nwHnwH??owHowH??owH~`f@nwH?nwH_pR??nwH~oRnwH?nwHowH??nwH_pR??nwH~oR??owH~oR?owH_af@nwH??owHowH??_pRnwH?nwH~oRnwH??nwHnwH??owH~oR??nwHowH??~oR_pRowHnwH~oRowH??nh\\nwH??oh\\~oR??nwHnwH??owHnwH?owH_af@nwH??owH_pR?nwH_pR~oR??nwHnwH??owHnwH??nwHnwH??oh\\~oRowHnwH~oRowH??~oRnwH??_pRnwH??nwH~oR??owHowH??_af@~oRnwH?oh\\nwH??_pRowH??owHnwH??owH_pRnwH?_pR_pR??owHowH??nwHnwH??~oR_pR??_pRowH??owHnwH??owH_pR??nh\\nwH??nwH_pR??owHowH??nwH_pR?owH_pR~oR??owHowH??owH_af@~oR?owH_pR??owHowH??owHowH??~oRowH??_pRowH??_pRnwH??owHnwH??~oRnwH??oh\\nwH??owHowH??owH~oR??oh\\owH??owH~oR?owH_pRnh\\?owH~oR~oRowH?nwHnwH??nh\\owH??_pRowH??~oRowH??_pRowH??~oRnwH??nwHowH??nwH~oR?nwH~oR~`f@owH?nh\\nwH??_pRnh\\??owHowH??_pR_pRowH?_pRowH??_pR_pR??owHoh\\??owH~oR??owHoh\\??nwH_pR??owHnwH??_pR_pR??owH~oR?nwH_pRnwH??owH_pR??owHnwH??owH~oR??owH_pR?owH~oR_pR??nh\\_af@owH?~oR_pRnwHnwH~oRnwH??nh\\owH??_pRowH??~oRnwH??~`f@owH??nwH~oRowH?_pR~oR??nwH~oR??nwH_pR??~oRnwH??nwH_pR??owHowH??nwH_pR?owH_pRowH??owHowH?nwH~oRnwH??nwHnwH??nwH~oR??nwHoh\\??owH_pR??~oR~`f@??nwH_pR??nwH~oRnwH?nwHoh\\?nwH~oRowH??nwH~oR??nwH_pR?owH~oRowH??nh\\_pRowH?nwH_pR??nwH_pRowH?_pR~oRowH?owHnwH??owHnwH??owHnwH??owHowH??nwH_pR??~oRowH??nwH_pR??nh\\~oRnwHowH~oR~oRowH?owH~oR??owHnwH??nh\\_pRnwH?~oR_pR??nwHowH??owH_pR??nwH",
           "areaKm2": 1348793,
           "meanChange": 0.09773,
           "significantShare": 1,
@@ -116,15 +118,16 @@ export const ATLAS = {
             "slopePerDecade": 0.05274,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 3,
           "name": "Jonglei, South Sudan",
           "sign": 1,
           "center": [
-            7.7,
-            33.31
+            7.75,
+            33.25
           ],
           "bbox": [
             29.5,
@@ -132,7 +135,7 @@ export const ATLAS = {
             36,
             13.5
           ],
-          "outline": "otfGoy`TnwH??owHowH??nwH;_||F_rjTnwH??owHowH??nwH;ocsFojtTnwH??owHowH??nwH;_||F_awSnwH??owHowH??nwH;ocsF_awSowH~`f@nwH??owH~oR??nwHnwH??owHnwH?owH_pR_pR??owHowH?;_kiF_awS~oR??owH_pR??nwH;oalE_pcSnwH??_pRowH??~oR;_ibE_pcS?~oR~oR??nwHnwH??owH~oR??nwHnwH??~oR~oR??owHowH??_pR~oRowH?nwHnwH?nwH_pRnwH?owH_pRnh\\??owHnwH??_pRoh\\?nwH~oRowH??owH_pR??nwHowH??_pR_pR??nwHnwH??~oRnwH??nwHowH??owHowH??_pR_pR??nwHowH??_pRowH??~oR_pRowH?~`f@owH?,_xnDohmS?owHnwH??nwHowH?,o}}BohmS?nwHowH??owHnwH?,_g{CowyR?owHnwH??nwHowH?;_etBourQ?~oRnwH??_pRowH?;oljBourQnwH??owHowH??nwH;_g{C_n|QnwH??owHowH??nwH;_t`BoffRnwH??owHowH??nwH;_zuEoffRnwH??owHowH??nwH;_kiFoffRnwH??owHowH??nwH",
+          "outline": "otfGoy`T~oRnwHowH~`f@nwH??owH~oR?owH~oR~oRowH?nwHnwH?owH_pR~oRowH?~oR~oR??nwHnwH??owH~oR?owH~oR~oRowH?~oR~oR??~oRnwH??_pRnwH??owH_pRnwH?owHowH??_pR~oRowHnwH~oRnwH?owH_pR~oRowH?owHowH??owHnh\\??owHnwH??_pRoh\\??nwH_pR??nwHowH??_pR_pR??nwH_pR??nwHowH??_pRowH??~oR_pRowH?~`f@owH??_pRowH??~oRowH??owH_pR??owH~oR??owH_pR??nwHowH??owHowH?nwH_pRnwH??owH_pRnwH?nwHowH??nwH,_xnDohmS?owHnwH??nwHowH?,o}}B_rjTnwH??~oRowH??_pR,_cmA_rjTnwH??nwHowH??owH,_etBohmS?owHnwH??nwHowH?,o}}BohmS?nwHowH??owHnwH?,_g{CowyR?owHnwH??nwHowH?",
           "areaKm2": 292418,
           "meanChange": 0.10347,
           "significantShare": 1,
@@ -145,15 +148,16 @@ export const ATLAS = {
             "slopePerDecade": 0.05995,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 4,
           "name": "Silesian Voivodeship, Poland",
           "sign": 1,
           "center": [
-            50.34,
-            18.79
+            50.25,
+            18.75
           ],
           "bbox": [
             13,
@@ -161,7 +165,7 @@ export const ATLAS = {
             24.5,
             53.5
           ],
-          "outline": "o|s_@_brJnwH??owHowH??nwH;_dj_@oz{JnwH??owH~oR??owHowH??_pR~oR??owH_pR??owHowH??owHowH?nwH~`f@owH??nh\\;ozl^oz{J_pR??~oRnwH??owH~oR?owH~oR_pR??nwH~oR?owH~oR~oRnwH?nwHnwH??~oRnh\\??nwHnwH??oh\\~oR??owHoh\\??owHowH??nh\\owH??_pRowH??owHnwH??owH_pR??_pR~oRowH?owHnwH?owH~oRnwH??nwHnyo@??owHoh\\??owHowH??oh\\_pRnwHnwH_pRnwH??owHnwH??owH_pRowH?owHoh\\??nwH~oR??nwH_pR??~oR~oRowH?nwHowH??nwH_pR??nwH;ozl^omvL~oRowH?owH_pRowH?owHowH?nwH~`f@;_bc^_wsMnwH??owHowH??nwH;ogr\\oihJ~oR??owHowH??_pRowH??nh\\;_`|\\ogaInwH??owHowH??nwH;ogr\\otfGnwH??owHowH??nwH;oxe]_mpG?~oRnwH??_pRowH?;ozl^_~cHnwH??owHowH??nwH;_sv^ovmHnwH??owHowH??nwH;_sv^oezGnwH??owHowH??nwH;_dj_@_`kInwH??owHowH??nwH;oiy]oxtInwH??owHowH??nwH",
+          "outline": "o|s_@_brJ~oRowH?~oRnwH??owH~oR?owH~oR_pR??nwHowH??nwHnwH??owH~oR?owH~oRnwH??nwHowH??nwHnwH??nwHowH??nwH~oRowH?owHnwH??~oRnh\\??nwHowH??~oRnwH??_pR~oRnwH?owHowH??oh\\~oR??owHoh\\?nwH_pRowH??nwHowH??nh\\owH??_pRowH??owHnwH??owH_pR??_pRnwH??nwH~oRowH?nwHnyo@??owHoh\\??owH~oR??owHowH??_pRowH??nh\\owH??oh\\owH??owH~oRowH?owH_pRowH?owHoh\\?nwH_pRowH??owHnwH??owH_pRnwH?owHowH??~oRnwH??~oRnwH??nwH_pR?owH_pRowH?nwH~`f@owH??nh\\owH??nwH,ok`_@_seK~oR??nwH_pR??owH,_sv^okoK?_pR~oR??~oRnwH??nwH_pR??owHowH?,oiy]okoK?owHnwH??nwHowH?,_qo]_ulL?nwH_pR??owH~oR?,oxe]_seK?nwHowH??owHnwH?,oxe]oihJowH??owHnwH??nwH,_qo]_q~IowH??owHnwH??nwH,_bc^ovmHowH??owHnwH??nwH",
           "areaKm2": 194209,
           "meanChange": 0.08748,
           "significantShare": 1,
@@ -174,15 +178,16 @@ export const ATLAS = {
             "slopePerDecade": 0.04744,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 5,
           "name": "Dornod, Mongolia",
           "sign": 1,
           "center": [
-            49.35,
-            114.3
+            49.25,
+            114.25
           ],
           "bbox": [
             111,
@@ -190,7 +195,7 @@ export const ATLAS = {
             117.5,
             54.5
           ],
-          "outline": "omg`@okbfAnh\\??~oRnwH??oh\\owH??owHowH??nwH_pR??nwH;o|s_@_beeAnwH??owHowH??nwH;_dj_@oi{dAnwH??owHowH??nwH;ok`_@_qqdAnwH??owHowH??nwH;_sv^oxgdAnwH??owHowH??nwH;ozl^_qqdAnwH??~oR~oRowHowH~oR~`f@?owH_pR~oRowH?owHowH??oh\\owH??~oR_pRowH?~oRowH??oh\\_pR??~`f@;_oh\\_qqdA?~oRnwH??_pRowH?;ov~[_qqdAnwH??~oRowH??~oRnwH?nwH_pRnwH?owH_pRnwH??_pRnwH??owH_af@nwH?~oR;_~t[ozneAnwH??owHowH??nwH;ov~[_sxeAnwH??owHowH??nwH;oek[ogtcA?~oRnwH??_pRowH?;_~t[_~vbAnwH??owHowH??nwH;ozl^ogtcAnwH??owHowH??nwH;_dj_@oxgdAnwH??owHowH??nwH",
+          "outline": "omg`@okbfAnh\\??~oRowH??nwH~oRnwH?nwHowH??nwH~oRowH?nwHnwH??owHnwH??~oRowH??nwH~oRowH?nwH~`f@?owH_pR~oRowHnwH~`f@~oRowH?~oRowH??nwH~oRowH?_pRowH??owHnwH??owHowH??owHnwH??_pRnwH??owH_pR?owH_pRowH??nwH~oRnwH?nwH_pR??~oR_pRowH?oh\\owH??~oR_pRowH?~oRowH??oh\\_pR??~`f@owH?owH_pRowH??owHnwH??oh\\owH??owHowH??nwH_pR??nwH,ov~[_qqdAnwH??~oRowH??_pR,_qo]_`~cAowH??owHnwH??nwH",
           "areaKm2": 129913,
           "meanChange": 0.09091,
           "significantShare": 1,
@@ -203,15 +208,16 @@ export const ATLAS = {
             "slopePerDecade": 0.04819,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 6,
           "name": "Tamil Nadu, India",
           "sign": 1,
           "center": [
-            12.09,
-            79
+            12.25,
+            79.25
           ],
           "bbox": [
             77,
@@ -219,7 +225,7 @@ export const ATLAS = {
             80.5,
             15.5
           ],
-          "outline": "ovmHovoo@nh\\??~oRnwH??owHnh\\??nwHnwH??owH~oR??owHoh\\??owHoh\\??owHoh\\?owH~oR;oalEoe|n@owH??nwHnwH??nwHnwH??owH~oR??owH_pR??owHowH??nwH;_xnDothn@~oR??owH_pR??nwH;opxD_|~m@nwH??owHowH??nwH;otfG_mrn@~oR??owH_pR??nwH",
+          "outline": "ovmHovoo@nh\\??~oRnwH??nwH~oR??owH_pR??owHnh\\??nwHnwH??owH~oR?owH~oRnwH??nwHnwH??owH~oR?owH~oRnwH??owH~oR??owH_pR??owH_pR?owH_pR_ry@owH?owHoh\\?owH~oR",
           "areaKm2": 90216,
           "meanChange": 0.10101,
           "significantShare": 1,
@@ -232,15 +238,16 @@ export const ATLAS = {
             "slopePerDecade": 0.05129,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 7,
           "name": "Heilongjiang, China",
           "sign": 1,
           "center": [
-            51.54,
-            124.07
+            51.75,
+            123.75
           ],
           "bbox": [
             120.5,
@@ -248,7 +255,7 @@ export const ATLAS = {
             127,
             54.5
           ],
-          "outline": "omg`@os~jA~oRowH?owH_pR??~oR;o|s_@os~jAnwH??owHowH??nwH;_dj_@_lhkAnwH??nwH~oR?owH~oR~oRnwHnwH_af@_pRowH?oh\\oh\\?nwH~oRowH??~oR;_bc^odrkAnwH??owHowH??nwH;_bc^_jajA?~oRnwH??owHnwH??_pR_pRnwH;_qo]obkjAnwH??owHowH??nwH;oxe]_jajAnwH??owHowH??nwH;_qo]_ymiA~oR??owH_pR??nwH;oiy]o`diAnwH??owHowH??nwH;oiy]o`diA_pR??owHowH??~oR~oRnwHnwH_pR;ok`_@_ymiAnwH??owHowH??nwH;_dj_@_{tjAnwH??owHowH??nwH",
+          "outline": "omg`@os~jA~oRowHnwH~oRnwH??owH~oR?owH~oR~oRnwH?~oRnwH??nwH_pR?owH_pRowH??nwHnwH??~oRnwH??nwH~oRowH?owHnwH??owH~oR??owH_pR??_pR~oRnwHowH_pR_pRnwH?nwHowH?nwH_af@owH??owHnwH??owH_pRnwH?oh\\oh\\?nwH~oRowH??~oRowH??owH_pR??~oR,_dj_@_lhkAnwH??nwHowH??owH,_qo]oqwiA?nwHowH??owHnwH?",
           "areaKm2": 80314,
           "meanChange": 0.08717,
           "significantShare": 1,
@@ -261,15 +268,16 @@ export const ATLAS = {
             "slopePerDecade": 0.04941,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 8,
           "name": "Karnataka, India",
           "sign": 1,
           "center": [
-            13.2,
-            76.46
+            13.25,
+            76.75
           ],
           "bbox": [
             75,
@@ -277,7 +285,7 @@ export const ATLAS = {
             77.5,
             15.5
           ],
-          "outline": "ovmHoram@nwH??owHowH??nwH;_~cH_kkm@nh\\??owHnwH??~oRowH??nwH~oR??_pR~oRowH?owH_pR??owH_af@??~oRowH??nwH;or_F_|~m@nwH??owHowH??nwH;_zuEocum@nwH??owHowH??nwH;_~cH_zwl@nwH??owHowH??nwH",
+          "outline": "ovmHoram@~oRnwHowH_pRnh\\??owHnwH??~oRowH??nwH~oR??_pR~oRowH?owH~oRnwH?owHowH??owHowH??nwH_pR??owH_af@??~oR_pRnwH?nwH",
           "areaKm2": 65897,
           "meanChange": 0.09685,
           "significantShare": 1,
@@ -290,7 +298,8 @@ export const ATLAS = {
             "slopePerDecade": 0.05126,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         }
       ]
     },
@@ -311,7 +320,8 @@ export const ATLAS = {
         2025
       ],
       "minChange": 0.5,
-      "strict": true,
+      "chanceRuns": 19,
+      "chanceRunsWithPatches": 0,
       "grid": {
         "bbox": [
           -180,
@@ -347,8 +357,8 @@ export const ATLAS = {
           "name": "Madhya Pradesh, India",
           "sign": -1,
           "center": [
-            23.15,
-            75.92
+            23.25,
+            75.75
           ],
           "bbox": [
             72.5,
@@ -356,7 +366,7 @@ export const ATLAS = {
             79.5,
             26.5
           ],
-          "outline": "oqdO_idl@~oR??nwH~qy@??nwHnwH??_pR_pR??oh\\~oR?nwH~oRnwH??oh\\nwH??owHowH??owH_pR??nwHoh\\??nwHowH??owHnwH??oh\\nwH??owHoh\\??owHowH??~oR~oR??nwH_pR??nwHoh\\??~qy@,_yzN_zwl@?owHnwH??nwHowH?,_hgN_kkm@?owHnwH??nwHowH?;_dyK_|~m@nwH??_pR_pR?nwH~oR;okoK_mrn@~oRowH?nwH~oR??owH_pRowH?owH_pR??nh\\;okoK_kkm@?nh\\nwH??oh\\owH?;_seK_kkm@nwH??owHowH??nwH;_ulL_idl@nwH??owHowH??nwH;_ulLo_gk@~oR??_pR_pRnwH?nwH;oo}M_~eo@nwH??owHowH??nwH",
+          "outline": "oqdO_idl@~oR??nwH~qy@?nwH~oR~oR??_pR_pRnwH?_pR~oRowH?oh\\nwH??nh\\nwH??oh\\nwH??owH_pRnwHowH_pRnwH??_pRnwH??owHnwH??nwH~oR??owH_pRowH?owH_pR??nh\\_pR?nwH~oR_pR??nwHoh\\??oh\\nwH??owHoh\\?nwH_pRowH??nwHowH??~oR~oR??nwH_pR??nwHoh\\??~qy@,_yzN_zwl@?owHnwH??nwHowH?,_hgN_kkm@?owHnwH??nwHowH?,_wsMocum@nwH??nwHowH??owH,o|bLoanl@owH??nwH_pR??oh\\~oR?nwH~oR",
           "areaKm2": 251620,
           "meanChange": -3.4045,
           "significantShare": 1,
@@ -369,14 +379,15 @@ export const ATLAS = {
             "slopePerDecade": -1.5502,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 2,
           "name": "Gambela Region, Ethiopia",
           "sign": -1,
           "center": [
-            7.94,
+            7.75,
             33.75
           ],
           "bbox": [
@@ -385,7 +396,7 @@ export const ATLAS = {
             36,
             12.5
           ],
-          "outline": "ocsF_awSnwH??_pRnwH??owH_pR??nh\\;_kiF_awS?nh\\nh\\??owH_pR?nwH_pR~`f@??nwHoh\\?nwH~oRnwH??~oR~oR??owHnwH??oh\\~oRnwH?nwH~oRowH?owH_pR??owH~oR??owHowH??_pR_pR??nwHowH??owHowH??~oR_ry@??nwHowH?;_etBoy`T~oRnwH?nwHnwH??owH~oR?owH_pR_pR??owH_pRnwH?nwH;o{vAohmS?~oR~oRowH?owH_pR?;_cmA__pRnwH??owHowH??nwH;o{vAoffRnwH??owHowH??nwH;_t`B__pRnwH??owHowH??nwH;_xnDojtTnwH??owHowH??nwH",
+          "outline": "ocsF_awSnwH??nh\\nh\\??owHnwH??nwHnwH??~oR~oR??owHnwH??oh\\~oRnwH?nwHnwH?nwH_pR_pR??owH~oR??owHnwH?nwH~oRnwH??~oRowH??nwH~oRnwH?owHnwH?owH_pRnwH??owH_pR??owH~oR??owHowH??owH_pR??owH_pRnwH?nwHowH??_pR_pR??nwHowH?owH_pRowH??nwHnwH??~oR_ry@??nwHowH??_pRnwH??owH_pR??nh\\,_zuE_awS~`f@??nwHoh\\??nwH_pR?nwH_pR,_cmAowyR?nwHowH??owHnwH?",
           "areaKm2": 204009,
           "meanChange": -3.6848,
           "significantShare": 1,
@@ -398,15 +409,16 @@ export const ATLAS = {
             "slopePerDecade": -2.0157,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 3,
           "name": "Baramati, India",
           "sign": -1,
           "center": [
-            18.09,
-            74.31
+            18.25,
+            74.25
           ],
           "bbox": [
             73,
@@ -414,7 +426,7 @@ export const ATLAS = {
             76,
             19.5
           ],
-          "outline": "oz{Jopzk@nwH??owHowH??nwH;_brJ_idl@~oR??~oRnwH?nwH_pRnwH??owHowH??owH_pR??nwHowH??owH_pR?nwH~oR;oihJ_zwl@nwH??owHowH??nwH;_brJoram@nwH??owHowH??nwH;_brJ_xpk@nwH??owHowH??nwH",
+          "outline": "oz{Jopzk@~oRnwHowH_pR~oR??~oRnwH?nwH_pRnwH??owHowH??owH_pR?owH_pRowH?nwH~oR_pR?nwH~oRowH??nwH,oihJoanl@?owHnwH??nwHowH?",
           "areaKm2": 46798,
           "meanChange": -3.8108,
           "significantShare": 1,
@@ -427,15 +439,16 @@ export const ATLAS = {
             "slopePerDecade": -1.7028,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 4,
           "name": "Muynoq district, Uzbekistan",
           "sign": 1,
           "center": [
-            44.91,
-            59.83
+            44.75,
+            60.25
           ],
           "bbox": [
             59,
@@ -443,7 +456,7 @@ export const ATLAS = {
             60.5,
             46
           ],
-          "outline": "_ma[_j_c@nwH??_pRowH??~oR;otwZ_{rc@~oR??owH_pR??nwH;ocdZobic@~oR??owH_pR??nwH",
+          "outline": "_ma[_j_c@nwH??_pR~`f@nwH?owH_af@owH?nwHowH??~oR",
           "areaKm2": 13074,
           "meanChange": 10.7216,
           "significantShare": 1,
@@ -456,15 +469,16 @@ export const ATLAS = {
             "slopePerDecade": 5.9744,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 5,
-          "name": "Tekulapalle mandal, India",
+          "name": "Gangaram mandal, India",
           "sign": -1,
           "center": [
-            17.66,
-            80.42
+            17.75,
+            80.25
           ],
           "bbox": [
             79,
@@ -472,7 +486,7 @@ export const ATLAS = {
             82,
             19
           ],
-          "outline": "_brJovoo@~oR??nwHnwH??_pRnwH??owH_af@??~oR;_`kIogcp@nwH??oh\\_pR??nwHnwH??~oR",
+          "outline": "_brJovoo@~oR??nwHnwH??_pR~oRowH?oh\\_pR??nwHnwH??~oR_af@??~oR",
           "areaKm2": 35183,
           "meanChange": -3.0418,
           "significantShare": 1,
@@ -485,7 +499,8 @@ export const ATLAS = {
             "slopePerDecade": -1.4245,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 6,
@@ -493,7 +508,7 @@ export const ATLAS = {
           "sign": -1,
           "center": [
             -6.75,
-            32.2
+            32.25
           ],
           "bbox": [
             31,
@@ -501,7 +516,7 @@ export const ATLAS = {
             33.5,
             -5
           ],
-          "outline": "~s`B_n|Q~oR??owH_pR??nwH;~dtBoffR~oRowH?owH_pR??~oR;~ugCowyR~oRowH?owH_pR??~oR;nnqC__pRnwH??owHowH??nwH;~ugCoffRnwH??owHowH??nwH",
+          "outline": "~s`B_n|Q~oR?nwH_pR~oRnwHnwH_pRowH??owHnwH??owH_pR??~oR_pR??~oR_pR??nwH,~ugCowyRnwH??nwHowH??owH",
           "areaKm2": 30556,
           "meanChange": -3.0042,
           "significantShare": 1,
@@ -514,15 +529,16 @@ export const ATLAS = {
             "slopePerDecade": -1.453,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 7,
-          "name": "Siravara taluku, India",
+          "name": "Devadurga taluk, India",
           "sign": -1,
           "center": [
-            16.18,
-            76.82
+            16.25,
+            76.75
           ],
           "bbox": [
             75.5,
@@ -543,14 +559,15 @@ export const ATLAS = {
             "slopePerDecade": -2.1238,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 8,
           "name": "Deesa Taluka, India",
           "sign": -1,
           "center": [
-            24.32,
+            24.25,
             72.25
           ],
           "bbox": [
@@ -559,7 +576,7 @@ export const ATLAS = {
             73,
             25.5
           ],
-          "outline": "o`qN_g}j@nwH??owHowH??nwH;_hgNonsj@~oR??owHnwH??_pR_pR??~oRowH??nwH",
+          "outline": "o`qN_g}j@nwH??nwH~oR??owHnwH??_pR_pR??~oR_pRowH?nwH",
           "areaKm2": 19628,
           "meanChange": -3.516,
           "significantShare": 1,
@@ -572,7 +589,8 @@ export const ATLAS = {
             "slopePerDecade": -1.4218,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         }
       ]
     },
@@ -593,7 +611,8 @@ export const ATLAS = {
         2025
       ],
       "minChange": 1.5,
-      "strict": true,
+      "chanceRuns": 19,
+      "chanceRunsWithPatches": 0,
       "grid": {
         "bbox": [
           -180,
@@ -629,8 +648,8 @@ export const ATLAS = {
           "name": "Around Romania",
           "sign": 1,
           "center": [
-            46.57,
-            25.14
+            46.75,
+            25.25
           ],
           "bbox": [
             10,
@@ -638,7 +657,7 @@ export const ATLAS = {
             42.5,
             56
           ],
-          "outline": "_wda@_hgN~oR??oh\\owH??~oRowH??nwH;_fq`@oqdOnyo@??nh\\_pR??~oRnwH??nwHowH??~oR~`f@??_pRnwH??oh\\~oR??n}}B~oR??~`f@nwH??_pRnwH??~oRowH??nwHnwH??nwHowH??nh\\owH??~oR~oRowH?~oRowH??nwHnwH??~`f@~oR??_af@nwH??owHowH??owHnwH??owHowH??oyo@nwH??~oR~oR??owHnh\\??owH~oR??oh\\~oRowH?owHnwH??owHnh\\??_pRnwH??_ry@owH??_pR_pR??_t`BowH??oh\\nwH??owHoh\\??nwHnwH??nyo@owH??_pRowH??owHojcA??_ry@_af@?nwH_af@~oR??owHnwH??_pRowH??_ry@_pR??_pRowH??oh\\owH??nwHoh\\??~`f@owH??nwHnwH??nwHowH??nwHnwH??~oRnwH??~qy@owH??nwHnh\\??nwH_pR??~`f@nh\\??~oRowH??nyo@_pR??nwHowH??_pRowH??owHoh\\??_pRowH??owH_pR??nwH_pR??nyo@,opiXomvL_pR??_pR~oR??~oR,_~t[oqdO_pR??~oR_pRnwH?oh\\~`f@owH?nwH,_oh\\_dyK?~oRowH??_pRnwH?,_oh\\_brJ?~oRowH??_pRnwH?;_zfYod_QnwH??_pRowH??~oR;_`|\\ovmHnwH??owHowH??nwH;orpYourQnwH??owHowH??nwH;oiy]opiXnwH??_pR_pR??~oRoh\\??nwH~`f@??owH;_wda@oqdOnwH??owHowH??nwH",
+          "outline": "_wda@_hgN~oR??oh\\nyo@??nh\\_pR??~oRnwH??nwHowH??~oR~`f@??_pRnwH??oh\\~oR??n}}B~oR??~`f@nwH??nwHowH??nwHnwH??nh\\owH??~oR~oRowH?~oRowH??nwHnwH??~`f@~oR??_af@nwH??owHowH?nwH_pRowH??oyo@nwH??~oR~oR??owHnh\\??owH~oR??oh\\~oRowH?owHnwH??owHnh\\??_pRnwH??_ry@owH??_pR_pR??_t`BowH??oh\\nwH??owHoh\\??nwHowH??owHowH??nwHnwH??~oRojcA??_ry@_af@?nwH_af@~oR??owHnwH??_pRowH??_ry@_pR??_pRowH??oh\\owH??nwHoh\\??owHnwH??_pR_pR??~oRoh\\??nwH~`f@??~`f@owH??nwHnwH??nwHowH??nwHnwH??~oRnwH??~qy@owH??nwHnh\\??nwH_pR??~`f@nh\\??~oRowH??nyo@_pR??nwHowH??_pRowH??owHoh\\??_pRowH??owH_pR??nwH_pR??nyo@_pRowH?nwHnwH??~oRowH??nwH,_zfYod_QnwH??_pRnwH??nyo@owH??_pRowH??owH,opiXomvL_pR??_pR~oR??~oR,_~t[oqdO_pR??owH~oR??nwH,_oh\\oqdO?~oR_pRnwH?oh\\~oR?,_oh\\_dyK?~oRowH??_pRnwH?,_oh\\_brJ?~oRowH??_pRnwH?,_oh\\oxtI?~oRowH??_pRnwH?,ogr\\ovmH?owHnwH??nwHowH?",
           "areaKm2": 1512534,
           "meanChange": 1.7329,
           "significantShare": 1,
@@ -651,15 +670,16 @@ export const ATLAS = {
             "slopePerDecade": 1.0631,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 2,
           "name": "Arctic Ocean",
           "sign": 1,
           "center": [
-            77.36,
-            -131.41
+            77.25,
+            -131.25
           ],
           "bbox": [
             -157,
@@ -680,15 +700,16 @@ export const ATLAS = {
             "slopePerDecade": 1.2568,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 3,
           "name": "Brazil",
           "sign": 1,
           "center": [
-            -18.65,
-            -50.44
+            -18.75,
+            -51.25
           ],
           "bbox": [
             -55.5,
@@ -696,7 +717,7 @@ export const ATLAS = {
             -45,
             -14
           ],
-          "outline": "~lpGnmg`@~oR?nwH~oRnh\\?owH_pR~oR??_pR~oR??nwHnyo@??nwH~oR??_pRnh\\??_pRoh\\??owH_pR?nwH_pRnwH??oh\\nwH??_af@_pR??~oRowH??oh\\oh\\??owH_pR??_pR~oR??owH_ry@??nwH_pR??owHowH??nh\\nwH??nwHowH??nh\\nh\\??_pR~oR??owHnwH??nwHnwH??~oRnwH??nh\\nwH??~oR_ry@??nwH_pR??nwHowH??nh\\_pR??~oR;nmvLnv~[~oR??owH_pR??nwH",
+          "outline": "~lpGnmg`@~oR?nwH~oRnh\\?owH_pR~oR??_pR~oR??nwHnyo@??nwH~oR??_pRnh\\??_pRoh\\??owH_pR??owH~oRowH?oh\\nwH??_af@~oR??owH_af@nwH?~oRowH??oh\\oh\\??owH_pR??_pR~oR??owH_ry@??nwH_pR??owHowH??nh\\nwH??nwHowH??nh\\nh\\??_pR~oR??owHnwH??nwHnwH??~oRnwH??nh\\nwH??~oR_ry@??nwH_pR??nwHowH??nh\\_pR??~oR",
           "areaKm2": 553457,
           "meanChange": 1.799,
           "significantShare": 1,
@@ -709,15 +730,16 @@ export const ATLAS = {
             "slopePerDecade": 1.0835,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 4,
           "name": "Brazil (2)",
           "sign": 1,
           "center": [
-            -11.5,
-            -59.34
+            -11.75,
+            -59.25
           ],
           "bbox": [
             -65,
@@ -725,7 +747,7 @@ export const ATLAS = {
             -55,
             -8
           ],
-          "outline": "~f{Cnwjf@~oRnwH?owHnwH??oh\\nwH??owHowH??oh\\owH??~oRowH??~oRowH??nh\\;npxD~kfd@nwH??~oR~oR??_pR~oR??nh\\owH??nwH~`f@owH?owHnwH??oh\\~oR??_ry@_pR??owH~oR??owHoyo@??oh\\_pR??nwHnwH??nh\\owH??nwHnwH??nwH_pR??~oRoh\\?nwH_af@nwH??owH~oR??_pRowH??owHoh\\??nwHowH??nh\\_pR??nwHnwH??nh\\~oRnwH?nh\\",
+          "outline": "~f{Cnwjf@~oRnwH?owHnwH??oh\\nwH??owHowH??oh\\nwH??~oR~oR??_pR~oR??nh\\owH??nwH~oR??owH~oR??owHnwH??oh\\~oR??_ry@_pR??owH~oR??owHoyo@??oh\\_pR??nwHowH??owHoh\\??nwHowH??nh\\_pR??nwHnwH??nh\\~oRnwH?nh\\owH??~oRowH??~oRowH??nh\\,~jiFn~z`@?nh\\owH??nwHnwH??nwH_pR??~oRoh\\?nwH_af@nwH??owH~oR??_pRnwH?",
           "areaKm2": 424933,
           "meanChange": 1.8551,
           "significantShare": 1,
@@ -738,15 +760,16 @@ export const ATLAS = {
             "slopePerDecade": 0.9574,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 5,
           "name": "Western Pacific",
           "sign": 1,
           "center": [
-            38.87,
-            145.63
+            38.75,
+            145.75
           ],
           "bbox": [
             141.5,
@@ -754,7 +777,7 @@ export const ATLAS = {
             153,
             42.5
           ],
-          "outline": "oa}XoxxwAnwH??~oR~oR??nyo@~oR??_pRnwH??~oRnh\\??nwHnyo@??_etBowH??nwH_af@?owH_pR_pR??_pRowH??_af@_pR??~qy@~oR??nwHnwH??~`f@owH??_af@_pR?owH_pRowH??nwHowH??nyo@;_glW_fd{AnwH??oh\\owH??owH_pR??nh\\~oR??nwH",
+          "outline": "oa}XoxxwAnwH??~oR~oR??nyo@~oR??_pRnwH??~oRnh\\??nwHnyo@??_etBowH??nwH_af@?owH_pR_pR??_pRowH??_af@nwH??oh\\owH??owH_pR??nh\\~oR??nwH_pR??~qy@_pRowH?nwHowH??nyo@,_x_Xoz_yA?owH~oR??nwH_pR?,_glWoz_yAnwH??~`f@owH??_af@",
           "areaKm2": 387652,
           "meanChange": 2.0303,
           "significantShare": 1,
@@ -767,15 +790,16 @@ export const ATLAS = {
             "slopePerDecade": 1.033,
             "years": 23,
             "carryOver": 0.43
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 6,
           "name": "Western Pacific (2)",
           "sign": 1,
           "center": [
-            39.56,
-            160.79
+            39.75,
+            160.75
           ],
           "bbox": [
             154,
@@ -783,7 +807,7 @@ export const ATLAS = {
             167.5,
             41.5
           ],
-          "outline": "opiX_y~|Anh\\?nwH_ry@oh\\??owHowH??njcA;onbW_jr}A~oR??owH_pR??nwH;_x_Xodc_Bnh\\??_pR~oR??owHnwH??_pR~oRowH?_pRowH??owHnwH??oyo@_pR??_pRowH??~oR_pR??oyo@owH??nh\\_pR??~bmAowH??~qy@nwH??~oR;onbW_v|dB~oR??owH_pR??nwH",
+          "outline": "opiX_y~|Anh\\??oh\\nwH??nwH~oR??owH_pR??oh\\oh\\??owHnh\\??_pR~oR??owHnwH??_pR~oRowH?_pRowH??owHnwH??oyo@_pR??_pRowH??~oR_pR??oyo@~oR??owH_pR??nwHowH??nh\\_pR??~bmAowH??~qy@nwH??~oRowH??njcA",
           "areaKm2": 322508,
           "meanChange": 1.7364,
           "significantShare": 1,
@@ -796,15 +820,16 @@ export const ATLAS = {
             "slopePerDecade": 0.7781,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 7,
           "name": "Algeria",
           "sign": 1,
           "center": [
-            34.51,
-            5.72
+            34.75,
+            5.75
           ],
           "bbox": [
             1.5,
@@ -812,7 +837,7 @@ export const ATLAS = {
             10.5,
             37
           ],
-          "outline": "_tqUoh\\~oR??_pRnwH??owH~oR??_pR~oR??nh\\~`f@??owHoh\\??_pR~`f@??_pRowH??oh\\_pR??oh\\_pR??~oRowH??_ry@owH??owH_pRnwH?nwHowH??~oR~oR??nh\\owH??_pRoh\\??n}}B;_n|Q_cmA?~oRnwH??_pRowH?;ojtToalEoh\\??nwHnh\\??owH",
+          "outline": "_tqUoh\\~oR??_pRnwH??owH~oR??_pR~oR??nh\\~`f@??owHoh\\??_pR~`f@??~oRnwH?owH_af@owH??oh\\_pR??oh\\_pR??~oRowH??_ry@owH??owH_pRnwH?owHoh\\??nwHnh\\??nwHowH??~oR~oR??nh\\owH??_pRoh\\??n}}B",
           "areaKm2": 309140,
           "meanChange": 1.7151,
           "significantShare": 1,
@@ -825,15 +850,16 @@ export const ATLAS = {
             "slopePerDecade": 0.7958,
             "years": 23,
             "carryOver": 0.42
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 8,
-          "name": "Erzurum, Turkey",
+          "name": "Muş, Turkey",
           "sign": 1,
           "center": [
-            39.47,
-            41.42
+            39.25,
+            41.25
           ],
           "bbox": [
             36,
@@ -841,7 +867,7 @@ export const ATLAS = {
             45.5,
             44.5
           ],
-          "outline": "ocdZo_vWnwH??owHowH??nwH;_kzY_x_X~oRnwH?owHnwH??oh\\~oR??~oR~`f@??nyo@~`f@??~oR_pRnwH?~oR~oRnwH?oh\\nwH??~oR~oR??oh\\_pR??_af@owH??oh\\nwH??_pRowH??owHnwH??owHowH??_pR_af@??nh\\owH??owH_af@??_pRnwH??owH_pRowH?nwHowH??nh\\nwH??nwH_pRowH?~`f@owH??nwH",
+          "outline": "ocdZo_vW~oRowH?nwHnwH??owHnwH??oh\\~oR??~oR~`f@??nyo@~`f@??~oR_pRnwH?~oR~oRnwH?oh\\nwH??~oR~oR??oh\\_pR??_af@owH??oh\\nwH??_pRowH??owHnwH??owHowH??_pR_af@??nh\\owH??owH_af@??_pRnwH??owH_pRowH?nwHowH??nh\\owH??~`f@_pRnwH?nwH,oa}XorpY?nwHowH??owHnwH?",
           "areaKm2": 244284,
           "meanChange": 1.6664,
           "significantShare": 1,
@@ -854,7 +880,8 @@ export const ATLAS = {
             "slopePerDecade": 0.9407,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         }
       ]
     },
@@ -875,7 +902,8 @@ export const ATLAS = {
         2025
       ],
       "minChange": 24,
-      "strict": true,
+      "chanceRuns": 19,
+      "chanceRunsWithPatches": 0,
       "grid": {
         "bbox": [
           -180,
@@ -911,8 +939,8 @@ export const ATLAS = {
           "name": "Around South Sudan",
           "sign": 1,
           "center": [
-            8.95,
-            27.82
+            8.75,
+            27.75
           ],
           "bbox": [
             10,
@@ -920,7 +948,7 @@ export const ATLAS = {
             42.5,
             17
           ],
-          "outline": "_`kIol{U~oR??~oRnwH??nh\\~oR??nwHowH??~oRnh\\??~oRnwH??~qy@~oRnwH?~`f@owH??nwH_pR??nyo@oh\\??nwHowH??nyo@owH??nwHnwH??nh\\~`f@nwH?~`f@nwH??nwHowH??~`f@nwH??~bmAnwH??_pRnwH??_af@owH??_pRnwH??_t`Bnh\\??nwHnwH??_cmA~oR??nwHnwH??~`f@nwH??~oRnwH??_ry@~oR??~oR~oR??nwH_pR??nh\\~oR??nwHowH??nyo@owH??nwH~oR??nh\\nyo@??_pR_af@??owHnjcA??_pR_pR??_pR~oR??o{vA_pR??_pRowH??nwH_pR??nh\\~oRnwH?nh\\owH??nwH_pR??owHowH??_pRnwH??oyo@nwH??owHowH??_af@owH??oyo@_pR??njcAowH??nwHnwH??nwHowH??owH_pR??_cmAnh\\??owHoh\\??_pR_pR??ojcAnwH??_pRnwH??~oRnh\\??~`f@owH??~oR_pR??nwHnh\\??~oR~oR??oh\\~oR??_pRnwH??~oR~`f@??oyo@oh\\??owHnh\\??_pRoh\\??_pR_pR??~oRowH??_pRowH??~oRoh\\??_pR_pR??owHnyo@??owHnwH??_pR_pRnwH?owHnwH??_pRnwH??owHnwH??_af@owH??nh\\oh\\??oyo@_ry@owH?_pR_pR??nh\\_pRowH?~oR_pR??nwHnwH??~oRnwH??~qy@~oR??_af@nh\\?owH_af@nwH??~oR~oR?owH~oRnh\\??nwHnwH??nh\\oh\\??owHowH??oh\\owH??~`f@oh\\??nwH~oR??nwHnwH??nwHowH??owHoh\\??nwHnwH??~oRnh\\??nwHoh\\??owH_ry@??oljB~oR?owH_af@owH??nwHowH??owHoh\\??nwH_pR??nh\\_pR??nh\\,oezG_glW~oR??~oR_pR??_pR,_cmA_n|QowH??_pRnwH??~oR,_ibE__pR?nyo@owH??_pR_pRowH?oh\\~oR??nwHnwH?,_xnD_jnO_pR??owH~oR??nwH,_xnD_f`M_pR??owH~oR??nwH,_ibE_wsMowH??oh\\nwH??nh\\,otfGo{gU_pR??nwHowH??owHnwH??_pR~oR??~oR,_zuEomvL?nwHowH??owHnwH?;o}}B_n|Q_pR??nwH~oR??owH;or_F_c~T?owHowH??nh\\~oRowH?owHowH?",
+          "outline": "_`kIol{U~oR??~oRnwH??nh\\~oR??nwHowH??~oRnh\\??~oRnwH??~qy@~oRnwH?~`f@owH??nwH_pR??nyo@oh\\??nwHowH??nyo@owH??nwHnwH??nh\\~`f@nwH?~`f@nwH??nwHowH??~`f@nwH??~bmAnwH??_pRnwH??_af@owH??_pRnwH??_t`Bnh\\??nwHnwH??_cmA~oR??nwHnwH??~`f@nwH??~oRnwH??_ry@~oR??~oR~oR??nwH_pR??nh\\~oR??nwHowH??nyo@owH??nwH~oR??nh\\nyo@??_pR_af@??owHnjcA??_pR_pR??_pR~oR??o{vA_pR??_pRowH??nwH_pR??owHowH??_af@owH??oyo@_pR??owH~oR??oh\\~oR??_pRnwH??~oR~`f@??oyo@oh\\??owHnh\\??_pRoh\\??_pR_pR??~oRowH??_pRowH??~oRoh\\??_pR_pR??owHnyo@??owHnwH?owH_af@~oRowH?_af@owH??nh\\oh\\??oyo@_ry@owH?_pR_pR??nh\\_pRowH?~oR_pR??nwHowH??_pRowH??nwHowH??owHoh\\??nwH_pR??nh\\_pR??nh\\,oezG_glW~oR??~oR_pR??_pR,_kiF_glWnwH??~oRnwH??~qy@_pRowH?nh\\~oRowH?owH~`f@nwH?nwHoh\\??nwHnwH??~oR_ry@??oljB~oR??_pR,_t`Bo{gU?nwHowH??owHnwH?,_etB_c~Toh\\??owHowH??oh\\nh\\??nwHnwH??nh\\,o_eD_eeV?~`f@oh\\??_af@nh\\?,o_eD_eeV?_pR~oR?owH~oRowH?,o_eD_glW?~oRowH??_pRnwH?,_cmA_n|QowH??_pRnwH??~oR,_etBowyR?~`f@owH??owH_pR??nwH~oR??~oR_af@nwH?ojcAnwH??_pRnwH??~oRnh\\?,_etB_{aPoh\\??_pRnh\\??~oR,_etBobxO?njcAowH??nwH_pR??_cmAnh\\?,_cmAomvL?nh\\~oRnwH?nh\\owH??nwH_pR??owHowH??_pRnwH??oyo@nwH?,_etB_f`MowH??owHnwH??nwH,o_eD_pcSoh\\??owHnh\\??nwH,_xnDoy`T?owHnwH??nwHowH?,_ibE__pR?nyo@owH??_pR_pRowH?oh\\~oR??nwHnwH?,_xnD_jnO_pR??owH~oR??nwH,_xnD_f`M_pR??owH~oR??nwH,_ibE_wsMowH??oh\\nwH??nh\\,otfGo{gU_pR??_pR~oR??~oR,oezGo{gU?nwHowH??owHnwH?,_zuEomvL?nwHowH??owHnwH?",
           "areaKm2": 2474618,
           "meanChange": 44.184,
           "significantShare": 1,
@@ -933,15 +961,16 @@ export const ATLAS = {
             "slopePerDecade": 28.224,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 2,
           "name": "Brazil",
           "sign": -1,
           "center": [
-            -16.84,
-            -53.39
+            -16.75,
+            -53.25
           ],
           "bbox": [
             -61,
@@ -949,7 +978,7 @@ export const ATLAS = {
             -44.5,
             -8
           ],
-          "outline": "~f{Cn`bb@nyo@??nh\\_pRnwH?~oRnyo@??nwHnh\\??owHnh\\??oh\\~dtB??_cmAoh\\??nwHnwH??~oR_af@??_pRoh\\??~`f@oh\\??oyo@oh\\??nwHowH??owH_af@??oh\\owH??~oR_pRnwH?nwH_pRowH?nh\\owH??~oR;~}cH~eq`@nwH??nwH~oR??owHnwH??_pR~oRowH?_pRnwH??~oR~oRnwH?nwH~`f@??nwH~oR??_pR~oR??_af@oyo@??_pR~oR??oh\\nh\\??_pRnwH?owH_af@nwH??_pRowH??_pR_pR?owH~`f@_ry@??nwHowH??_af@oh\\??nh\\owH??_pR_pR??nh\\owH??nyo@_pR??nh\\nyo@??nwH_pR??nwHowH??owH_pR??~qy@~oR??nwH,nz{Jngr\\?~oRowH??nwH_pR??owHowH??nwH_af@??owH~oR?nwH_pRnwH??_pR~oR??~oR~oR?",
+          "outline": "~f{Cn`bb@nyo@??nh\\_pRnwH?~oRnyo@??nwH~qy@owH?oh\\~dtB??_cmAoh\\??nwHnwH??~oR_af@??_pRoh\\??owHnwH??_pRnwH??owHnwH??_pRnwH??~oR~oRnwH?nwH~`f@??nwH~oR??_pR~oR??_af@oyo@??_pR~oR??oh\\nh\\??_pRnwH?owH_af@nwH??_pRowH??_pR_pR?owH~`f@_ry@??nwHowH??_af@oh\\??nh\\owH??_pR_pR??nh\\owH??nyo@_pR??nh\\nyo@??nwH_pR??nwHowH??owH_pR??~qy@~oR??nwHoh\\??nwHowH??owH_af@??oh\\owH??~oR_pRnwH?nwH_pRowH?nh\\owH??~oR,~}cH~eq`@nwH??nwH~oR??~`f@oh\\??oyo@,nz{Jngr\\?~oRowH??nwH_pR??owHowH??nwH_af@??owH~oR?nwH_pRnwH??_pR~oR??~oR~oR?",
           "areaKm2": 1365897,
           "meanChange": -40.306,
           "significantShare": 1,
@@ -962,15 +991,16 @@ export const ATLAS = {
             "slopePerDecade": -25.193,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 3,
           "name": "Around Vietnam",
           "sign": 1,
           "center": [
-            20.86,
-            103.4
+            21.25,
+            103.75
           ],
           "bbox": [
             95.5,
@@ -978,7 +1008,7 @@ export const ATLAS = {
             111.5,
             29
           ],
-          "outline": "_luPofhy@~oR??_pRnwH??owHoh\\??nh\\;obxO_pez@n}}B??nwH~oR??owHnh\\??_pR_pR??owHowH??_af@owH??oh\\owH??_pRowH??owH~oRowH?_pR~`f@??nh\\~oR??owHnwH??_pRowH??owHnwH??owH~oR??owH~oR??_pRowH??owH~oR??owHowH??owH_pR?owH~oRowH??nwHowH??nwHowH??nwH_af@nwH?owH_pR??_pRowH??owHowH??_pR~oRowH?owHnwH??~oR~oRnwH?owH~oR??_pR_pRowH?nwHowH??_pRowH??nwH_pR??_pRowH??~oR_pR??nljB~oR??~oR_pR??nh\\~oR??nh\\nwH??nwHowH??nwH_pR??nh\\_t`B??nwHnwH??~oR;_seKo{i|@nwH??owHowH??nwH;oz{J_ts|@nwH??_pRowH??~oR;oezGocfaA~qy@??owH_af@owH?nwH_pR??nwH;or_F_k|`AnwH??owHowH??nwH;_f`M_xa_Aoh\\??~oRnh\\??_pR",
+          "outline": "_luPofhy@~oR??_pRnwH??owHn}}B??nwH~oR??owHnh\\??_pR_pR??owHowH??_af@~oRowH?_pRowH??~oRowH??nwHowH??oh\\owH??_pRowH??owH~oRowH?_pR~`f@??nh\\~oR??owHnwH??_pRowH??owHnwH??owH~oR??owH~oR??_pRowH??owH~oR??owH~qy@??nwHnwH??owHowH??owH_pR??owH_af@nwH?nwHowH??owH_pR?owH~oRowH??nwHowH??nwHowH??nwH_af@nwH?owH_pR??_pRowH??owHowH??_pR~oRowH?owHnwH??~oR~oRnwH?owH~oR??_pR_pRowH?nwHowH??_pRowH??nwH_pR??_pRowH??~oR_pR??nljBoh\\??~oRnh\\??nh\\~oR??nh\\nwH??nwHowH??nwH_pR??nh\\_t`B??nwHnwH??~oRoh\\??nh\\,_ulL_xa_A?~oR_pR??_pR~oR?",
           "areaKm2": 668575,
           "meanChange": 59.868,
           "significantShare": 1,
@@ -991,15 +1021,16 @@ export const ATLAS = {
             "slopePerDecade": 33.744,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 4,
-          "name": "Around Malawi",
+          "name": "United Republic of Tanzania",
           "sign": 1,
           "center": [
-            -10.17,
-            34.51
+            -10.25,
+            34.75
           ],
           "bbox": [
             25.5,
@@ -1007,7 +1038,7 @@ export const ATLAS = {
             40.5,
             -2.5
           ],
-          "outline": "nyo@ol{UnwH??~`f@~oR??oyo@oh\\??nwH;~bmA_eeVnh\\??owH_pR??oh\\owH??~oRowH?nwH~oR;nljBo}nVnwH??owHowH??nwH;~dtB_eeVowH??nwHnwH??~oRnwH??nwH_pRnwH?nwHnjcA?owH~qy@nwH??~oRowH??_pRowH??~bmAnwH??~oRnwH??owH~oR??~oR~oR??owHnwH??oyo@owH??_pR_pR??~oRowH??nh\\owH?nwH_ry@nwH??_pRowH??_ry@nwH??nh\\nwH?owH~oRnh\\??_pRowH??_pRowH??owHnh\\??nwHnwH??owH~oR??nwHnwH??~`f@~oR?nwH_pR~oR??_pR_pR??owH~oR??owHnwH??owHowH??_af@_pR??nwHowH??nh\\nwH??nwH_af@??owH_pR??owHowH??_pR~oRowH?_pRnwH??oh\\_af@??nwHowH??~oR_pR??nwHowH?nwH~oRnwH?owH~`f@oh\\?nwH_pR_pR??oh\\oh\\??owHowH??nwH,~f{CojtT_pR??owH~oR??nwH,ncsF_glW?~oRowH??_pRnwH?;~yuEo_vW_pR??nwH~oR??owH;nr_Foy`T?~oRnwH??_pRowH?;nr_F__pRnwH??owHowH??nwH;nr_Fod_QnwH??oh\\owH??nh\\;~yuEoqdO?~oRnwH??_pRowH?;nljB_rjT_pR??~`f@~oR??owHnwH??_pRowH??owH",
+          "outline": "nyo@ol{UnwH??~`f@~oR??oyo@nh\\??nwHnwH??~oRnwH?owH~oRowH??nwH_pR??~`f@~oR??owHnwH??_pRowH??owHnjcA?owH~qy@owH??~bmAnwH??~oRnwH??owH~oR??~oR~oR??~oRnwH??_pRowH??owHnwH??oyo@nwH??oh\\owH??nh\\owH??_pR_pR??~oRowH??oh\\nwH??_pRowH??_ry@nwH??nh\\nwH?owH~oRnh\\??nwHnwH??owHowH??_pRnwH??_pRnwH??owH~oR??nwHnwH??~`f@~oR?nwH_pR~oR??_pR_pR??owH~oR??owHnwH??owHowH??_af@_pR??nwHowH??nh\\nwH??nwH_af@??owH_pR??owHowH??_pR~oRowH?_pRnwH??oh\\_af@??nwHowH??owH_pR??nwH~oR??~oR_pR??nwHowH?nwH~oRnwH?owH~`f@oh\\?nwH_pR_pR??oh\\oh\\?owH_pRowH??nwH_pR??oh\\owH??~oRowH?nwH~oRoh\\??nwH,nljBo}nVnwH??nwHowH??owH,~f{CojtT_pR??owH~oR??nwH,ncsF_glW?~oRowH??_pRnwH?,~jiFoy`TowH??~oRowH??_pRowH??owHnh\\??nwH,npxDod_Q?nh\\owH??oh\\nwH?,n_eD_n|Q?_pRnwH??~oRowH?",
           "areaKm2": 704469,
           "meanChange": 41.132,
           "significantShare": 1,
@@ -1020,15 +1051,16 @@ export const ATLAS = {
             "slopePerDecade": 25.587,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 5,
           "name": "Faranah Region, Guinea",
           "sign": 1,
           "center": [
-            9.66,
-            -10.73
+            9.75,
+            -10.75
           ],
           "bbox": [
             -15,
@@ -1036,7 +1068,7 @@ export const ATLAS = {
             -6,
             13
           ],
-          "outline": "_||F~jiF~oR??~oRnwH??nh\\~oRnwH?owHnwH??_ry@~oR??nwHnwH?owH~oRnh\\??_pRowH??oh\\nwH??_af@oh\\??_pR_pR??~oR_pRnwH?~oRnwH??nwH_pR??~oRoh\\??nwH;_xnDnnqCnh\\??oh\\_pRnwH?nwHowH??nwH",
+          "outline": "_||F~jiF~oR??~oRnwH??nh\\nwH??nwH~oRowH?_ry@~oR??nwHnwH?owH~oRnh\\??_pRowH??oh\\nwH??_af@oh\\??_pRnh\\??oh\\_pRnwH?nwHowH??nwH_pR??~oR_pRnwH?~oRnwH??nwH_pR??~oRoh\\??nwH",
           "areaKm2": 245662,
           "meanChange": 115.433,
           "significantShare": 1,
@@ -1049,15 +1081,16 @@ export const ATLAS = {
             "slopePerDecade": 47.491,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 6,
-          "name": "Eastern Pacific",
+          "name": "Chocó, Colombia",
           "sign": 1,
           "center": [
             5.75,
-            -77.55
+            -77.25
           ],
           "bbox": [
             -79.5,
@@ -1065,7 +1098,7 @@ export const ATLAS = {
             -76,
             10
           ],
-          "outline": "_ibEnvoo@~`f@owH?owHnwH??_pR~bmA??nwHnwH??owHnh\\??owH_pR?owH_pR_pR??nwHo{vA??~oR_pRnwH?nwHowH??~oR;_ry@ne|n@nwH??nwH~oR??_pRoh\\??nwH",
+          "outline": "_ibEnvoo@~`f@owH?owHnwH??_pR~bmA?nwH~oRnwH??nwH~oR??_pRoh\\??owHnh\\??owH_pR?owH_pR_pR??nwHo{vA??~oR_pRnwH?nwHowH??~oR",
           "areaKm2": 143759,
           "meanChange": 124.701,
           "significantShare": 1,
@@ -1078,15 +1111,16 @@ export const ATLAS = {
             "slopePerDecade": 74.561,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 7,
           "name": "Brazil (2)",
           "sign": -1,
           "center": [
-            -9.06,
-            -68.72
+            -9.25,
+            -68.75
           ],
           "bbox": [
             -75,
@@ -1107,15 +1141,16 @@ export const ATLAS = {
             "slopePerDecade": -26.317,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 8,
-          "name": "Mymensingh Division, Bangladesh",
+          "name": "Rajshahi Division, Bangladesh",
           "sign": 1,
           "center": [
-            24.99,
-            90.13
+            24.75,
+            89.75
           ],
           "bbox": [
             86,
@@ -1136,7 +1171,8 @@ export const ATLAS = {
             "slopePerDecade": 36.165,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         }
       ]
     },
@@ -1159,7 +1195,8 @@ export const ATLAS = {
         2025
       ],
       "minChange": 5,
-      "strict": false,
+      "chanceRuns": 19,
+      "chanceRunsWithPatches": 0,
       "grid": {
         "bbox": [
           -180,
@@ -1189,240 +1226,7 @@ export const ATLAS = {
         "scannedKm2": 139719849,
         "validShare": 1
       },
-      "hotspots": [
-        {
-          "rank": 1,
-          "name": "Around Ukraine",
-          "sign": -1,
-          "center": [
-            48.11,
-            23.12
-          ],
-          "bbox": [
-            9.5,
-            42,
-            36,
-            56.5
-          ],
-          "outline": "oona@oo}MnwH??owHowH??nwH;_wda@oo}M?~oR~oR??nwHnwH??~oRowH??nwHnwH??~`f@nwH??oh\\nwH??~oRnwH?nwH_pR~oR??oyo@nwH??nyo@nwH??nwHowH??nwHnwH??nwH_pRnwH?nwHnwH??~oRnwH??~oR~oR??~oR~oR??nwH_pR?nwH~oR_pRowH?~oR~oR??nwHowH??~oR~oRowH?~oRowH??nwHnwH??nwH_pR??nwHnwH??nwHnh\\??oyo@nwH??_pRowH??_pRnwH??owHowH??_pRnwH??nwH~`f@??_pRnwH??nwHnwH??_pRnwH??oh\\~oRowH?oh\\nwH??oh\\owH??owH_pR??owHnh\\?owH_pRnwH??owH_pRowH?owHowH??oyo@nwH??owH_pRowH?nwHowH??_pRowH??~oRowH??nwH~oR??nwH_pR??owHowH??oyo@owH??_pRowH??owHnwH??_pRowH??owH~oR??_pRowH??nwH_pR??_pRowH?owH~oRnwH??~oRowH??nwHnwH??nwH_pR??nwHowH??_pRowH??nwHowH??nh\\owH??nwHoh\\??~`f@nh\\?owH_pRowH??owHnh\\??nh\\owH??~oRnwH??nwH_pRowH?nwH_pR??~oR~oR??owHnwH?owH~oR_pR??owHowH??nwH_pR??owH~oR??owHowH??_pRowH??~oR_pRnwH?nwH_pR?;_~t[_awSnwH??owHowH??nwH;oek[oy`TnwH??owHowH??nwH;_~t[_rjTnwH??owHowH??nwH;_~t[_c~T_af@?nwH~oR_pR??nwH~oRnwH?owHnwH??_pR~oR??owH;_qo]_awSnwH??owHowH??nwH;ov~[oy`TnwH??owHowH??nwH;_qo]owyR_pR??_pRowH??nh\\nh\\??owH;_bc^ohmSnwH??owHowH??nwH;oiy]_pcSnh\\??owHoh\\??nwH;_dj_@od_QnwH??owHowH??nwH;ok`_@_}hQnwH??owHowH??nwH;ok`_@_n|Qoh\\??nwH~oRnwHnwH_pR;_dj_@obxO?_pRowH??~`f@~oRowH?owHowH?;ok`_@oqdOnwH??owHowH??nwH;o~z`@omvLnwH??owHowH??nwH;_dj_@oz{J~oR??owH_pR??nwH;_qo]_~cHnwH??owHowH??nwH;_qo]_owH_pR??nwH~oR??owH;_qo]_kiF?owHowH?owH~oRnwH??nwH~oR??_pRowH?;_bc^_zuE?nh\\nwH??oh\\owH?;otwZ_luPnwH??owHowH??nwH;o~z`@_hgNnwH??owHowH??nwH",
-          "areaKm2": 1200338,
-          "meanChange": -8.152,
-          "significantShare": 0.801,
-          "verdict": {
-            "direction": "decline",
-            "p": 0.000876,
-            "slopePerYear": -0.491,
-            "lowerPerYear": -0.768,
-            "upperPerYear": -0.189,
-            "slopePerDecade": -4.912,
-            "years": 23,
-            "carryOver": null
-          }
-        },
-        {
-          "rank": 2,
-          "name": "Canada",
-          "sign": -1,
-          "center": [
-            65.06,
-            -99.26
-          ],
-          "bbox": [
-            -112.5,
-            60.5,
-            -86,
-            71.5
-          ],
-          "outline": "onsj@nutx@nwH??_pRowH??~oR;_vij@nutx@?~`f@nwH?nwH_pRowH??_pRowH?;_vij@ndax@~oRowH?owH_pR??~oR;_evi@nsmw@nwH??owHowH??nwH;olli@~zcw@nwH??nyo@~oRowH?_pRnwH??_pR_pR??owHnh\\??nh\\nwH??nwHowH??~oR_pRowH?nh\\nwH??owH~oR??nwHowH??~oRowH??~oRnwH??nwHowH??~`f@nwH??_pRnwH??nh\\~oRowHowH_pR~oR??nwHnwH??owHnwH??oh\\owH??owHnwH??owH~oR??nwHowH??nh\\nwH??nwH_pR??nwHnwH??nh\\~oRowH?~oR_pR?owH~oR~oRnwH?nwHnwH??~oRowH??_pR_pRowH?owHowH??owH_pRnwHnwH_pRnwH??owH_pR??owHowH?owH~oR_pRowH?nwHowH??~`f@~oRnwH?_pRnwH??~oRowH??nwH~oRnwH?nh\\_pR??_pRowH??nwH_pR??nwHnwH??~oRowH??~oR~oRowH?owHnwH??owHnwH??~oRnwH??nh\\_pRnwH?~oR~oRowHnwH~oRowH??nwH~oR??owHnwH??~oRnwH??_af@nwH??_pR_pR??nwHowH??_af@nwH??owHnh\\??owHowH??_af@nh\\??nwHnwH??oh\\owH??owHnwH??owHowH??owHnwH??owHowH??owHnwH??oyo@owH??owHnwH??owHowH??owH~oRowH?owHnwH??oh\\_pRnwH?nwHowH?nwH_pRnwH??_pR_pRnwHowH_pRnwH??owHowH??owHoh\\??owH~oR??owHowH??_pRowH??_pRowH??_af@owH??owH_pR??owH_pRnwH?nwHowH?nwH~oR_pRnwH?~`f@_pR?owH~oR,ojeh@~ipv@?_pRnwH??owH~oR??owHnwH??_pRnwH?owH~`f@owH??~oRoh\\?,oh~f@nqfv@~oRowH?nh\\_pRowH?owH,ouce@~~qy@_pR??oh\\_pRowH?owH_pR?nwH~oR_pRowH?nwHowH?nwH_pRnwH?owH_pRnwH??owHowH??owH~oRnwHowH~oRnh\\??~oR~oRnwH?nwHnwH??~oR,ofwe@n_x~@_pRnwHnwH_pRnwH??nwH,oh~f@nyb{@?owH~oR??nwH_pR?,__af@nfhy@owH??owHnwH??nwH,_ptf@~m~x@?~`f@owH??owH_pR?nwH_pRnwH??owHnwH?,_ptf@nnd~@nwH??nwHowH??owH;_lfd@nhoz@nwH??owHowH??nwH;oh~f@n{i|@nwH??owHowH??nwH;_coh@n{i|@nwH??owHowH??nwH;o{xh@~b`|@nwH??owHowH??nwH;_r{g@~ss|@nwH??owHowH??nwH;_r{g@npk_AnwH??owHowH??nwH;ofwe@~}vbAnwH??owHowH??nwH;oyqg@nv`cAnwH??owHowH??nwH;_coh@ncfaA?nh\\~oRowH?owHnwH?owH_pR_pRnwH;_tbi@~hu_AnwH??owHowH??nwH;owjf@~j|`A?~oRnh\\??_pRoh\\?;_r{g@nmxs@nwH??owHowH??nwH;_coh@no_u@nwH??owHowH??nwH;_r{g@nqfv@nwH??owHowH??nwH;o}_j@~zcw@nwH??owHowH??nwH",
-          "areaKm2": 516616,
-          "meanChange": -9.087,
-          "significantShare": 0.848,
-          "verdict": {
-            "direction": "decline",
-            "p": 5.56e-06,
-            "slopePerYear": -0.449,
-            "lowerPerYear": -0.623,
-            "upperPerYear": -0.308,
-            "slopePerDecade": -4.492,
-            "years": 23,
-            "carryOver": null
-          }
-        },
-        {
-          "rank": 3,
-          "name": "Mangystau Region, Kazakhstan",
-          "sign": -1,
-          "center": [
-            44.47,
-            55.42
-          ],
-          "bbox": [
-            51.5,
-            42,
-            59,
-            47
-          ],
-          "outline": "_~t[_dj_@nwH??owHowH??nwH;oek[o|s_@~oRnwH?~oR~oRowH?owH~`f@nwH_pR_af@owH??nwHoh\\??oh\\_pR??~oRowH?nwH~oR;orpYomg`@nwH??owHowH??nwH;_zfY_fq`@~oRnwH?_pRowH??oyo@owH??~qy@;_zfY_u}_@nwH??owHowH??nwH;_|mZozl^nwH??owHowH??nwH;otwZo~z`@~oR??owH_pR??nwH;ocdZ_wda@nwH??owHowH??nwH;_kzYoona@nwH??owHowH??nwH;_kzY_hxa@?_pRnwH??owHoh\\??nwHowH??owHowH??~`f@owH??nwH~oR??owH~oR??owHnwH?;orpYoqub@nh\\??owHoh\\??nwH",
-          "areaKm2": 136048,
-          "meanChange": -9.164,
-          "significantShare": 0.71,
-          "verdict": {
-            "direction": "decline",
-            "p": 0.00367,
-            "slopePerYear": -0.499,
-            "lowerPerYear": -0.795,
-            "upperPerYear": -0.238,
-            "slopePerDecade": -4.992,
-            "years": 23,
-            "carryOver": null
-          }
-        },
-        {
-          "rank": 4,
-          "name": "West Azerbaijan Province, Iran",
-          "sign": -1,
-          "center": [
-            39.52,
-            44.77
-          ],
-          "bbox": [
-            41,
-            37,
-            47.5,
-            41
-          ],
-          "outline": "_x_Xoa}X~oRnwH?nwHnwH??_pRowH??owH_pR??nwH;_glW_zfY~oR??nwHnwH??_pR_pR??_pRnwH??owH~oR??owH_pRowH?owHowH??owH_pR??~oRowH??nwH~oR??owHnwH??nwHowH??~oR_pRowH?nh\\~oR??nwH;o}nV_ma[nwH??owHowH??nwH;_eeVoek[~oR??owH_pR??nwH;_eeVov~[_pR??~oR~oRowH?owH;o_vW_x_XnwH??owHowH??nwH",
-          "areaKm2": 90186,
-          "meanChange": -8.874,
-          "significantShare": 0.763,
-          "verdict": {
-            "direction": "decline",
-            "p": 0.000402,
-            "slopePerYear": -0.433,
-            "lowerPerYear": -0.669,
-            "upperPerYear": -0.244,
-            "slopePerDecade": -4.334,
-            "years": 23,
-            "carryOver": null
-          }
-        },
-        {
-          "rank": 5,
-          "name": "Erzincan, Turkey",
-          "sign": -1,
-          "center": [
-            39.19,
-            38.58
-          ],
-          "bbox": [
-            35.5,
-            37,
-            42,
-            41
-          ],
-          "outline": "_x_X_tqU~oRowHowH~oR~oR??nwHnwH??oh\\~oR?owH_pRowH??oh\\~oR??oh\\owH??owHowH??~oR_pRnwH?nwHowH??~oRowH??~`f@,_glWo}nV?_pRnwH??~oRowH?;_eeV_eeVnwH??owHowH??nwH;_eeV_tqUowH??nwHnwH??nwH~oRowHowH_pRowH??nwH;_glWojtTnwH??owHowH??nwH;_eeV_glW?~oRnwH??_pRowH?;_x_X_glWnwH??owHowH??nwH",
-          "areaKm2": 109671,
-          "meanChange": -7.601,
-          "significantShare": 0.674,
-          "verdict": {
-            "direction": "decline",
-            "p": 0.00219,
-            "slopePerYear": -0.426,
-            "lowerPerYear": -0.671,
-            "upperPerYear": -0.211,
-            "slopePerDecade": -4.264,
-            "years": 23,
-            "carryOver": null
-          }
-        },
-        {
-          "rank": 6,
-          "name": "Northwest Territories, Canada",
-          "sign": -1,
-          "center": [
-            66.62,
-            -116.43
-          ],
-          "bbox": [
-            -120.5,
-            64,
-            -112.5,
-            69
-          ],
-          "outline": "_tbi@~t_gAnwH??~oRnwH??nwHnwH??~oR~oR??owHowH??_pR_pRowH?_pR_pR??nwH;ojeh@nmigA~oRnwH?nwHnwH??oh\\owH??owHnwH??owH~oR??owH_pR?nwH_pRowH??owHoh\\?nwH~oR_pRowH?~oRnwH??~`f@;_ahg@~aeeA~oR??nwHnwH?nwH_pR_pRowH?nwHowH??oh\\_pRowH?~oRowH??nwH_pR??~oRnwH??owHnh\\??nwH;_ahg@~t_gAnwH??owHowH??nwH;o{xh@~vfhAnwH??owHowH??nwH",
-          "areaKm2": 69501,
-          "meanChange": -8.543,
-          "significantShare": 0.719,
-          "verdict": {
-            "direction": "decline",
-            "p": 0.000402,
-            "slopePerYear": -0.448,
-            "lowerPerYear": -0.639,
-            "upperPerYear": -0.229,
-            "slopePerDecade": -4.483,
-            "years": 23,
-            "carryOver": null
-          }
-        },
-        {
-          "rank": 7,
-          "name": "Stavropol Krai, Russia",
-          "sign": -1,
-          "center": [
-            44.17,
-            44.44
-          ],
-          "bbox": [
-            42,
-            41.5,
-            47,
-            47.5
-          ],
-          "outline": "ov~[_|mZnwH??~oRnwH??oh\\_pR??nwH;oek[otwZnwH??owHowH??nwH;_ma[_|mZnwH??owHowH??nwH;otwZ_|mZ?~oRnwH??nwHowH??nwH~`f@nwH?_pR_pR??owH~oRowH?owH_af@?;orpY_kzY~oRnwH?owH~oR??owHowH?nwH_pRowH??_pR_pRnwH?nwHnwH??~oR_pR??nwH;_zfYoek[nwH??owHowH??nwH;orpY_ma[nwH??owHowH??nwH;_|mZ_isXnwH??owHowH??nwH;_ma[oa}XnwH??owHowH??nwH;oek[_zfYnwH??owHowH??nwH",
-          "areaKm2": 79380,
-          "meanChange": -7.463,
-          "significantShare": 0.694,
-          "verdict": {
-            "direction": "decline",
-            "p": 0.000876,
-            "slopePerYear": -0.413,
-            "lowerPerYear": -0.634,
-            "upperPerYear": -0.192,
-            "slopePerDecade": -4.131,
-            "years": 23,
-            "carryOver": null
-          }
-        },
-        {
-          "rank": 8,
-          "name": "Qian Gorlos Mongol Autonomous County, China",
-          "sign": 1,
-          "center": [
-            44.91,
-            124.51
-          ],
-          "bbox": [
-            123.5,
-            43.5,
-            126,
-            46
-          ],
-          "outline": "_ma[_{tjAnwH??nwH~`f@??_pR_pRowH?~oRowH??_pRnwH??owH_pR??owHowH??~`f@",
-          "areaKm2": 32684,
-          "meanChange": 16.149,
-          "significantShare": 0.667,
-          "verdict": {
-            "direction": "increase",
-            "p": 0.0151,
-            "slopePerYear": 0.722,
-            "lowerPerYear": 0.123,
-            "upperPerYear": 1.258,
-            "slopePerDecade": 7.224,
-            "years": 23,
-            "carryOver": null
-          }
-        }
-      ]
+      "hotspots": []
     },
     {
       "id": "sst",
@@ -1443,7 +1247,8 @@ export const ATLAS = {
         2025
       ],
       "minChange": 1.8,
-      "strict": true,
+      "chanceRuns": 19,
+      "chanceRunsWithPatches": 0,
       "grid": {
         "bbox": [
           -180,
@@ -1479,8 +1284,8 @@ export const ATLAS = {
           "name": "Western Pacific",
           "sign": 1,
           "center": [
-            40.35,
-            154.88
+            40.25,
+            154.75
           ],
           "bbox": [
             140.5,
@@ -1488,7 +1293,7 @@ export const ATLAS = {
             168.5,
             46.5
           ],
-          "outline": "oek[ojxbBnwH??~oRnwH??~oR~oRowH?owHnwH?owH_pRnwH??owHowH??owHnwH??oyo@nwH??nh\\nwH??~oRnyo@??nh\\_af@nwH?nwHnwH??nyo@owH??_pRowH?owH~`f@nwH??nwH_pRnwH?nh\\_pR??nwHnh\\??nwHnwH??oh\\nwH??~`f@nwH??nh\\~oRnwH?nh\\_pR??~oR_pRowH?owHowH??~`f@owH??nwH~oR??nwHnwH??nh\\owH??nwHnwH??~`f@~oRnwH?nwHnwH??nwHnh\\?nwH~oRnwH??nwH~qy@nwH?oyo@owH??_pRowH??owH~oRowH?oh\\_pR??owHowH??nwHoh\\?_pR_af@_pR??~oRowH??_pRowH??_af@nh\\?nwH_pRnwH??_pRoh\\??_pRowH??owH~oR??owHnh\\??owHnwH?owH~oR~oR??_pRnwH??owH~oR??owH_pR??_pRoh\\?nwH~oR_pRowH?nwHowH?owH_af@~`f@?owH_pR~oRowH?owH_pR??owHnwH??oh\\owH??owHnwH??owH~oR??nwH~oR??_pRowH??owHnh\\??_af@owH??~oRowH??nwH_pR??nwHowH??nwHowH??owH_pR??owH_pRnwH?owHnwH??_af@_pRowH?owHowH??owH~oR??owHoyo@??nwHowH??owHowH??nwHowH??owH_pR??~oRnwH??nwH_pR??nyo@nwH??nwH_pR??owHowH??~oR,_x_XoydbBnh\\??nwHoh\\??owH,oa}Xouv_BnwH??nwHowH??owH,onbWoxxwAowH??owH~oRowHowH~oR,_eeV_~gvA?owHnwH??nwHowH?,_x_X_tucB_pRowH?nwHowH??owHnwH??oh\\~oRnwH?nwHnwH?owH~oR;_eeVouv_BnwH??owHowH??nwH;_vxV_y~|A?nh\\nwH??oh\\owH?;_vxV_fd{AnwH??owHowH??nwH;onbWomzzAnwH??owHowH??nwH;_zfYow}`B?_af@owH?owH~`f@_pRnwH?nwHnh\\??_pRnwH?;ocdZohqaBnwH??owHowH??nwH;_kzY_rnbBnwH??owHowH??nwH;orpYojxbBnwH??owHowH??nwH;_zfY_y~|AnwH??owHowH??nwH;_glWo`u|AnwH??owHowH??nwH;_x_XoksyAnwH??owHowH??nwH;o{gU_bvxAnwH??owHowH??nwH;_c~Toz_yAnwH??owHowH??nwH;ojtToz_yA?~oRnwH??_pRowH?",
+          "outline": "oek[ojxbBnwH??~oRnwH??~oR~oRowH?nwHnwH??~oR_pRnwH?nwHnh\\??~oRnwH?owH~oRowH??nh\\_pR??nwHnh\\??nwHnwH??oh\\nwH??~`f@owH??nwH~oRowH?nh\\~oRnwH?nh\\_pR??~oRowH?owH_pRowH??~`f@owH??nwH~oR??nwHnwH??nh\\owH??nwHnwH??~`f@~oRnwH?nwHnwH??nwHnh\\?nwH~oRnwH??nwH~qy@nwH?oyo@owH??_pRowH??owH~oRowH?oh\\nwH??_pR_pRowHowH~oRowH??nwHoh\\?_pR_af@_pR??owHowH??nwHowH??_af@nh\\??owHnwH??nwHnwH??owHnwH??owHowH??_pRnwH??oh\\~oR??_pRnwH??owH~oR??owH_pR??_pRoh\\?owH~oRowH?owH_af@~`f@??owHnwH?owH_pRnwH??owH_pR??owHnwH??oh\\owH??owHnwH??owH~oR??nwH~oR??_pRowH??owHnh\\??_af@owH??~oRowH??nwH_pR?owH~oRowH??owH_pR??owHowH??_af@_pRowH?owHowH??owH~oR??owHoyo@??nwHowH??owHowH??nwHowH??owH_pR??~oRnwH??nwH_pR??nyo@nwH??nwH_pR??owHowH??~oR,ocdZo{kcBnwH??oyo@nwH??nh\\nwH??~oRnyo@??nh\\_af@nwH?nwHnwH??nyo@owH??_pRowH??_af@owH??~oR_pRowHnwH_pRnwH??owHnwH??owH_pRnwHowH_pR,onbWo{kcB?nwHowH??owHnwH?,_x_XoydbBnh\\??nwHoh\\??owH,_eeV_n``B?nwHowH??owHnwH?,o}nVoso~AnwH??nwHowH??owH,_eeV_jr}A?nwHowH??owHnwH?,o}nVoqh}A?nwHowH??nh\\oh\\??_pRowH??owH~oR??nwHnwH?owH_pRnh\\?,_vxVo~m{A?nwHowH??owHnwH?,_zfYofj`BowH??_pRnwH??~oR,ocdZ_rnbB?owHnwH??nwHowH?,oa}Xouv_BnwH??nwHowH??owH,_x_XoksyAnwH??~oRowH??_pR,o{gU_bvxA~oRowH?~oR_pR??owH,onbWoxxwAowH??owHnwH??nwH,onbW_qbxA?owHnwH??nwHowH?,_eeV_~gvA?owHnwH??nwHowH?,_x_X_tucB_pRowH?oh\\~oRnwH?nwHnwH?owH~oR,_isX_tucBowH??owHnwH??nwH",
           "areaKm2": 1160612,
           "meanChange": 2.5851,
           "significantShare": 1,
@@ -1501,15 +1306,16 @@ export const ATLAS = {
             "slopePerDecade": 1.0711,
             "years": 23,
             "carryOver": 0.55
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 2,
           "name": "Sea of Japan",
           "sign": 1,
           "center": [
-            38.77,
-            134.15
+            38.75,
+            134.25
           ],
           "bbox": [
             128.5,
@@ -1517,7 +1323,7 @@ export const ATLAS = {
             139.5,
             41.5
           ],
-          "outline": "opiX_zysAnwH??nyo@~oRnwHnwH~`f@nwH??nh\\nwH??nwHowH??nh\\nwH??nwH_pRowH?nh\\~oRnwHnwH_pRnwH??owHowH??oh\\~oRnwH?owHnwH??~oRnwH?nwH_pR_pRowH?owHowH??owHowH??_pRowH??_pRnwH??owH_pRowH?_pRowH??owHowH??_pRnwH??owH_pR??owHoh\\??nwH,_glWo_irA?owHnwH??nwHowH?;ol{UonuqAnwH??owHowH??nwH;o_vWo}aqAnwH??owHowH??nwH",
+          "outline": "opiX_zysAnwH??nyo@~oRnwH?~oRowH??nwH~oRowH?~oRnwH??nh\\nwH??nwHowH??nh\\owH??nh\\~oRnwHnwH_pRnwH??owHowH??oh\\~oRnwH?owHnwH??~oRnwH?nwH_pR_pRowH?owHowH??owHowH??_pRowH??_pR~oRowH?owH_pRnwH?owHowH??_pR_pRowH?_pRnwH??owH_pR??owHoh\\??nwH,o}nV_ajnAowH??owHnwH??nwH,_glWo_irA?owHnwH??nwHowH?",
           "areaKm2": 191850,
           "meanChange": 2.2088,
           "significantShare": 1,
@@ -1530,15 +1336,16 @@ export const ATLAS = {
             "slopePerDecade": 0.9778,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 3,
           "name": "Western Pacific (2)",
           "sign": 1,
           "center": [
-            43.3,
-            173.19
+            43.25,
+            173.25
           ],
           "bbox": [
             169,
@@ -1546,7 +1353,7 @@ export const ATLAS = {
             176.5,
             45.5
           ],
-          "outline": "otwZ_~xiBnh\\??nwHowH??nh\\nwH??nwHowH??nwHnwH??nh\\nwH??nh\\nh\\??oh\\_pRowH?oyo@~oRowH?_af@owH??nwH_pR??owHowH??nwH_pR?nwH_pR_pR??nh\\;_isX_oljB~oR??owH_pR??nwH;_isXot{hBnwH??owHowH??nwH",
+          "outline": "otwZ_~xiBnh\\??nwHowH??nh\\nwH??nwHowH??nwHnwH??nh\\nwH??nh\\nh\\??oh\\_pRowH?oyo@~oRowH?nwHnwH??owHowH??_af@~oR??owH_pR?owH~oR_pR??owHowH??nwH_pR?nwH_pR_pR??nh\\",
           "areaKm2": 116410,
           "meanChange": 2.3589,
           "significantShare": 1,
@@ -1559,14 +1366,15 @@ export const ATLAS = {
             "slopePerDecade": 0.9662,
             "years": 23,
             "carryOver": 0.46
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 4,
           "name": "Western Pacific (3)",
           "sign": 1,
           "center": [
-            39.54,
+            39.75,
             171.25
           ],
           "bbox": [
@@ -1575,7 +1383,7 @@ export const ATLAS = {
             175.5,
             41.5
           ],
-          "outline": "opiXoaagBnwH??~oR~bmAnwH?owHowH??_pR_pRnwH?oh\\_pRnwH?owHnwH??_pR_pRowH?_af@owH??~oRowH??~`f@nwH??~oR_pR??nwH,_glW_iwfBowH??owHnwH??nwH;_glW_~xiBnwH??owHowH??nwH;_tqUo_zeBnwH??owHowH??nwH",
+          "outline": "opiXoaagBnwH??~oR~`f@??nwH~`f@??nwHnwH?owH_pRowH??_pR_pRnwH?oh\\owH??_pR_pRowH?_af@nwH??owH_pRnwH?~oRowH??~`f@nwH??~oR_pR??nwH,_vxVortgB?nwHowH??owHnwH?,_glW_iwfBowH??owHnwH??nwH",
           "areaKm2": 102009,
           "meanChange": 2.3618,
           "significantShare": 1,
@@ -1588,15 +1396,16 @@ export const ATLAS = {
             "slopePerDecade": 1.0425,
             "years": 23,
             "carryOver": 0.41
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 5,
           "name": "Western Pacific (4)",
           "sign": 1,
           "center": [
-            36.41,
-            124.74
+            36.25,
+            124.75
           ],
           "bbox": [
             123,
@@ -1604,7 +1413,7 @@ export const ATLAS = {
             126,
             39.5
           ],
-          "outline": "onbWobkjAnwH??owH~oR??~oRnwH??oh\\_af@??~oR;ol{Uos~jAnwH??nwH~`f@?nwH_pRnwH??_pR_af@??~oR_af@owHnwH~oR",
+          "outline": "onbWobkjAnwH??owH~oR??~oRnwH??oh\\nwH??nwH~`f@?nwH_pRnwH??_pR_af@??~oR_af@owHnwH~oR_af@??~oR",
           "areaKm2": 66823,
           "meanChange": 1.9259,
           "significantShare": 1,
@@ -1617,15 +1426,16 @@ export const ATLAS = {
             "slopePerDecade": 0.9091,
             "years": 23,
             "carryOver": 0.53
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 6,
           "name": "North Atlantic",
           "sign": 1,
           "center": [
-            37.34,
-            -72.01
+            37.25,
+            -72.25
           ],
           "bbox": [
             -74.5,
@@ -1633,7 +1443,7 @@ export const ATLAS = {
             -69,
             38.5
           ],
-          "outline": "o}nV~f}j@nwH??~oR~oRnwH?nwH~oR??owHowH??_pRowH??oh\\owH??_af@owH??~`f@owH??~oR;_c~Tnanl@nwH??owHowH??nwH",
+          "outline": "o}nV~f}j@nwH??~oR~oRnwH?nwH~oR??nwHnwH?owH_pRowH??_pRowH??oh\\owH??_af@owH??~`f@owH??~oR",
           "areaKm2": 48922,
           "meanChange": 2.6157,
           "significantShare": 1,
@@ -1646,15 +1456,16 @@ export const ATLAS = {
             "slopePerDecade": 1.7354,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 7,
           "name": "North Atlantic (2)",
           "sign": 1,
           "center": [
-            42.56,
-            -66.19
+            42.25,
+            -66.25
           ],
           "bbox": [
             -68,
@@ -1675,15 +1486,16 @@ export const ATLAS = {
             "slopePerDecade": 1.002,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         },
         {
           "rank": 8,
           "name": "Western Pacific (5)",
           "sign": 1,
           "center": [
-            37.5,
-            173.68
+            37.25,
+            173.75
           ],
           "bbox": [
             172.5,
@@ -1704,7 +1516,8 @@ export const ATLAS = {
             "slopePerDecade": 0.9004,
             "years": 23,
             "carryOver": null
-          }
+          },
+          "chance": 0
         }
       ]
     }

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { pointInGeometry } from "../../geo/geometry";
 import { decodeGeometry } from "../../geo/polyline";
 import { INDICATORS } from "../../query/indicators";
 import { queryFromParams } from "../../trends/query";
@@ -32,13 +33,20 @@ describe("the world change atlas data", () => {
     }
   });
 
-  it("ranks the biggest changes, each with a readable outline and a tested trend", () => {
+  it("ranks the biggest changes, each with a readable outline, its label inside it and a chance check", () => {
     for (const measure of WORLD_ATLAS.measures) {
-      expect(measure.hotspots.length).toBeGreaterThan(0);
+      expect(measure.chanceRuns).toBe(19);
+      expect(measure.chanceRunsWithPatches).toBeGreaterThanOrEqual(0);
+      expect(measure.chanceRunsWithPatches).toBeLessThanOrEqual(measure.chanceRuns);
       expect(measure.hotspots.map((h) => h.rank)).toEqual(measure.hotspots.map((_, i) => i + 1));
       for (const hotspot of measure.hotspots) {
-        expect(decodeGeometry(hotspot.outline)).not.toBeNull();
+        const outline = decodeGeometry(hotspot.outline);
+        expect(outline).not.toBeNull();
         expect(hotspot.areaKm2).toBeGreaterThan(0);
+        // Named and labelled at a point inside the patch.
+        expect(pointInGeometry([hotspot.center[1], hotspot.center[0]], outline!)).toBe(true);
+        expect(hotspot.chance).toBeGreaterThanOrEqual(0);
+        expect(hotspot.chance).toBeLessThanOrEqual(measure.chanceRuns);
         if (hotspot.verdict) {
           expect(hotspot.verdict.p).toBeGreaterThanOrEqual(0);
           expect(hotspot.verdict.p).toBeLessThanOrEqual(1);
@@ -61,6 +69,7 @@ describe("atlas helpers", () => {
     meanChange: -0.01,
     significantShare: 0.8,
     verdict: null,
+    chance: 0,
   };
 
   it("falls back to the first measure for an unknown one", () => {

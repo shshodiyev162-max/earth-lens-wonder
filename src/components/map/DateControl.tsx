@@ -1,7 +1,8 @@
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { LayerDateState } from "@/hooks/useLayerDate";
 import { isTimeEnabled, periodLabel, type GibsLayer } from "@/lib/gibs/catalog";
-import { formatLayerDate, shiftDate, stepForLayer, todayUtc } from "@/lib/gibs/time";
+import { formatLayerDate, shiftDate, stepForLayer, timeSteps, todayUtc } from "@/lib/gibs/time";
 import { cn } from "@/lib/utils";
 
 interface DateControlProps {
@@ -40,6 +41,39 @@ function statusText(layer: GibsLayer, state: LayerDateState, requested: string |
   }
 }
 
+/** Scrubs through a monthly or yearly record; the map follows once the handle is let go. */
+function TimeSlider({ layer, steps, current, onChange }: { layer: GibsLayer; steps: string[]; current: string; onChange: (date: string | null) => void }) {
+  const unit = layer.period === "yearly" ? 4 : 7;
+  const index = Math.max(0, steps.findIndex((step) => step.slice(0, unit) === current.slice(0, unit)));
+  const [draft, setDraft] = useState(index);
+  useEffect(() => setDraft(index), [index]);
+  const commit = () => draft !== index && onChange(draft === steps.length - 1 ? null : steps[draft]);
+  return (
+    <div className="mt-2.5">
+      <div className="flex justify-between font-mono text-[10px] tabular-nums text-panel-muted" aria-hidden>
+        <span>{steps[0].slice(0, 4)}</span>
+        {draft !== index && <span className="text-panel-foreground">{formatLayerDate(layer, steps[draft])}</span>}
+        <span>{steps[steps.length - 1].slice(0, 4)}</span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={steps.length - 1}
+        step={1}
+        value={draft}
+        aria-label={`Scrub through time, ${layer.name}`}
+        aria-valuetext={formatLayerDate(layer, steps[draft])}
+        onChange={(event) => setDraft(Number(event.target.value))}
+        onPointerUp={commit}
+        onKeyUp={commit}
+        onBlur={commit}
+        onTouchEnd={commit}
+        className="mt-1 w-full accent-panel-foreground pointer-coarse:h-8"
+      />
+    </div>
+  );
+}
+
 export default function DateControl({ layer, state, requested, onChange, label = "Observation date", compact }: DateControlProps) {
   if (!isTimeEnabled(layer)) {
     return (
@@ -62,6 +96,10 @@ export default function DateControl({ layer, state, requested, onChange, label =
     const next = shiftDate(current, step, direction);
     onChange(next > max ? null : next);
   };
+  // Monthly and yearly records are picked by month or year, with a slider through the whole record.
+  const steps = timeSteps(layer.period, state.earliest, state.latest);
+  const inputClass =
+    "min-w-0 flex-1 rounded-md border border-panel-line-strong bg-transparent px-2.5 py-2 font-mono text-[13px] tabular-nums text-panel-foreground outline-none focus:border-panel-foreground/70 pointer-coarse:min-h-11";
 
   return (
     <div>
@@ -76,15 +114,35 @@ export default function DateControl({ layer, state, requested, onChange, label =
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <input
-          type="date"
-          value={current}
-          min={min}
-          max={max}
-          onChange={(event) => event.target.value && onChange(event.target.value)}
-          className="min-w-0 flex-1 rounded-md border border-panel-line-strong bg-transparent px-2.5 py-2 font-mono text-[13px] tabular-nums text-panel-foreground outline-none focus:border-panel-foreground/70 pointer-coarse:min-h-11"
-          aria-label={`${label} for ${layer.name}`}
-        />
+        {layer.period === "monthly" ? (
+          <input
+            type="month"
+            value={current.slice(0, 7)}
+            min={min.slice(0, 7)}
+            max={max.slice(0, 7)}
+            onChange={(event) => event.target.value && onChange(`${event.target.value}-01`)}
+            className={inputClass}
+            aria-label={`${label} for ${layer.name} (month)`}
+          />
+        ) : layer.period === "yearly" && steps.length ? (
+          <select value={current.slice(0, 4)} onChange={(event) => onChange(`${event.target.value}-01-01`)} className={inputClass} aria-label={`${label} for ${layer.name} (year)`}>
+            {steps.map((step) => (
+              <option key={step} value={step.slice(0, 4)}>
+                {step.slice(0, 4)}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="date"
+            value={current}
+            min={min}
+            max={max}
+            onChange={(event) => event.target.value && onChange(event.target.value)}
+            className={inputClass}
+            aria-label={`${label} for ${layer.name}`}
+          />
+        )}
         <button
           type="button"
           onClick={() => go(1)}
@@ -103,6 +161,7 @@ export default function DateControl({ layer, state, requested, onChange, label =
           Latest
         </button>
       </div>
+      {steps.length > 1 && <TimeSlider layer={layer} steps={steps} current={current} onChange={onChange} />}
       {status.text && (
         <p
           className={cn(

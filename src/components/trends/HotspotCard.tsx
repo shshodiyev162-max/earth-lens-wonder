@@ -2,12 +2,14 @@ import { Link } from "react-router-dom";
 import { ArrowRight, X } from "lucide-react";
 import { TONE_COLOUR, toneOf } from "@/components/analysis/tone";
 import { demoAttr } from "@/lib/demo/scripts";
-import { answerInWords, explainVerdict, formatP, signed } from "@/lib/analysis/stats";
+import { signed } from "@/lib/analysis/stats";
 import { rateText } from "@/lib/analysis/trend";
 import { formatArea } from "@/lib/geo/geometry";
 import type { Indicator } from "@/lib/query/indicators";
 import type { PeriodPlan } from "@/lib/query/period";
 import type { HotspotDetail } from "@/lib/trends/scan";
+import { beyondChance, hotspotChanceText } from "@/lib/trends/chance";
+import type { ChanceState } from "@/hooks/useChanceCheck";
 import { cn } from "@/lib/utils";
 import PossibleCauses from "@/components/causes/PossibleCauses";
 import type { CauseSetup } from "@/lib/causes/requests";
@@ -24,12 +26,26 @@ interface HotspotCardProps {
   onScanHere?: () => void;
   /** What may be behind the change (null: not for this measure). */
   causes?: CauseSetup | null;
+  /** Whether chance makes patches this strong (lib/trends/chance). */
+  chance?: ChanceState;
   onClose: () => void;
   className?: string;
 }
 
+/**
+ * The patch's answer. It was picked because its pixels changed, so its own trend test would call
+ * almost any patch significant; the chance check is what says whether it is real.
+ */
+function headline(hotspot: HotspotDetail, chance: ChanceState | undefined): string | null {
+  if (!hotspot.verdict) return null;
+  const way = hotspot.sign < 0 ? "Falling" : "Rising";
+  if (chance?.status === "done") return beyondChance(chance.check, hotspot.score) ? `${way}, beyond chance.` : `${way}, but this could be chance.`;
+  if (chance?.status === "running") return `${way}. Checking against chance…`;
+  return `${way}.`;
+}
+
 /** Details of one hotspot, with links to the full analysis and the then-vs-now swipe. */
-export default function HotspotCard({ hotspot, title, indicator, plan, analysisHref, compareHref, onScanHere, causes, onClose, className }: HotspotCardProps) {
+export default function HotspotCard({ hotspot, title, indicator, plan, analysisHref, compareHref, onScanHere, causes, chance, onClose, className }: HotspotCardProps) {
   const verdict = hotspot.verdict;
   const rate = verdict ? rateText(verdict, { unit: indicator.unit, decimals: indicator.decimals }) : null;
   const compared = plan.kind === "comparison" ? `${plan.baseline[0]} → ${plan.recent[0]}` : `${plan.baseline[0]}–${plan.baseline[1]} → ${plan.recent[0]}–${plan.recent[1]}`;
@@ -44,11 +60,11 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
       <h2 translate="no" className="mt-2 font-editorial text-[1.75rem] leading-[1.08] text-panel-foreground">
         {title}
       </h2>
-      {verdict && <p className="mt-1 font-editorial text-[1.2rem] leading-tight text-panel-muted">{answerInWords(verdict)}</p>}
+      {verdict && <p className="mt-1 font-editorial text-[1.2rem] leading-tight text-panel-muted">{headline(hotspot, chance)}</p>}
 
       <div className="mt-3 border-t border-panel-line pt-2.5">
         <p className="font-mono text-base font-medium tabular-nums tracking-tight">{rate ? rate.rate : `${signed(hotspot.meanChange, indicator.decimals)} ${indicator.unit}`}</p>
-        <p className="mt-0.5 font-mono text-[10.5px] tabular-nums text-panel-muted">{rate && verdict ? `${rate.range} · ${formatP(verdict.p)}` : compared}</p>
+        <p className="mt-0.5 font-mono text-[10.5px] tabular-nums text-panel-muted">{rate ? rate.range : compared}</p>
       </div>
 
       <div className="mt-3">
@@ -64,7 +80,12 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
         />
       </div>
 
-      {verdict && <p className="mt-3 text-xs leading-relaxed text-panel-soft">{explainVerdict(verdict, `${indicator.subject} here`, indicator.unit, indicator.decimals + 1)}</p>}
+      {verdict && (
+        <p className="mt-3 text-xs leading-relaxed text-panel-soft">
+          {chance?.status === "done" ? `${hotspotChanceText(chance.check, hotspot.score)} ` : ""}
+          This patch was picked because its pixels changed, so its own yearly test can&apos;t confirm it; the chance check shuffles the years and tests every pixel again.
+        </p>
+      )}
 
       <dl className="mt-3 font-mono text-[10.5px] tabular-nums">
         <div className="flex justify-between gap-3 border-t border-panel-line py-1.5">

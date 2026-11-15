@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completeSeasonYears, planPeriod, seasonYearMonths, type PeriodPlan } from "../period";
+import { completeSeasonYears, planPeriod, seasonYearMonths, timeSpan, trendWindows, type PeriodPlan, type TimeSpec } from "../period";
 
 const NDVI = { earliest: "2000-03", latest: "2026-08" };
 const GROWING = [4, 5, 6, 7, 8, 9];
@@ -76,5 +76,27 @@ describe("planPeriod", () => {
     for (let y = p.baseline[0]; y <= p.baseline[1]; y++) expect(p.years).toContain(y);
     for (let y = p.recent[0]; y <= p.recent[1]; y++) expect(p.years).toContain(y);
     expect(p.notes.join(" ")).toMatch(/of 25 years are read/);
+  });
+});
+
+describe("the years a timeline shows", () => {
+  it("are the years each time choice covers", () => {
+    expect(timeSpan({ kind: "default" }, 2025)).toEqual([2016, 2025]);
+    expect(timeSpan({ kind: "last", years: 5 }, 2025)).toEqual([2021, 2025]);
+    expect(timeSpan({ kind: "since", start: 2003 }, 2025)).toEqual([2003, 2025]);
+    expect(timeSpan({ kind: "range", start: 2005, end: 2012 }, 2025)).toEqual([2005, 2012]);
+    expect(timeSpan({ kind: "year", year: 2021 }, 2025)).toEqual([2021, 2021]);
+    expect(timeSpan({ kind: "versus", baseline: 2005, recent: 2024 }, 2025)).toEqual([2005, 2024]);
+  });
+
+  it("mark the same years compared as the scan itself", () => {
+    const choices: TimeSpec[] = [{ kind: "default" }, { kind: "since", start: 2003 }, { kind: "range", start: 2010, end: 2016 }, { kind: "range", start: 2021, end: 2023 }, { kind: "year", year: 2024 }];
+    for (const time of choices) {
+      const scan = plan(time, ALL, NDVI);
+      const [start, end] = timeSpan(time, 2025);
+      expect(trendWindows(start, end, 2000)).toEqual({ baseline: scan.baseline, recent: scan.recent });
+    }
+    // A short span right at the start of the record has nothing earlier to compare with.
+    expect(trendWindows(2000, 2002, 2000)).toBeNull();
   });
 });

@@ -33,7 +33,10 @@ export interface AtlasHotspot {
   meanChange: number;
   /** Share of its pixels whose own trend is clear. */
   significantShare: number;
+  /** Its average's trend: the rate and range. Not proof on its own, since the patch was picked for changing. */
   verdict: AtlasVerdict | null;
+  /** The chance check: shuffles (of the measure's chanceRuns) that made a patch at least this strong. */
+  chance: number;
 }
 
 export interface AtlasMeasure {
@@ -51,15 +54,12 @@ export interface AtlasMeasure {
   /**
    * A change is mapped as a patch when the recent years differ from the first by at least this
    * (raised above the measure's usual bar where widespread change joins into continent-sized patches)
-   * and the pixel's trend is clear with every pixel tested allowed for.
+   * and the pixel's trend is clear with every pixel tested allowed for (5% false discovery rate).
    */
   minChange: number;
-  /**
-   * true: a pixel counts only if its trend stays clear with every pixel tested allowed for (5% false
-   * discovery rate). false: that test found too few patches, so the Trends page's usual test is used
-   * (each pixel at p < 0.1).
-   */
-  strict: boolean;
+  /** The chance check: how many times the years were shuffled, and in how many a patch passed. */
+  chanceRuns: number;
+  chanceRunsWithPatches: number;
   grid: GridSpec;
   scale: { max: number; unit: string };
   region: { verdict: AtlasVerdict | null; meanChange: number | null; scannedKm2: number; validShare: number };

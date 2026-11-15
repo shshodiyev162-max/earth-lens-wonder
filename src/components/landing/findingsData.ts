@@ -1,7 +1,9 @@
 // Real results, measured by this app's own scanner (runScan in lib/trends/scan.ts) from NASA's monthly
 // maps, the same way the Trends page does when each finding's `link` is opened. Not edited by hand.
 // The per-pixel maps are in public/data/findings: red = rate per decade (0-255 maps to
-// -scalePerDecade..+scalePerDecade), green = significant at p < 0.05 (allowing for year-to-year carry-over), blue = measured.
+// -scalePerDecade..+scalePerDecade), green = a clear trend (the hotspots' cut-off: allowing for year-to-year
+// carry-over and for every pixel tested at once), blue = measured. A hotspot's `chance` is how many of
+// `chanceRuns` shuffles of the years made a patch at least as strong (lib/trends/chance).
 
 export const MEASURED = {
   "measuredOn": "2026-11-14",
@@ -119,8 +121,8 @@ export const MEASURED = {
       "hotspot": {
         "name": null,
         "center": [
-          36.799,
-          16.788
+          36.851,
+          16.751
         ],
         "bbox": [
           -5.536,
@@ -128,83 +130,85 @@ export const MEASURED = {
           36.136,
           45.638
         ],
-        "areaKm2": 2312892,
-        "meanChange": 1.2579,
+        "areaKm2": 2265177,
+        "meanChange": 1.2592,
         "series": [
           {
             "year": 2003,
-            "value": 20.2095
+            "value": 20.2019
           },
           {
             "year": 2004,
-            "value": 19.7442
+            "value": 19.7358
           },
           {
             "year": 2005,
-            "value": 19.6957
+            "value": 19.6878
           },
           {
             "year": 2006,
-            "value": 19.8661
+            "value": 19.854
           },
           {
             "year": 2007,
-            "value": 19.9854
+            "value": 19.9745
           },
           {
             "year": 2009,
-            "value": 19.986
+            "value": 19.9799
           },
           {
             "year": 2011,
-            "value": 20.1135
+            "value": 20.111
           },
           {
             "year": 2014,
-            "value": 20.3567
+            "value": 20.3528
           },
           {
             "year": 2017,
-            "value": 20.3436
+            "value": 20.3405
           },
           {
             "year": 2019,
-            "value": 20.334
+            "value": 20.3301
           },
           {
             "year": 2021,
-            "value": 20.5009
+            "value": 20.4952
           },
           {
             "year": 2022,
-            "value": 20.71
+            "value": 20.7012
           },
           {
             "year": 2023,
-            "value": 21.2846
+            "value": 21.2749
           },
           {
             "year": 2024,
-            "value": 21.6826
+            "value": 21.675
           },
           {
             "year": 2025,
-            "value": 21.6124
+            "value": 21.6036
           }
         ],
         "verdict": {
           "label": "Significant increase",
           "direction": "increase",
-          "p": 0.0236,
-          "slopePerYear": 0.0612,
-          "lowerPerYear": 0.0206,
-          "upperPerYear": 0.1448,
-          "slopePerDecade": 0.6125,
+          "p": 0.023,
+          "slopePerYear": 0.0617,
+          "lowerPerYear": 0.0204,
+          "upperPerYear": 0.1433,
+          "slopePerDecade": 0.617,
           "years": 23,
           "method": "Mann–Kendall + Sen's slope",
-          "carryOver": 0.57,
+          "carryOver": 0.56,
           "yearsNeeded": 24
-        }
+        },
+        "chance": 0,
+        "chanceRuns": 19
       },
       "hotspotCount": 2,
       "overlay": {
@@ -221,7 +225,7 @@ export const MEASURED = {
         "measuredPixels": 3417,
         "significantShare": 0.978,
         "rising": 1,
-        "significantRising": 0.9783,
+        "significantRising": 0.9781,
         "significantFalling": 0
       }
     },
@@ -383,144 +387,146 @@ export const MEASURED = {
         "yearsNeeded": 74
       },
       "hotspot": {
-        "name": "Muynoq district, Uzbekistan",
+        "name": "Bozatau District, Uzbekistan",
         "center": [
-          43.51,
-          59.33
+          43.37,
+          59.442
         ],
         "bbox": [
-          58.657,
+          59.194,
           43.191,
-          60.266,
-          44.265
+          59.73,
+          43.62
         ],
-        "areaKm2": 3218,
-        "meanChange": -0.09743,
+        "areaKm2": 877,
+        "meanChange": -0.09369,
         "series": [
           {
             "year": 2000,
-            "value": 0.25166
+            "value": 0.23256
           },
           {
             "year": 2001,
-            "value": 0.19756
+            "value": 0.1935
           },
           {
             "year": 2002,
-            "value": 0.25988
+            "value": 0.25425
           },
           {
             "year": 2003,
-            "value": 0.28179
+            "value": 0.2169
           },
           {
             "year": 2004,
-            "value": 0.29049
+            "value": 0.23335
           },
           {
             "year": 2005,
-            "value": 0.26936
+            "value": 0.20343
           },
           {
             "year": 2006,
-            "value": 0.26311
+            "value": 0.2396
           },
           {
             "year": 2007,
-            "value": 0.21936
+            "value": 0.20274
           },
           {
             "year": 2008,
-            "value": 0.19774
+            "value": 0.1826
           },
           {
             "year": 2009,
-            "value": 0.16576
+            "value": 0.16641
           },
           {
             "year": 2010,
-            "value": 0.22226
+            "value": 0.17371
           },
           {
             "year": 2011,
-            "value": 0.2286
+            "value": 0.18582
           },
           {
             "year": 2012,
-            "value": 0.20838
+            "value": 0.19624
           },
           {
             "year": 2013,
-            "value": 0.2283
+            "value": 0.20366
           },
           {
             "year": 2014,
-            "value": 0.17442
+            "value": 0.16775
           },
           {
             "year": 2015,
-            "value": 0.19258
+            "value": 0.16693
           },
           {
             "year": 2016,
-            "value": 0.23168
+            "value": 0.19451
           },
           {
             "year": 2017,
-            "value": 0.21848
+            "value": 0.17286
           },
           {
             "year": 2018,
-            "value": 0.20428
+            "value": 0.16999
           },
           {
             "year": 2019,
-            "value": 0.16365
+            "value": 0.15264
           },
           {
             "year": 2020,
-            "value": 0.16698
+            "value": 0.14463
           },
           {
             "year": 2021,
-            "value": 0.14486
+            "value": 0.13686
           },
           {
             "year": 2022,
-            "value": 0.13827
+            "value": 0.1274
           },
           {
             "year": 2023,
-            "value": 0.13056
+            "value": 0.11951
           },
           {
             "year": 2024,
-            "value": 0.15937
+            "value": 0.14695
           },
           {
             "year": 2025,
-            "value": 0.14638
+            "value": 0.13264
           },
           {
             "year": 2026,
-            "value": 0.18467
+            "value": 0.16754
           }
         ],
         "verdict": {
           "label": "Significant decline",
           "direction": "decline",
-          "p": 3.67e-05,
-          "slopePerYear": -0.00487,
-          "lowerPerYear": -0.00665,
-          "upperPerYear": -0.00302,
-          "slopePerDecade": -0.04873,
+          "p": 1.63e-06,
+          "slopePerYear": -0.00396,
+          "lowerPerYear": -0.005,
+          "upperPerYear": -0.00294,
+          "slopePerDecade": -0.03965,
           "years": 27,
           "method": "Mann–Kendall + Sen's slope",
           "carryOver": null,
-          "yearsNeeded": 22
-        }
+          "yearsNeeded": 15
+        },
+        "chance": 0,
+        "chanceRuns": 19
       },
-      "hotspotCount": 10,
+      "hotspotCount": 6,
       "overlay": {
         "file": "uzbekistan.png",
         "bbox": [
@@ -533,10 +539,10 @@ export const MEASURED = {
         "height": 78,
         "scalePerDecade": 0.0456,
         "measuredPixels": 4135,
-        "significantShare": 0.205,
+        "significantShare": 0.11,
         "rising": 0.3787,
-        "significantRising": 0.1258,
-        "significantFalling": 0.0788,
+        "significantRising": 0.088,
+        "significantFalling": 0.022,
         "picture": {
           "file": "uzbekistan-fine.png",
           "bbox": [
@@ -659,97 +665,8 @@ export const MEASURED = {
         "carryOver": null,
         "yearsNeeded": 25
       },
-      "hotspot": {
-        "name": null,
-        "center": [
-          -78.723,
-          32.619
-        ],
-        "bbox": [
-          -176.4,
-          -89.999,
-          176.4,
-          -67.891
-        ],
-        "areaKm2": 7606014,
-        "meanChange": 0.1365,
-        "series": [
-          {
-            "year": 2005,
-            "value": 2.2089
-          },
-          {
-            "year": 2006,
-            "value": 2.1259
-          },
-          {
-            "year": 2007,
-            "value": 2.2295
-          },
-          {
-            "year": 2008,
-            "value": 2.2814
-          },
-          {
-            "year": 2009,
-            "value": 2.227
-          },
-          {
-            "year": 2011,
-            "value": 2.1869
-          },
-          {
-            "year": 2013,
-            "value": 2.3916
-          },
-          {
-            "year": 2015,
-            "value": 2.1192
-          },
-          {
-            "year": 2017,
-            "value": 2.4229
-          },
-          {
-            "year": 2019,
-            "value": 2.5855
-          },
-          {
-            "year": 2021,
-            "value": 2.2856
-          },
-          {
-            "year": 2022,
-            "value": 2.3188
-          },
-          {
-            "year": 2023,
-            "value": 2.3006
-          },
-          {
-            "year": 2024,
-            "value": 2.3316
-          },
-          {
-            "year": 2025,
-            "value": 2.5184
-          }
-        ],
-        "verdict": {
-          "label": "Significant increase",
-          "direction": "increase",
-          "p": 0.0175,
-          "slopePerYear": 0.0106,
-          "lowerPerYear": 0.004,
-          "upperPerYear": 0.0236,
-          "slopePerDecade": 0.1056,
-          "years": 21,
-          "method": "Mann–Kendall + Sen's slope",
-          "carryOver": null,
-          "yearsNeeded": 21
-        }
-      },
-      "hotspotCount": 1,
+      "hotspot": null,
+      "hotspotCount": 0,
       "overlay": {
         "file": "antarctica.png",
         "bbox": [
@@ -762,9 +679,9 @@ export const MEASURED = {
         "height": 59,
         "scalePerDecade": 0.1361,
         "measuredPixels": 24175,
-        "significantShare": 0.685,
+        "significantShare": 0,
         "rising": 0.9994,
-        "significantRising": 0.6846,
+        "significantRising": 0,
         "significantFalling": 0
       }
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, availableMonths, clipDomain, completeDaysAgoUtc, defaultDateFor, firstDateInMonth, formatLayerDate, monthRange, monthsInDomain, parseDomainXml, parsePeriod, provisionalDate, resolveForLayer, resolveInDomain, waitsForDates } from "../time";
+import { addMonths, availableMonths, clipDomain, completeDaysAgoUtc, defaultDateFor, firstDateInMonth, formatLayerDate, monthRange, monthsInDomain, parseDomainXml, parsePeriod, provisionalDate, resolveForLayer, resolveInDomain, timeSteps, waitsForDates } from "../time";
 import { getLayer, type GibsLayer } from "../catalog";
 
 const DAILY = `<Domains><DimensionDomain><ows:Identifier>time</ows:Identifier><Domain>2000-06-01/2025-10-22/P1D,2025-10-30/2026-01-07/P1D,2026-01-09/2026-09-30/P1D</Domain><Size>3</Size></DimensionDomain></Domains>`;
@@ -163,5 +163,18 @@ describe("waitsForDates", () => {
     expect(waitsForDates({ period: "monthly" })).toBe(true);
     expect(waitsForDates({ period: "yearly" })).toBe(true);
     expect(waitsForDates({ period: "16-day" })).toBe(true);
+  });
+});
+
+describe("timeSteps", () => {
+  it("lists every month of a monthly record and every year of a yearly one, oldest first", () => {
+    const months = timeSteps("monthly", "2024-11-01", "2025-02-01");
+    expect(months).toEqual(["2024-11-01", "2024-12-01", "2025-01-01", "2025-02-01"]);
+    expect(timeSteps("yearly", "2001-01-01", "2004-01-01")).toEqual(["2001-01-01", "2002-01-01", "2003-01-01", "2004-01-01"]);
+  });
+
+  it("has no steps for daily maps, or before NASA's dates are known", () => {
+    expect(timeSteps("daily", "2024-01-01", "2025-01-01")).toEqual([]);
+    expect(timeSteps("monthly", null, "2025-01-01")).toEqual([]);
   });
 });

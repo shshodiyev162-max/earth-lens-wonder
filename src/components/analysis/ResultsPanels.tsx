@@ -42,17 +42,22 @@ export function ResultsHeader({ target, result, running, shareUrl }: { target: A
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5 border-b border-border px-6 py-3 md:px-10">
         <p className="font-mono text-[11px] tabular-nums text-muted-foreground">{result ? describeResultPeriod(result).text : ""}</p>
         <div className="flex flex-wrap gap-1.5 print:hidden">
-          <button
-            type="button"
-            disabled={!result || running}
-            onClick={() => result && downloadText(`terrascope-${slugify(target.name)}-${result.start}-to-${result.end}.csv`, buildCsv(result))}
-            className="btn-line px-3 py-1.5"
-          >
-            <Download className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Download CSV
-          </button>
-          <button type="button" disabled={!result || running} onClick={printReport} className="btn-line px-3 py-1.5">
-            <Printer className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Save as PDF
-          </button>
+          {/* Nothing to download or print until there is a report. */}
+          {result && (
+            <>
+              <button
+                type="button"
+                disabled={running}
+                onClick={() => downloadText(`terrascope-${slugify(target.name)}-${result.start}-to-${result.end}.csv`, buildCsv(result))}
+                className="btn-line px-3 py-1.5"
+              >
+                <Download className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Download CSV
+              </button>
+              <button type="button" disabled={running} onClick={printReport} className="btn-line px-3 py-1.5">
+                <Printer className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Save as PDF
+              </button>
+            </>
+          )}
           <button type="button" onClick={copy} className="btn-line px-3 py-1.5">
             {copied ? <Check className="h-3.5 w-3.5 text-tone-good" aria-hidden /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />} {copied ? "Copied" : "Copy link"}
           </button>

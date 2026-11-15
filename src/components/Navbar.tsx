@@ -11,11 +11,12 @@ import { ACCOUNTS_ENABLED } from "@/config";
 import { useTheme } from "@/context/theme";
 
 const navItems = [
+  // The main tools first, in the order the home page lists them.
   { to: "/", label: "Home", match: ["/"] },
-  { to: "/map", label: "Explore", match: ["/map", "/split", "/sync"] },
   { to: "/trends", label: "Trends", match: ["/trends"] },
   { to: "/atlas", label: "Atlas", match: ["/atlas"] },
   { to: "/analysis", label: "Analysis", match: ["/analysis"] },
+  { to: "/map", label: "Explore", match: ["/map", "/split", "/sync"] },
 ];
 
 export default function Navbar() {

@@ -22,11 +22,17 @@ describe("the page's answers agree with what was measured", () => {
     expect(verdict.upperPerYear).toBeGreaterThan(0);
   });
 
-  it('"There, yes." for the Aral Sea shore: a clear decline', () => {
-    const { verdict, name } = FINDINGS.uzbekistan.hotspot;
-    expect(name).toContain("Muynoq");
+  it('"There, yes." for the Aral Sea shore: a clear decline, beyond chance', () => {
+    const { verdict, center, chance, chanceRuns } = FINDINGS.uzbekistan.hotspot;
+    // On the Amu Darya delta, by the dried-up southern shore of the Aral Sea.
+    expect(center[0]).toBeGreaterThan(42.5);
+    expect(center[0]).toBeLessThan(44.5);
+    expect(center[1]).toBeGreaterThan(58);
+    expect(center[1]).toBeLessThan(60.5);
     expect(verdict.direction).toBe("decline");
     expect(verdict.upperPerYear).toBeLessThan(0);
+    expect(chanceRuns).toBe(19);
+    expect(chance).toBe(0);
   });
 
   it('"Barely. Maybe." for Antarctic ozone: significant, but only just', () => {

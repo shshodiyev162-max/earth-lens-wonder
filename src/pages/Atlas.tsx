@@ -10,7 +10,7 @@ import GridImageLayer from "@/components/trends/GridImageLayer";
 import HotspotLayer from "@/components/trends/HotspotLayer";
 import TrendLegend from "@/components/trends/TrendLegend";
 import { answerInWords, formatP, signed } from "@/lib/analysis/stats";
-import { atlasMeasure, atlasPixel, atlasScale, atlasTrendsHref, hotspotName, WORLD_ATLAS, type AtlasMeasure } from "@/lib/atlas/atlas";
+import { atlasMeasure, atlasPixel, atlasScale, atlasTrendsHref, hotspotName, WORLD_ATLAS, type AtlasHotspot, type AtlasMeasure } from "@/lib/atlas/atlas";
 import { formatArea } from "@/lib/geo/geometry";
 import { decodeGeometry } from "@/lib/geo/polyline";
 import { BASE_LAYER_ID, getLayer, type GibsLayer } from "@/lib/gibs/catalog";
@@ -48,6 +48,13 @@ function useChangeMap(measure: AtlasMeasure): Uint8ClampedArray | null {
 /** An outline's id on the map: "heat:3". */
 const outlineId = (measure: AtlasMeasure, rank: number) => `${measure.id}:${rank}`;
 
+/** A change against chance, in two words for the list, or a sentence. */
+const chanceWords = (hotspot: AtlasHotspot) => (hotspot.chance === 0 ? "beyond chance" : "could be chance");
+const chanceSentence = (measure: AtlasMeasure, hotspot: AtlasHotspot) =>
+  hotspot.chance === 0
+    ? `Beyond chance: with the years shuffled ${measure.chanceRuns} times, no patch came out this strong.`
+    : `Could be chance: with the years shuffled ${measure.chanceRuns} times, a patch at least this strong came out ${hotspot.chance === 1 ? "once" : `${hotspot.chance} times`}.`;
+
 const perDecade = (value: number | null, unit: string, decimals: number) => (value === null ? "" : `${signed(value, decimals)} ${unit} per decade`);
 
 /** Where Earth is changing most: six measures, already scanned over the whole map. */
@@ -72,7 +79,7 @@ export default function Atlas() {
     () =>
       measure.hotspots.flatMap((hotspot) => {
         const geometry = decodeGeometry(hotspot.outline);
-        return geometry ? [{ id: outlineId(measure, hotspot.rank), rank: hotspot.rank, geometry, refined: false } as HotspotDetail] : [];
+        return geometry ? [{ id: outlineId(measure, hotspot.rank), rank: hotspot.rank, geometry, center: hotspot.center, refined: false } as HotspotDetail] : [];
       }),
     [measure],
   );
@@ -121,7 +128,12 @@ export default function Atlas() {
           Places where {measure.recent[0]}–{measure.recent[1]} differs from {measure.baseline[0]}–{measure.baseline[1]} by at least {measure.minChange.toFixed(decimals)}{" "}
           {info.unit}, with a clear trend in between. Ranked by size of area and of change.
         </p>
-        {measure.hotspots.length === 0 && <p className="border-t border-panel-line pt-3 text-[13px] text-panel-soft">No patch passed the test for this measure.</p>}
+        {measure.hotspots.length === 0 && (
+          <p className="border-t border-panel-line pt-3 text-[13px] leading-relaxed text-panel-soft">
+            No patch passed. The change here is too scattered, or too weak pixel by pixel, to show a clear trend once thousands of pixels tested at once are allowed for.
+            The whole map&apos;s average, above, is a separate test.
+          </p>
+        )}
         <ol className="border-t border-panel-line" aria-label="Biggest changes, largest first">
           {measure.hotspots.map((hotspot) => {
             const open = hotspot.rank === selected;
@@ -141,12 +153,13 @@ export default function Atlas() {
                     </span>
                     <span className="mt-0.5 block font-mono text-[10.5px] leading-snug tabular-nums text-panel-muted">
                       {hotspot.sign < 0 ? "Falling" : "Rising"} · {formatArea(hotspot.areaKm2)}
-                      {v ? ` · ${perDecade(v.slopePerDecade, info.unit, decimals)} · ${formatP(v.p)}` : ""}
+                      {v ? ` · ${perDecade(v.slopePerDecade, info.unit, decimals)}` : ""} · {chanceWords(hotspot)}
                     </span>
                   </span>
                 </button>
                 {open && (
-                  <div className="pb-3 pl-[1.9rem]">
+                  <div className="space-y-2.5 pb-3 pl-[1.9rem]">
+                    <p className="text-[12px] leading-relaxed text-panel-soft">{chanceSentence(measure, hotspot)}</p>
                     <Link to={atlasTrendsHref(measure, hotspot)} className="btn-line">
                       Look closer on the Trends page <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                     </Link>
@@ -162,10 +175,13 @@ export default function Atlas() {
         <p>
           Measured on {WORLD_ATLAS.measuredOn} with the same tests as the Trends page: {measure.mapsRead} monthly NASA maps, every month of each year from 60°S to 80°N, on
           a grid of {pixel.degrees}° (about {pixel.km} km). Each pixel gets a Mann–Kendall test and Sen&apos;s slope, allowing for years that follow the year before. Colour
-          is faded where a pixel&apos;s trend isn&apos;t clear.{" "}
-          {measure.strict
-            ? "A patch counts only where its pixels' trends stay clear once thousands of pixels tested at once are allowed for (a 5% false discovery rate)."
-            : "Hardly any pixel passes the strict test that allows for thousands of pixels tested at once, so the patches here use the Trends page's usual test (each pixel at p < 0.1, in a connected patch). Each patch's own trend is tested and shown."}
+          is faded where a pixel&apos;s trend isn&apos;t clear once thousands of pixels tested at once are allowed for (a 5% false discovery rate), and only
+          clear pixels make a patch.
+        </p>
+        <p>
+          Chance check: the years were shuffled {measure.chanceRuns} times and every pixel tested again, which keeps clouds, gaps and the ups and downs but takes
+          away any real trend. {measure.chanceRunsWithPatches === 0 ? "No patch passed in any of them." : `Patches passed in ${measure.chanceRunsWithPatches} of them.`} A change
+          stronger than chance made every time is beyond chance. A patch&apos;s own trend isn&apos;t used as proof, since it was picked for changing.
         </p>
         {measure.notes.map((note) => (
           <p key={note}>{note}</p>
@@ -186,9 +202,15 @@ export default function Atlas() {
         </div>
       }
       overlay={
-        <div className="absolute bottom-20 right-4 hidden sm:block">
-          <TrendLegend scale={scale} title={`${info.label}: trend`} />
-        </div>
+        <>
+          <div className="absolute bottom-20 right-4 hidden sm:block">
+            <TrendLegend scale={scale} title={`${info.label}: trend`} />
+          </div>
+          {/* Phones: a small legend under the top row. */}
+          <div className="absolute right-3 top-16 sm:hidden">
+            <TrendLegend compact scale={scale} title={`${info.label}: trend`} />
+          </div>
+        </>
       }
       panelOpen={panelOpen}
       onPanelOpenChange={setPanelOpen}

@@ -15,6 +15,11 @@ export interface PixelTrends {
   slope: Float32Array;
   /** Mann–Kendall two-sided p-value (NaN when not computed). */
   p: Float32Array;
+  /**
+   * Whether each pixel's yearly trend was tested. In a tested scan, a pixel left with too few years
+   * (clouds, gaps) has no p-value and can never count as a change.
+   */
+  tested: boolean;
 }
 
 /** Per-pixel mean of several grids; NaN where fewer than `minValid` of them have a value. */
@@ -154,5 +159,5 @@ export async function computePixelTrends(
       p[i] = result.p;
     }
   }
-  return { width, height, baselineMean, recentMean, change, slope, p };
+  return { width, height, baselineMean, recentMean, change, slope, p, tested: trend };
 }

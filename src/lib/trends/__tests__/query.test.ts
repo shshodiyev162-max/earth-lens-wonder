@@ -31,7 +31,10 @@ describe("search URLs", () => {
   it("read the choices", () => {
     const q = choices(VEGETATION_UZB);
     expect(q).toMatchObject({ understood: true, indicators: ["vegetation"], place: "Uzbekistan", time: { kind: "since", start: 2015 }, tab: "vegetation" });
-    expect(q.filters.vegetation).toEqual({ direction: "decline", minFactor: 1, minAreaKm2: 0, strict: false });
+    // Clear trends only, unless a link asks for weaker patches too.
+    expect(q.filters.vegetation).toEqual({ direction: "decline", minFactor: 1, minAreaKm2: 0, strict: true });
+    expect(choices({ ...VEGETATION_UZB, f: "vegetation~1~0~0" }).filters.vegetation?.strict).toBe(false);
+    expect(choices({ ...VEGETATION_UZB, f: "vegetation~2~0~1" }).filters.vegetation?.strict).toBe(true);
     expect(q.text).toBe("Vegetation decline in Uzbekistan since 2015");
   });
 

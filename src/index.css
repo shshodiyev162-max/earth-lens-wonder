@@ -567,3 +567,66 @@
     break-inside: avoid;
   }
 }
+
+/* Year timelines (components/common/YearTimeline.tsx): native sliders stacked on one track, with
+   only their handles taking the pointer. The track is inset by half a handle so years line up. */
+.timeline {
+  --thumb: 16px;
+}
+@media (pointer: coarse) {
+  .timeline {
+    --thumb: 26px;
+  }
+}
+.timeline-inset {
+  left: calc(var(--thumb) / 2);
+  right: calc(var(--thumb) / 2);
+}
+.timeline-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  margin: 0;
+}
+.timeline-range::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 100%;
+}
+.timeline-range::-moz-range-track {
+  background: transparent;
+}
+.timeline-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: var(--thumb);
+  height: var(--thumb);
+  margin-top: calc((2rem - var(--thumb)) / 2);
+  border-radius: 999px;
+  background: hsl(var(--panel-foreground));
+  border: 3px solid hsl(var(--panel));
+  box-shadow: 0 0 0 1px rgb(var(--panel-line-strong));
+  cursor: grab;
+}
+.timeline-range::-moz-range-thumb {
+  pointer-events: auto;
+  width: var(--thumb);
+  height: var(--thumb);
+  border-radius: 999px;
+  background: hsl(var(--panel-foreground));
+  border: 3px solid hsl(var(--panel));
+  box-shadow: 0 0 0 1px rgb(var(--panel-line-strong));
+  cursor: grab;
+}
+.timeline-range:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+.timeline-range:focus-visible {
+  outline: none;
+}
+.timeline-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px hsl(var(--panel)), 0 0 0 4px hsl(var(--ring));
+}
+.timeline-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 2px hsl(var(--panel)), 0 0 0 4px hsl(var(--ring));
+}

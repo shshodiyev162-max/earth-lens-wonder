@@ -14,7 +14,7 @@ import { domainWindow, fetchTimeDomain, monthsInDomain } from "../gibs/time";
 import { INDICATORS, type Direction, type IndicatorId } from "../query/indicators";
 import { seasonYearMonths, type DataWindow, type PeriodPlan } from "../query/period";
 import { fetchMonthGrid, fetchSurfaceMask, scanGrid, type Surface } from "./grid";
-import { buildHotspots, clusterPixels, flagPixels, hotspotOptions, pixelAreaKm2, pixelCenter, pixelSize, traceOutline, type GridSpec, type Hotspot, type HotspotFilter } from "./hotspots";
+import { buildHotspots, clusterPixels, flagPixels, hotspotOptions, insidePoint, pixelAreaKm2, pixelCenter, pixelSize, traceOutline, type GridSpec, type Hotspot, type HotspotFilter } from "./hotspots";
 import { computePixelTrends, seasonMeanGrids, type PixelTrends } from "./pixels";
 import type { ScanArea } from "./place";
 
@@ -476,7 +476,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   };
 }
 
-const DEFAULT_FILTER: Omit<HotspotFilter, "direction"> = { minFactor: 1, minAreaKm2: 0, strict: false };
+const DEFAULT_FILTER: Omit<HotspotFilter, "direction"> = { minFactor: 1, minAreaKm2: 0, strict: true };
 
 function filterOf(request: ScanRequest): HotspotFilter {
   return request.filter ?? { direction: request.direction ?? "any", ...DEFAULT_FILTER };
@@ -625,7 +625,7 @@ async function refineHotspots(
       }
       const { dx, dy } = pixelSize(grid);
       const geometry = traceOutline(pixels, grid, Math.min(dx, dy) * 0.5);
-      out[k] = { ...hotspot, geometry, areaKm2, meanChange: weighted / areaKm2, center: [lat / areaKm2, lon / areaKm2], refined: true };
+      out[k] = { ...hotspot, geometry, areaKm2, meanChange: weighted / areaKm2, center: insidePoint(pixels, grid, [lat / areaKm2, lon / areaKm2]), refined: true };
     } catch (error) {
       if (isAbortError(error)) throw error;
     }

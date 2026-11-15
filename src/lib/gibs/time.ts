@@ -366,3 +366,18 @@ export function formatLayerDate(layer: Pick<GibsLayer, "period">, value: string)
 export function formatDate(value: string): string {
   return parseIsoDate(value).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
+
+/**
+ * The months (or years) a monthly (or yearly) layer can show, oldest first, as their first day:
+ * the steps of the time slider. Empty for other layers, or when the record is unknown.
+ */
+export function timeSteps(period: GibsLayer["period"], earliest: string | null, latest: string | null): string[] {
+  if (!earliest || !latest || (period !== "monthly" && period !== "yearly")) return [];
+  const steps: string[] = [];
+  if (period === "yearly") {
+    for (let year = Number(earliest.slice(0, 4)); year <= Number(latest.slice(0, 4)); year++) steps.push(`${year}-01-01`);
+    return steps;
+  }
+  for (let month = earliest.slice(0, 7); month <= latest.slice(0, 7) && steps.length < 1200; month = addMonthsToMonth(month, 1)) steps.push(`${month}-01`);
+  return steps;
+}

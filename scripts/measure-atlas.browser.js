@@ -8,7 +8,8 @@
 //   4. Put the PNGs in public/data/atlas, and paste the JSON into src/lib/atlas/atlasData.ts as ATLAS.
 //
 // Each PNG is the change map exactly as the Trends page draws it (colour by direction, strength by
-// rate, faded where a pixel's trend isn't clear), on a regular latitude/longitude grid.
+// rate, faded where a pixel's trend isn't clear once every pixel tested is allowed for), on a regular
+// latitude/longitude grid. Every listed change also gets the chance check (lib/trends/chance).
 
 (async () => {
   const scan = await import("/src/lib/trends/scan.ts");
@@ -21,6 +22,8 @@
   const waters = await import("/src/lib/geo/waters.ts");
   const countries = await import("/src/lib/geo/countries.ts");
   const query = await import("/src/lib/trends/query.ts");
+  const hotspotsLib = await import("/src/lib/trends/hotspots.ts");
+  const chance = await import("/src/lib/trends/chance.ts");
   const countryIndex = await countries.loadCountries();
 
   // window.__terrascopeSave, when set, takes the files instead of the browser's downloads.
@@ -83,21 +86,23 @@
     const result = await scan.runScan({ indicator: id, direction: "any", area, plan, availability, maxSize: 720, refine: false });
 
     const scale = render.changeScale(result.trends, info, true);
-    const rgba = render.changeImage(result.trends, scale);
+    const rgba = render.changeImage(result.trends, scale, hotspotsLib.pixelCutoff({ strict: true }, result.trends));
     const canvas = Object.assign(document.createElement("canvas"), { width: result.grid.width, height: result.grid.height });
     canvas.getContext("2d").putImageData(new ImageData(rgba, result.grid.width, result.grid.height), 0, 0);
     await save(`${id}.png`, await new Promise((resolve) => canvas.toBlob(resolve, "image/png")));
 
-    // The strict test (5% false discovery rate across every pixel) where it finds patches; where it
-    // finds fewer than three (snow cover is patchy and noisy), the Trends page's usual test, said so.
-    const patches = (factor, strict) => scan.rebuildHotspots(result, { direction: "any", minFactor: factor, minAreaKm2: 0, strict });
-    const strict = patches(FACTORS[0], true).length >= 3;
+    // Clear trends only (5% false discovery rate across every pixel), as on the Trends page.
+    const filterAt = (factor) => ({ direction: "any", minFactor: factor, minAreaKm2: 0, strict: true });
     let factor = FACTORS[0];
     let found = [];
     for (factor of FACTORS) {
-      found = patches(factor, strict);
+      found = scan.rebuildHotspots(result, filterAt(factor));
       if (Math.max(0, ...found.map((h) => h.areaKm2)) <= MAX_PATCH_KM2) break;
     }
+    // Could chance make patches this strong? The years shuffled, every pixel tested again.
+    console.log(`Chance check for ${id}…`);
+    const shuffled = await chance.shuffledTrends(result, { chunk: 50_000 });
+    const check = chance.chanceCheck(shuffled, result.grid, filterAt(factor), info.minChange, result.coarse);
     const top = found.slice(0, 8);
     for (const h of top) h.label = await nameOf(h, id);
     const names = Object.fromEntries(query.withDistinctLabels(top).map((h) => [h.id, h.label]));
@@ -113,9 +118,10 @@
       baseline: plan.baseline,
       recent: plan.recent,
       // A change counts when the last years differ from the first by at least this, and the pixel's
-      // trend is clear: with every pixel tested allowed for (strict), or at p < 0.1 as on the Trends page.
+      // trend is clear with every pixel tested allowed for.
       minChange: round(info.minChange * factor, d),
-      strict,
+      chanceRuns: check.runs,
+      chanceRunsWithPatches: check.runsWithPatches,
       grid: { bbox: result.grid.bbox, width: result.grid.width, height: result.grid.height },
       scale: { max: scale.max, unit: scale.unit },
       region: {
@@ -135,6 +141,8 @@
         meanChange: round(h.meanChange, d),
         significantShare: round(h.significantShare, 3),
         verdict: verdict(h.verdict, d),
+        // Shuffles (of chanceRuns) whose strongest chance patch was at least as strong as this one.
+        chance: chance.timesBeaten(check, h.score),
       })),
     });
   }

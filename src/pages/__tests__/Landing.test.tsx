@@ -94,6 +94,22 @@ describe("the home page", () => {
     }
   });
 
+  it("counts its tools in words, so the heading matches the list", () => {
+    renderPage();
+    const heading = screen.getByRole("heading", { name: "Five ways in." });
+    const tools = within(heading.closest("section") as HTMLElement).getAllByRole("listitem");
+    expect(tools).toHaveLength(5);
+  });
+
+  it("describes every step of an answer, including the chance check and possible causes", () => {
+    renderPage();
+    const method = screen.getByRole("heading", { name: "How an answer is made." }).closest("section") as HTMLElement;
+    const steps = within(method).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
+    expect(steps).toEqual(["One NASA map a month", "Seasons can't fake it", "A real test, every pixel", "Checked against chance", "Checked against the ground", "What may be behind it"]);
+    // The limit says what it does offer about causes, and what it can't do.
+    expect(screen.getByText(/It suggests what may be behind a change/)).toBeInTheDocument();
+  });
+
   it("makes no claim the data can't back", () => {
     const { container } = renderPage();
     const words = container.textContent ?? "";

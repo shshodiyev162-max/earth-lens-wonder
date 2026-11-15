@@ -43,7 +43,8 @@ export function demoAttr(target: DemoTarget): { "data-demo": DemoTarget } {
   return { "data-demo": target };
 }
 
-const ANY = { minFactor: 1, minAreaKm2: 0, strict: false };
+/** The Trends page's usual filters: any size of patch, clear trends only. */
+const USUAL = { minFactor: 1, minAreaKm2: 0, strict: true };
 
 export const DEMOS: DemoScript[] = [
   {
@@ -58,8 +59,8 @@ export const DEMOS: DemoScript[] = [
       },
       {
         target: "form",
-        action: { kind: "edit", edit: { indicators: ["vegetation"], filters: { vegetation: { direction: "decline", ...ANY } }, time: { kind: "since", start: 2015 }, season: null, months: null } },
-        caption: "Then what to look for: vegetation, from NASA's MODIS satellites, since 2015, in its usual growing season (April to September). The results will show where it declined. The line at the top says the choices in words.",
+        action: { kind: "edit", edit: { indicators: ["vegetation"], filters: { vegetation: { direction: "decline", ...USUAL } }, time: { kind: "since", start: 2000 }, season: null, months: null } },
+        caption: "Then what to look for: vegetation, from NASA's MODIS satellites, since 2000, in its usual growing season (April to September). The results will show where it declined. The line at the top says the choices in words.",
       },
       {
         target: "find",
@@ -70,7 +71,7 @@ export const DEMOS: DemoScript[] = [
         target: "results",
         waitFor: "scan-done",
         caption:
-          "TerraScope reads one NASA map per month — the growing season of every year since 2015 — and tests each pixel for a trend. The first time takes a minute or two; after that the maps are kept on this device.",
+          "TerraScope reads one NASA map per month — the growing season of every year since 2000 — and tests each pixel for a trend. The first time takes a minute or two; after that the maps are kept on this device.",
       },
       {
         target: "whole-area",
@@ -86,7 +87,8 @@ export const DEMOS: DemoScript[] = [
         target: "hotspot-card",
         action: { kind: "select-hotspot", rank: 1 },
         panel: "closed",
-        caption: "Hotspots are the places that changed most. Each has its own trend test, year-by-year chart and 95% range, and a link to the full analysis.",
+        caption:
+          "Hotspots are the places that changed most, with a clear trend in their own pixels. Each shows its rate with a 95% range, a year-by-year chart, and a chance check: the years shuffled 19 times and every pixel tested again, to see whether chance alone makes a patch this strong.",
       },
       {
         target: "filters",
@@ -112,7 +114,7 @@ export const DEMOS: DemoScript[] = [
       },
       {
         target: "form",
-        action: { kind: "edit", edit: { indicators: ["sst"], filters: { sst: { direction: "increase", ...ANY } }, time: { kind: "since", start: 2003 }, season: null, months: null } },
+        action: { kind: "edit", edit: { indicators: ["sst"], filters: { sst: { direction: "increase", ...USUAL } }, time: { kind: "since", start: 2003 }, season: null, months: null } },
         caption: `Choose sea temperature — one of ${numberInWords(INDICATOR_ORDER.length)} NASA measures — since 2003, every month of the year. The results will show where the water warmed.`,
       },
       {

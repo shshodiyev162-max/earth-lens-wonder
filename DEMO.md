@@ -6,7 +6,7 @@ A script for showing TerraScope to an audience. Everything uses live NASA data.
 
 NASA's map service can take a minute or two to answer the first time; after that the maps are kept in the browser. Open each of these once on the presenting computer, in the same browser, and wait for the results:
 
-1. `/trends?ind=vegetation&dir=decline&country=UZB&name=Uzbekistan&t=since-2015`
+1. `/trends?ind=vegetation&dir=decline&country=UZB&name=Uzbekistan&t=since-2000`
 2. `/trends?ind=sst&dir=increase&place=Mediterranean+Sea&t=since-2003`
 3. `/analysis?country=UZB&name=Uzbekistan&period=compare&base=2001-2010&recent=2016-2025&season=m-4.5.6.7.8.9&ds=vegetation,climate`
 
@@ -22,13 +22,13 @@ If there's time, scroll: the planet flies to three measured results (yes, no and
 **0:15 – Choose (Trends)**
 > "Four choices, one after another: what to measure, where, when, and which months."
 
-Press **Country or sea** and click Uzbekistan on the map. Pick **Vegetation** and choose *Since a year… 2015*. Point at the line at the top that says the choices in words. Mention the 29 measures (land, water and snow, air, gases, sea) and **Suggested for this place**, which picks measures from NASA's land cover map. Press **Find changes**.
+Press **Country or sea** and click Uzbekistan on the map. Pick **Vegetation** and choose *Since a year… 2000*. Point at the line at the top that says the choices in words. Mention the 29 measures (land, water and snow, air, gases, sea) and **Suggested for this place**, which picks measures from NASA's land cover map. Press **Find changes**.
 
 **0:45 – Is it significant? (the whole area)**
-> "One NASA map per month, every pixel tested. For Uzbekistan as a whole: no clear trend — the 95% range includes zero. TerraScope says so instead of overstating it, and offers to test the whole record since 2000."
+> "One NASA map per month, every pixel tested. For Uzbekistan as a whole: no clear trend — the 95% range includes zero. TerraScope says so instead of overstating it."
 
 **1:10 – Where? (hotspots)**
-> "But some places changed a lot. The top hotspot is on the dried-up Aral Sea shore: a significant decline, with its rate and 95% range."
+> "But some places changed a lot. The top hotspot is on the Amu Darya delta by the dried-up Aral Sea: a clear decline, with its rate and 95% range. And it's beyond chance: TerraScope shuffled the years 19 times and tested every pixel again, and chance never made a patch this strong."
 
 Set **Show** to *Declines* and click hotspot 1. Then switch **Show** to *Both*:
 > "Filters regroup the pixels already read — no new downloads."

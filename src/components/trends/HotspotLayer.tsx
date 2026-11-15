@@ -1,5 +1,6 @@
+import { Fragment } from "react";
 import type { Feature } from "geojson";
-import { GeoJSON, Pane, Tooltip } from "react-leaflet";
+import { CircleMarker, GeoJSON, Pane, Tooltip } from "react-leaflet";
 import type { PolygonGeometry } from "@/lib/geo/geometry";
 import type { HotspotDetail } from "@/lib/trends/scan";
 
@@ -29,22 +30,25 @@ export default function HotspotLayer({ hotspots, selectedId, onSelect, area }: H
         {hotspots.map((hotspot) => {
           const selected = hotspot.id === selectedId;
           return (
-            <GeoJSON
-              key={`${hotspot.id}-${selected ? "on" : "off"}-${hotspot.refined ? "r" : "c"}`}
-              data={{ type: "Feature", properties: {}, geometry: hotspot.geometry } as Feature}
-              style={{
-                color: "#ffffff",
-                weight: selected ? 2.5 : 1.1,
-                opacity: selected ? 1 : 0.85,
-                fillColor: "#ffffff",
-                fillOpacity: selected ? 0.14 : 0.03,
-              }}
-              eventHandlers={{ click: () => onSelect(hotspot.id) }}
-            >
-              <Tooltip permanent direction="center" className="hotspot-rank" interactive={false} pane="tooltipPane" opacity={1}>
-                {hotspot.rank}
-              </Tooltip>
-            </GeoJSON>
+            <Fragment key={`${hotspot.id}-${selected ? "on" : "off"}-${hotspot.refined ? "r" : "c"}`}>
+              <GeoJSON
+                data={{ type: "Feature", properties: {}, geometry: hotspot.geometry } as Feature}
+                style={{
+                  color: "#ffffff",
+                  weight: selected ? 2.5 : 1.1,
+                  opacity: selected ? 1 : 0.85,
+                  fillColor: "#ffffff",
+                  fillOpacity: selected ? 0.14 : 0.03,
+                }}
+                eventHandlers={{ click: () => onSelect(hotspot.id) }}
+              />
+              {/* The number sits on a point inside the patch (its centre can fall outside a curved one). */}
+              <CircleMarker center={hotspot.center} radius={0} stroke={false} fill={false} interactive={false}>
+                <Tooltip permanent direction="center" className="hotspot-rank" interactive={false} pane="tooltipPane" opacity={1}>
+                  {hotspot.rank}
+                </Tooltip>
+              </CircleMarker>
+            </Fragment>
           );
         })}
       </Pane>

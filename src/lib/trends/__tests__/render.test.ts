@@ -13,6 +13,7 @@ function trends(slopes: number[], ps: number[]): PixelTrends {
     change: Float32Array.from(slopes.map((s) => s * 8)),
     slope: Float32Array.from(slopes),
     p: Float32Array.from(ps),
+    tested: true,
   };
 }
 

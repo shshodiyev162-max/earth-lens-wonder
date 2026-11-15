@@ -36,7 +36,8 @@ export const DATA_MAPS: Record<DataId, { file: string; bbox: readonly number[]; 
 export const MARKERS = [
   { stop: 2, lat: 35.2, lon: 25.5, text: "Mediterranean Sea" },
   { stop: 3, lat: 41.2, lon: 64.6, text: "Uzbekistan" },
-  { stop: 4, lat: FINDINGS.uzbekistan.hotspot.center[0], lon: FINDINGS.uzbekistan.hotspot.center[1], text: "Muynoq district" },
+  // Named as measured: the district the top decline's own pixels lie in.
+  { stop: 4, lat: FINDINGS.uzbekistan.hotspot.center[0], lon: FINDINGS.uzbekistan.hotspot.center[1], text: (FINDINGS.uzbekistan.hotspot.name ?? "Aral Sea shore").split(",")[0] },
   { stop: 5, lat: -80, lon: 20, text: "Antarctica" },
 ] as const;
 

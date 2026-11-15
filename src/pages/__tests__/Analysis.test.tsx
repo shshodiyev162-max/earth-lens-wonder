@@ -353,7 +353,9 @@ describe("Analysis page", () => {
     fireEvent.click(screen.getByRole("radio", { name: "5 years" }));
     expect(await screen.findByText("Your choices changed")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Is it changing?" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Download CSV/i })).toBeDisabled();
+    // A faded report no longer matches the choices, so it can't be downloaded or printed.
+    expect(screen.queryByRole("button", { name: /Download CSV/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save as PDF/i })).not.toBeInTheDocument();
     await pause();
     expect(runAnalysis).toHaveBeenCalledTimes(1);
     await start(/^Start the analysis again$/);

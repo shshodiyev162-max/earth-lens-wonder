@@ -1,6 +1,7 @@
-import { useEffect, useId, useState } from "react";
+import { useId } from "react";
 import { Check } from "lucide-react";
 import MonthToggles from "@/components/common/MonthToggles";
+import YearTimeline from "@/components/common/YearTimeline";
 import { DATASETS, DATASET_BY_ID } from "@/lib/analysis/run";
 import type { DatasetId } from "@/lib/analysis/types";
 import { formatMonth } from "@/lib/gibs/time";
@@ -30,56 +31,6 @@ const PERIOD_OPTIONS: { id: PeriodKind; label: string }[] = [
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const input = "rounded-md border border-panel-line-strong bg-transparent px-2 py-1 font-mono text-xs tabular-nums text-foreground outline-none focus:border-panel-foreground/70 pointer-coarse:min-h-11";
 
-/** Two year boxes ("2001" – "2010"); a change is applied when a box loses focus or Enter is pressed. */
-function SpanInput({ label, span, first, last, onChange }: { label: string; span: YearSpan; first: number; last: number; onChange: (span: YearSpan) => void }) {
-  const [a, setA] = useState(String(span[0]));
-  const [b, setB] = useState(String(span[1]));
-  useEffect(() => {
-    setA(String(span[0]));
-    setB(String(span[1]));
-  }, [span]);
-  const clamp = (value: string, fallback: number) => Math.min(last, Math.max(first, Math.round(Number(value)) || fallback));
-  const commit = () => {
-    const x = clamp(a, span[0]);
-    const y = clamp(b, span[1]);
-    const next: YearSpan = x <= y ? [x, y] : [y, x];
-    if (next[0] !== span[0] || next[1] !== span[1]) onChange(next);
-    else {
-      setA(String(span[0]));
-      setB(String(span[1]));
-    }
-  };
-  const box = (value: string, set: (v: string) => void, which: string) => (
-    <label className="flex items-center gap-1.5">
-      <span className="sr-only">
-        {label}: {which} year
-      </span>
-      <input
-        type="number"
-        inputMode="numeric"
-        min={first}
-        max={last}
-        value={value}
-        onChange={(event) => set(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => event.key === "Enter" && commit()}
-        className={cn(input, "w-20")}
-      />
-    </label>
-  );
-  return (
-    <fieldset className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      <legend className="sr-only">{label} period</legend>
-      <span aria-hidden className="w-10 font-medium text-foreground">
-        {label}
-      </span>
-      {box(a, setA, "first")}
-      <span aria-hidden>–</span>
-      {box(b, setB, "last")}
-    </fieldset>
-  );
-}
-
 interface PeriodPickerProps {
   selection: PeriodSelection;
   onChange: (edit: PeriodEdit) => void;
@@ -88,8 +39,13 @@ interface PeriodPickerProps {
 export function PeriodPicker({ selection, onChange }: PeriodPickerProps) {
   const latest = defaultEndMonth();
   const lastYear = lastCompleteYear(latest);
+  const latestYear = Number(latest.slice(0, 4));
   const { kind: period, start, end } = selection;
   const spans = selection.baseline && selection.recent ? { baseline: selection.baseline, recent: selection.recent } : defaultComparison(latest);
+  const years: [number, number] = [Number(start.slice(0, 4)), Number(end.slice(0, 4))];
+  // Whole years from the timeline; the first year starts when MODIS does, the latest ends with the latest month.
+  const setYears = ([a, b]: [number, number]) =>
+    onChange({ kind: "custom", start: a <= EARLIEST_YEAR ? EARLIEST_MONTH : `${a}-01`, end: b >= latestYear ? latest : `${b}-12` });
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Time range">
@@ -106,44 +62,72 @@ export function PeriodPicker({ selection, onChange }: PeriodPickerProps) {
           </button>
         ))}
       </div>
-      {period === "custom" ? (
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <label className="flex items-center gap-2 text-muted-foreground">
-            From
-            <input
-              type="month"
-              value={start}
-              min={EARLIEST_MONTH}
-              max={end}
-              onChange={(event) => MONTH_RE.test(event.target.value) && onChange({ kind: "custom", start: event.target.value, end })}
-              className={input}
-            />
-          </label>
-          <label className="flex items-center gap-2 text-muted-foreground">
-            To
-            <input
-              type="month"
-              value={end}
-              min={start}
-              max={latest}
-              onChange={(event) => MONTH_RE.test(event.target.value) && onChange({ kind: "custom", start, end: event.target.value })}
-              className={input}
-            />
-          </label>
-          <p className="w-full text-xs text-muted-foreground">Any months from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>
-        </div>
-      ) : period === "compare" ? (
-        <div className="space-y-2">
-          <SpanInput label="Then" span={spans.baseline} first={EARLIEST_YEAR} last={lastYear} onChange={(baseline) => onChange({ kind: "compare", baseline, recent: spans.recent })} />
-          <SpanInput label="Now" span={spans.recent} first={EARLIEST_YEAR} last={lastYear} onChange={(recent) => onChange({ kind: "compare", baseline: spans.baseline, recent })} />
+      {period === "compare" ? (
+        <div className="space-y-3">
+          {(
+            [
+              ["Then", spans.baseline, (baseline: YearSpan) => onChange({ kind: "compare", baseline, recent: spans.recent })],
+              ["Now", spans.recent, (recent: YearSpan) => onChange({ kind: "compare", baseline: spans.baseline, recent })],
+            ] as const
+          ).map(([label, span, set]) => (
+            <fieldset key={label}>
+              <legend className="mb-1 flex w-full justify-between text-xs">
+                <span className="font-medium text-foreground">{label}</span>
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  {span[0]}–{span[1]} · {span[1] - span[0] + 1} years
+                </span>
+              </legend>
+              <YearTimeline
+                first={EARLIEST_YEAR}
+                last={lastYear}
+                value={[span[0], span[1]]}
+                labels={[`${label}: first year`, `${label}: last year`]}
+                windows={[{ label: label === "Then" ? "Now" : "Then", span: label === "Then" ? spans.recent : spans.baseline }]}
+                onChange={(next) => set(next)}
+              />
+            </fieldset>
+          ))}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Each year becomes one average, then the two periods are compared with a t-test. 5–10 years in each works best.
+            Each year becomes one average, then the two periods are compared with a t-test. 5–10 years in each works best. The solid part of each timeline is the other period.
           </p>
         </div>
       ) : (
-        <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {formatMonth(start, "long")} – {formatMonth(end, "long")}
-        </p>
+        <div className="space-y-2">
+          <YearTimeline first={EARLIEST_YEAR} last={latestYear} value={years} labels={["First year", "Last year"]} onChange={setYears} />
+          <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {formatMonth(start, "long")} – {formatMonth(end, "long")}
+          </p>
+          {period === "custom" && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">Exact months</summary>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  From
+                  <input
+                    type="month"
+                    value={start}
+                    min={EARLIEST_MONTH}
+                    max={end}
+                    onChange={(event) => MONTH_RE.test(event.target.value) && onChange({ kind: "custom", start: event.target.value, end })}
+                    className={input}
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  To
+                  <input
+                    type="month"
+                    value={end}
+                    min={start}
+                    max={latest}
+                    onChange={(event) => MONTH_RE.test(event.target.value) && onChange({ kind: "custom", start, end: event.target.value })}
+                    className={input}
+                  />
+                </label>
+                <p className="w-full text-muted-foreground">Any months from March 2000 (start of MODIS) to {formatMonth(latest, "long")}.</p>
+              </div>
+            </details>
+          )}
+        </div>
       )}
     </div>
   );

@@ -43,7 +43,10 @@ test("switching measure moves the outlines to the new measure's changes", async 
   const westEdge = async () => (await outlines.first().boundingBox())!.x;
 
   // Each measure's biggest change, where the atlas data puts its western edge.
-  const westOf = (id: string) => ATLAS.measures.find((m) => m.id === id)!.hotspots[0].bbox[0];
+  const westOf = (id: string) => {
+    const changes: readonly { bbox: readonly number[] }[] = ATLAS.measures.find((m) => m.id === id)!.hotspots;
+    return changes[0].bbox[0];
+  };
   for (const [id, label] of [["heat", "Surface heat"], ["sst", "Sea temperature"], ["vegetation", "Vegetation"]]) {
     await page.getByRole("button", { name: label }).click();
     await expect.poll(async () => Math.abs((await westEdge()) - (await screenX(westOf(id))))).toBeLessThan(8);

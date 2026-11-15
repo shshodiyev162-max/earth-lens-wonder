@@ -21,6 +21,7 @@ export interface Hotspot {
   /** Pixel indices in the scan grid. */
   pixels: number[];
   areaKm2: number;
+  /** A point inside the patch, near its middle: where its label goes and what it is named after. */
   center: LatLng;
   bbox: BBox;
   geometry: PolygonGeometry;
@@ -56,26 +57,52 @@ export function pixelCenter(grid: GridSpec, index: number): LatLng {
   return [grid.bbox[3] - (row + 0.5) * dy, grid.bbox[0] + (col + 0.5) * dx];
 }
 
-/** A pixel's own trend must be at least this likely to be real (when a trend test was run). */
+/** "Also show weaker patches": each pixel's own trend at p < 0.1, without allowing for the many pixels tested. */
 export const PIXEL_SIGNIFICANCE = 0.1;
 
 /**
  * Pixels that changed by at least `minChange` in the given direction. When yearly trends were
- * tested, the pixel's slope must point the same way and its Mann–Kendall p-value be below
- * PIXEL_SIGNIFICANCE, so a hotspot is a supported change rather than one unusual year.
+ * tested, the pixel must have been tested (enough years with data), its slope must point the same
+ * way and its Mann–Kendall p-value be below `maxP`, so a hotspot is a supported change rather than
+ * one unusual year. A pixel that clouds left untested never counts. Two-period comparisons have no
+ * yearly test, so there the size of the change alone decides.
  */
-export function flagPixels(trends: PixelTrends, sign: -1 | 1, minChange: number, maxP = PIXEL_SIGNIFICANCE): Uint8Array {
+/** What grouping pixels into patches reads from a scan's pixel tests. */
+export type PatchInput = Pick<PixelTrends, "change" | "slope" | "p" | "tested">;
+
+export function flagPixels(trends: PatchInput, sign: -1 | 1, minChange: number, maxP = PIXEL_SIGNIFICANCE): Uint8Array {
   const flags = new Uint8Array(trends.change.length);
   for (let i = 0; i < flags.length; i++) {
     const change = trends.change[i];
     if (!Number.isFinite(change) || change * sign < minChange) continue;
-    const slope = trends.slope[i];
-    if (Number.isFinite(slope) && slope * sign < 0) continue;
-    const p = trends.p[i];
-    if (Number.isFinite(p) && p >= maxP) continue;
+    if (trends.tested) {
+      const slope = trends.slope[i];
+      const p = trends.p[i];
+      if (!Number.isFinite(slope) || !Number.isFinite(p) || slope * sign < 0 || p >= maxP) continue;
+    }
     flags[i] = 1;
   }
   return flags;
+}
+
+/**
+ * The pixel of a patch nearest its middle (area-weighted): a point that is always inside the patch,
+ * where its label goes and after which it is named. The middle itself can fall outside a curved or
+ * ring-shaped patch (a shore around a lake).
+ */
+export function insidePoint(pixels: ArrayLike<number>, grid: GridSpec, middle: LatLng): LatLng {
+  const cos = Math.cos((middle[0] * Math.PI) / 180);
+  let best = middle;
+  let bestDistance = Infinity;
+  for (let k = 0; k < pixels.length; k++) {
+    const [lat, lon] = pixelCenter(grid, pixels[k]);
+    const distance = (lat - middle[0]) ** 2 + ((lon - middle[1]) * cos) ** 2;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = [lat, lon];
+    }
+  }
+  return best;
 }
 
 /** Groups flagged pixels into 8-connected clusters of at least `minPixels`. */
@@ -222,8 +249,9 @@ export function traceOutline(pixels: number[], grid: GridSpec, tolerance = 0): P
       const endR = r + DR[dir];
       const candidates = (outgoing.get(key(endC, endR)) ?? []).filter((id) => !used[id] || id === start);
       if (!candidates.length) break;
-      // At a pinch point prefer turning right, so touching clusters keep separate rings.
-      const preference = [(dir + 1) % 4, dir, (dir + 3) % 4];
+      // At a pinch point (pixels touching only at a corner) turn left, onto the other pixel, so a
+      // patch whose pixels touch diagonally stays one outline rather than scattered squares.
+      const preference = [(dir + 3) % 4, dir, (dir + 1) % 4];
       const next = preference.map((d) => candidates.find((id) => dirs[id] === d)).find((id) => id !== undefined) ?? candidates[0];
       if (next === start) break;
       edge = next;
@@ -286,19 +314,21 @@ export interface HotspotFilter {
   /** Smallest hotspot, km² (0 = any size). */
   minAreaKm2: number;
   /**
-   * Only pixels whose yearly trend is clear once thousands of pixels tested at once are allowed for:
-   * a false discovery rate of 5% (Benjamini–Hochberg), instead of each pixel at p < 0.1.
+   * true (the default): only pixels whose yearly trend is clear once thousands of pixels tested at
+   * once are allowed for: a false discovery rate of 5% (Benjamini–Hochberg). false ("Also show
+   * weaker patches"): each pixel at p < 0.1, which lets chance patches through, since about one
+   * pixel in ten passes by luck and neighbours share the same weather.
    */
   strict: boolean;
 }
 
-/** The false discovery rate "Only clear trends" holds pixels to. */
+/** The false discovery rate clear trends are held to. */
 export const STRICT_P = 0.05;
 
 /**
- * The p-value a pixel's trend must be under. "Only clear trends" uses the Benjamini–Hochberg cut-off
- * across every pixel tested (never above 0.05), so among the pixels it calls clear, about 1 in 20 at
- * most is expected to be a false alarm, however many were tested.
+ * The p-value a pixel's trend must be under. Clear trends use the Benjamini–Hochberg cut-off across
+ * every pixel tested (never above 0.05), so among the pixels called clear, about 1 in 20 at most is
+ * expected to be a false alarm, however many were tested.
  */
 export function pixelCutoff(filter: Pick<HotspotFilter, "strict">, trends?: Pick<PixelTrends, "p">): number {
   if (!filter.strict) return PIXEL_SIGNIFICANCE;
@@ -320,7 +350,7 @@ export function hotspotOptions(filter: HotspotFilter, minChange: number, coarse:
 }
 
 /** Clusters, measures and ranks the pixels that changed in the asked direction. */
-export function buildHotspots(trends: PixelTrends, grid: GridSpec, options: HotspotOptions): Hotspot[] {
+export function buildHotspots(trends: PatchInput, grid: GridSpec, options: HotspotOptions): Hotspot[] {
   const signs: (-1 | 1)[] = options.direction === "decline" ? [-1] : options.direction === "increase" ? [1] : [-1, 1];
   const { dx, dy } = pixelSize(grid);
   const all: Hotspot[] = [];
@@ -374,13 +404,14 @@ export function buildHotspots(trends: PixelTrends, grid: GridSpec, options: Hots
         sign,
         pixels,
         areaKm2: area,
-        center: [lat / area, lon / area],
+        center: insidePoint(pixels, grid, [lat / area, lon / area]),
         bbox: [w + minCol * dx, n - (maxRow + 1) * dy, w + (maxCol + 1) * dx, n - minRow * dy],
         geometry: { type: "Polygon", coordinates: [] },
         meanChange,
         meanSlope: slopeCount ? slopeTotal / slopeCount : NaN,
         significantShare,
-        score: area * (Math.abs(meanChange) / options.minChange) * (tested ? 0.5 + 0.5 * significantShare : 1),
+        // Area × size of change (the same for any filter, so a chance check can compare patches).
+        score: area * Math.abs(meanChange) * (tested ? 0.5 + 0.5 * significantShare : 1),
       });
     }
   }

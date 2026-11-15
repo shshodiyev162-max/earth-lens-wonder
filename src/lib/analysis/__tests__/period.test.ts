@@ -33,6 +33,15 @@ describe("analysis period", () => {
     expect(next.get("lat")).toBe("1");
     expect(periodProblems(read("period=compare&base=2001-2012&recent=2010-2020"), 10)[0]).toMatch(/overlap/);
   });
+
+  it("keeps a changed comparison when the page reads its own link back", () => {
+    const p = read("period=compare&base=2001-2010&recent=2016-2025");
+    const next = writePeriod(new URLSearchParams(), p, { kind: "compare", baseline: [2003, 2009] });
+    expect(next.get("base")).toBe("2003-2009");
+    expect(read(next.toString()).baseline).toEqual([2003, 2009]);
+    // Links written with a dash between the years, as earlier versions did, still open.
+    expect(read("period=compare&base=2002%E2%80%932008&recent=2016-2025").baseline).toEqual([2002, 2008]);
+  });
 });
 
 describe("yearly aggregation", () => {

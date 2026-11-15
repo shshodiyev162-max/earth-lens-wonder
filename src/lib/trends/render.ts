@@ -60,8 +60,12 @@ export function changeScale(trends: PixelTrends, indicator: Indicator, hasTrend:
 
 const NEUTRAL: Rgb = [226, 232, 240];
 
-/** RGBA image of the change map: colour by direction, strength by size, faded where not significant. */
-export function changeImage(trends: PixelTrends, scale: ChangeScale): Uint8ClampedArray {
+/**
+ * RGBA image of the change map: colour by direction, strength by size, faded where the trend isn't
+ * clear. A pixel is clear when its p-value is under `clearBelow`: the same cut-off the hotspots use
+ * (pixelCutoff), so a bright pixel is one that could count towards a hotspot.
+ */
+export function changeImage(trends: PixelTrends, scale: ChangeScale, clearBelow = 0.05): Uint8ClampedArray {
   const out = new Uint8ClampedArray(trends.change.length * 4);
   for (let i = 0; i < trends.change.length; i++) {
     const v = pixelValue(trends, i, scale.mode);
@@ -69,7 +73,7 @@ export function changeImage(trends: PixelTrends, scale: ChangeScale): Uint8Clamp
     const t = Math.min(1, Math.abs(v) / scale.max);
     const color = v < 0 ? scale.decline : scale.increase;
     const p = trends.p[i];
-    const faded = scale.mode === "perDecade" && !(p < 0.05);
+    const faded = scale.mode === "perDecade" && !(p < clearBelow);
     const o = i * 4;
     out[o] = NEUTRAL[0] + (color[0] - NEUTRAL[0]) * t;
     out[o + 1] = NEUTRAL[1] + (color[1] - NEUTRAL[1]) * t;

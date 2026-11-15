@@ -49,7 +49,8 @@ export interface TrendQuery {
   tab: IndicatorId | null;
 }
 
-export const DEFAULT_FILTER: Omit<ResultFilter, "direction"> = { minFactor: 1, minAreaKm2: 0, strict: false };
+/** Clear trends only, unless "Also show weaker patches" is chosen (see HotspotFilter.strict). */
+export const DEFAULT_FILTER: Omit<ResultFilter, "direction"> = { minFactor: 1, minAreaKm2: 0, strict: true };
 const DIRECTIONS: Direction[] = ["decline", "increase", "any"];
 const isIndicator = (value: string): value is IndicatorId => (INDICATOR_ORDER as string[]).includes(value);
 
@@ -140,7 +141,7 @@ function encodeDirections(query: TrendQuery): string {
   return query.indicators.map((id, i) => `${id}:${values[i]}`).join(",");
 }
 
-/** Filters other than direction: "vegetation~2~50~1" (factor, smallest km², strict). */
+/** Filters other than direction: "vegetation~2~50~1" (factor, smallest km², strict: 1 clear trends only, 0 weaker patches too). */
 function decodeFilters(value: string | null): Partial<Record<IndicatorId, Omit<ResultFilter, "direction">>> {
   const out: Partial<Record<IndicatorId, Omit<ResultFilter, "direction">>> = {};
   for (const part of value?.split(",") ?? []) {
@@ -151,7 +152,8 @@ function decodeFilters(value: string | null): Partial<Record<IndicatorId, Omit<R
     out[id] = {
       minFactor: Number.isFinite(minFactor) && minFactor > 0 && minFactor <= 10 ? minFactor : 1,
       minAreaKm2: Number.isFinite(minAreaKm2) && minAreaKm2 >= 0 ? minAreaKm2 : 0,
-      strict: strict === "1",
+      // Clear trends only unless a link says otherwise.
+      strict: strict !== "0",
     };
   }
   return out;
@@ -160,7 +162,7 @@ function decodeFilters(value: string | null): Partial<Record<IndicatorId, Omit<R
 function encodeFilters(query: TrendQuery): string {
   return query.indicators
     .map((id) => ({ id, f: filterFor(query, id) }))
-    .filter(({ f }) => f.minFactor !== DEFAULT_FILTER.minFactor || f.minAreaKm2 !== DEFAULT_FILTER.minAreaKm2 || f.strict)
+    .filter(({ f }) => f.minFactor !== DEFAULT_FILTER.minFactor || f.minAreaKm2 !== DEFAULT_FILTER.minAreaKm2 || f.strict !== DEFAULT_FILTER.strict)
     .map(({ id, f }) => `${id}~${f.minFactor}~${f.minAreaKm2}~${f.strict ? 1 : 0}`)
     .join(",");
 }
