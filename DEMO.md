@@ -22,7 +22,7 @@ If there's time, scroll: the planet flies to three measured results (yes, no and
 **0:15 – Choose (Trends)**
 > "Four choices, one after another: what to measure, where, when, and which months."
 
-Press **Country or sea** and click Uzbekistan on the map. Pick **Vegetation** and choose *Since a year… 2000*. Point at the line at the top that says the choices in words. Mention the 29 measures (land, water and snow, air, gases, sea) and **Suggested for this place**, which picks measures from NASA's land cover map. Press **Find changes**.
+Press **Country, lake or sea** and click Uzbekistan on the map. Pick **Vegetation** and press *All since 2000* under **When**. Point at the line at the top that says the choices in words. Mention the 30 measures (land, water and snow, air, gases, sea) and **Suggested for this place**, which picks measures from NASA's land cover map. Press **Find changes**.
 
 **0:45 – Is it significant? (the whole area)**
 > "One NASA map per month, every pixel tested. For Uzbekistan as a whole: no clear trend — the 95% range includes zero. TerraScope says so instead of overstating it."
@@ -30,7 +30,7 @@ Press **Country or sea** and click Uzbekistan on the map. Pick **Vegetation** an
 **1:10 – Where? (hotspots)**
 > "But some places changed a lot. The top hotspot is on the Amu Darya delta by the dried-up Aral Sea: a clear decline, with its rate and 95% range. And it's beyond chance: TerraScope shuffled the years 19 times and tested every pixel again, and chance never made a patch this strong."
 
-Set **Show** to *Declines* and click hotspot 1. Then switch **Show** to *Both*:
+Press *Declines* above the list and click hotspot 1. Then press *Both*:
 > "Filters regroup the pixels already read — no new downloads."
 
 **1:40 – Then vs now (Analysis)**
@@ -43,10 +43,10 @@ Scroll to **Checked against the ground** (for a city such as Tashkent or Paris):
 **Save as PDF** prints the report on white paper.
 
 **2:10 – Beyond land (sea and ozone)**
-Back on Trends, press **Country or sea** and click the Mediterranean — the whole sea lights up, not a dot. (Searching for "Mediterranean" at the top, or choosing it from **Or choose a known region, sea or ocean**, does the same.) Pick **Sea temperature**, *since 2003*, and find changes:
+Back on Trends, press **Country, lake or sea** and click the Mediterranean — the whole sea lights up, not a dot. (Searching for "Mediterranean" at the top, or choosing it from **Or choose a known region, lake, sea or ocean**, does the same.) Pick **Sea temperature**, *since 2003*, and find changes:
 > "Only the water is scanned. About +0.6 °C per decade, and the range stays above zero even after allowing for the sea's warmth carrying over from one year to the next: significant warming."
 
-Optionally: the ozone layer over Antarctica since 2005.
+Optionally: the ozone layer over Antarctica since 2005, or **Open water** on the Aral Sea (from the list of lakes) since 2003: about 22,000 km² of water in 2003, about 5,000 km² now, falling some 690 km² a year, and the map shows where the shore went.
 
 **2:25 – The whole world (Atlas)**
 Open **Atlas** in the navigation bar:
@@ -57,7 +57,7 @@ Open **Words used here**:
 > "Every statistics word is explained in plain language. And if a measure doesn't fit the place — vegetation over a sea — TerraScope says so before reading a single map."
 
 **3:00 – Close**
-> "Twenty-nine NASA measures, any place on Earth — countries, seas, or a shape you draw — real significance tests, and honest answers, in the browser, with no keys and no simulated numbers."
+> "Thirty NASA measures, any place on Earth — countries, lakes, seas, or a shape you draw — real significance tests, and honest answers, in the browser, with no keys and no simulated numbers."
 
 ## If something goes wrong
 

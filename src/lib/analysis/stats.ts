@@ -133,9 +133,18 @@ export function round(value: number, decimals = 2): number {
   return Math.round(value * factor) / factor;
 }
 
+/** 22366 → "22,366": thousands grouped, so areas in km² can be read at a glance. */
+export function grouped(value: number, decimals = 1): string {
+  const text = value.toFixed(decimals);
+  const [whole, part] = text.split(".");
+  const digits = whole.replace("-", "");
+  if (digits.length < 4) return text;
+  return `${whole.startsWith("-") ? "-" : ""}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${part !== undefined ? `.${part}` : ""}`;
+}
+
 export function signed(value: number, decimals = 1): string {
-  const text = Math.abs(value).toFixed(decimals);
-  if (Number(text) === 0) return (0).toFixed(decimals);
+  const text = grouped(Math.abs(value), decimals);
+  if (Number(text.replace(/,/g, "")) === 0) return (0).toFixed(decimals);
   return `${value > 0 ? "+" : "−"}${text}`;
 }
 
@@ -676,7 +685,9 @@ export function detectabilityText(verdict: Pick<TrendVerdict, "direction" | "yea
   return `At this rate, telling it from the normal ups and downs would take about ${years} years of records; this one has ${have}.`;
 }
 
-function explainTest(verdict: TrendVerdict, subject: string, unit: string, decimals: number): string {
+function explainTest(verdict: TrendVerdict, subject: string, unit: string, wanted: number): string {
+  // A rate in the hundreds needs no decimals ("690 km² a year", not "690.4").
+  const decimals = Math.abs(verdict.slopePerYear) >= 100 ? 0 : wanted;
   const fmt = (value: number) => `${signed(value, decimals)}${unit ? ` ${unit}` : ""}`;
   const rate = verdict.slopePerDecade !== null ? `${fmt(verdict.slopePerYear)} per year (${fmt(verdict.slopePerDecade)} per decade)` : `${fmt(verdict.slopePerYear)} per year`;
   const range = `95% range ${fmt(verdict.lowerPerYear)} to ${fmt(verdict.upperPerYear)} per year`;
@@ -691,7 +702,10 @@ function explainTest(verdict: TrendVerdict, subject: string, unit: string, decim
     return `${subject} showed no consistent direction over ${Math.round(verdict.years)} years (${formatP(verdict.p)}). ${estimate}; a pattern this weak can easily come from natural year-to-year variation.`;
   }
   const chance = verdict.p < 0.001 ? "fewer than 1 in 1,000" : verdict.p < 0.01 ? "fewer than 1 in 100" : "fewer than 1 in 20";
-  return `${subject} ${verdict.direction === "decline" ? "fell" : "rose"} by ${rate} (${range}). A run this consistent would appear by chance in ${chance} records without a real trend (${formatP(verdict.p)}).`;
+  // "Fell by 690 km² a year", not "fell by −690": the word gives the direction; the range keeps its signs.
+  const size = (value: number) => `${grouped(Math.abs(value), decimals)}${unit ? ` ${unit}` : ""}`;
+  const amount = verdict.slopePerDecade !== null ? `${size(verdict.slopePerYear)} per year (${size(verdict.slopePerDecade)} per decade)` : `${size(verdict.slopePerYear)} per year`;
+  return `${subject} ${verdict.direction === "decline" ? "fell" : "rose"} by ${amount} (${range}). A run this consistent would appear by chance in ${chance} records without a real trend (${formatP(verdict.p)}).`;
 }
 
 // ---------------------------------------------------------------------------

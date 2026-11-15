@@ -13,12 +13,14 @@ import GibsTileLayer from "@/components/map/GibsTileLayer";
 import ReferenceOverlays from "@/components/map/ReferenceOverlays";
 import FlyTo, { type FlyTarget } from "@/components/map/FlyTo";
 import LayerLegend from "@/components/map/LayerLegend";
+import WaterLegend from "@/components/trends/WaterLegend";
 import MapPageShell from "@/components/map/MapPageShell";
 import AreaPicker from "@/components/trends/AreaPicker";
 import AreaSummaryCard from "@/components/trends/AreaSummaryCard";
 import AreaCoverCard from "@/components/trends/AreaCoverCard";
 import { useLandCover } from "@/hooks/useLandCover";
 import { suggestMeasures } from "@/lib/trends/landcover";
+import type { WaterKind } from "@/lib/geo/waters";
 import Glossary from "@/components/common/Glossary";
 import { MEASURE_DEFINITIONS } from "@/lib/glossary";
 import GridImageLayer from "@/components/trends/GridImageLayer";
@@ -47,8 +49,8 @@ import { areaKm2, bboxOf, centroidOf, type BBox, type PolygonGeometry } from "@/
 import { encodeGeometryForLink } from "@/lib/geo/polyline";
 import { BASE_LAYER_ID, getLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { initialViewFrom } from "@/lib/mapView";
-import { INDICATOR_ORDER, INDICATORS, monthsLabel, SEASONS, type IndicatorId } from "@/lib/query/indicators";
-import { DEFAULT_YEARS } from "@/lib/query/period";
+import { INDICATOR_ORDER, INDICATORS, monthsLabel, ownMonths, SEASONS, type IndicatorId } from "@/lib/query/indicators";
+import { DEFAULT_YEARS, lastSeasonYear } from "@/lib/query/period";
 import { clearOfHotspotCard } from "@/lib/trends/cardRoom";
 import { PIXEL_SIGNIFICANCE, pixelCutoff, STRICT_P } from "@/lib/trends/hotspots";
 import { CHANCE_RUNS } from "@/lib/trends/chance";
@@ -111,7 +113,22 @@ function ChosenAreaLayer({ geometry }: { geometry: PolygonGeometry }) {
 
 const base = getLayer(BASE_LAYER_ID) as GibsLayer;
 const FIRST_YEAR = 2000;
-const LAST_YEAR = Number(defaultEndMonth().slice(0, 4)) - 1;
+
+/**
+ * The last year the form offers: the latest one whose months are published for the chosen months, or
+ * for each chosen measure's own (2026 for a summer measure in the autumn of 2026). Each scan still
+ * stops at its own product's last complete season, and says so.
+ */
+function lastYearFor(query: TrendQuery, latitude = 45): number {
+  const sets = query.months?.length
+    ? [query.months]
+    : query.season
+      ? [SEASONS[query.season].months]
+      : query.indicators.length
+        ? query.indicators.map((id) => ownMonths(id, latitude))
+        : [SEASONS.growing.months];
+  return lastSeasonYear(sets, defaultEndMonth());
+}
 
 /** "30 s – 2 min": NASA's map service answers in 0.4–1.5 s per map with six at a time. */
 function timeRange(maps: number): string {
@@ -122,11 +139,13 @@ function timeRange(maps: number): string {
 /** A rough count of the monthly maps a search will read, before NASA's record is checked. */
 function estimateMaps(query: TrendQuery): number {
   const t = query.time;
-  const years = t.kind === "versus" ? 2 : t.kind === "since" ? LAST_YEAR - t.start + 1 : t.kind === "range" ? t.end - t.start + 1 : t.kind === "last" ? t.years : t.kind === "year" ? 11 : DEFAULT_YEARS;
+  const years = t.kind === "versus" ? 2 : t.kind === "since" ? lastYearFor(query) - t.start + 1 : t.kind === "range" ? t.end - t.start + 1 : t.kind === "last" ? t.years : t.kind === "year" ? 11 : DEFAULT_YEARS;
   const budget = gridBudget(query.indicators.length);
   return query.indicators.reduce((sum, id) => {
     const months = query.months?.length ?? SEASONS[query.season ?? INDICATORS[id].season].months.length;
-    return sum + Math.min(budget, Math.max(1, years) * months);
+    // Open water reads three maps a month: both satellites' vegetation maps and the snow map.
+    const perMonth = INDICATORS[id].share ? 3 : 1;
+    return sum + Math.min(budget, Math.max(1, years) * months) * perMonth;
   }, 0);
 }
 
@@ -393,23 +412,20 @@ export default function Trends() {
         : area.name
       : null;
   const landCover = useLandCover(coverGeometry);
-  const coverWater = draft.extra.length
-    ? undefined
-    : exactGeometry
-      ? undefined
-      : chosenGeometry
-        ? placeArea.area?.water
-        : area?.water;
+  const placeWater = (found: { water?: WaterKind; lake?: boolean } | null | undefined) => (found?.lake ? "lake" : found?.water);
+  const coverWater = draft.extra.length ? undefined : exactGeometry ? undefined : chosenGeometry ? placeWater(placeArea.area) : placeWater(area);
   const suggestions = useMemo(
     () => (landCover.cover && coverGeometry ? suggestMeasures(landCover.cover, centroidOf(coverGeometry)[0], coverWater) : []),
     [landCover.cover, coverGeometry, coverWater],
   );
 
   const busy = scan.status === "preparing" || scan.status === "scanning";
-  const measureMaps = plan ? plan.years.length * plan.months.length : 0;
+  // Open water reads three maps a month (both satellites' vegetation maps and the snow map).
+  const measureMaps = plan ? plan.years.length * plan.months.length * (indicator?.share ? 3 : 1) : 0;
   const progressPct = measure?.progress ? Math.round((measure.progress.done / Math.max(1, measure.progress.total)) * 100) : 0;
   const position = applied && active ? scanned.indexOf(active) + 1 : 0;
   const latest = measure?.availability?.window.latest ?? defaultEndMonth();
+  const lastYear = lastYearFor(draft);
   const estimate = draft?.understood ? `About ${estimateMaps(draft)} monthly NASA maps · ${timeRange(estimateMaps(draft))} the first time.` : null;
   const minChange = indicator && filter ? indicator.minChange * filter.minFactor : 0;
   const shownKm2 = hotspots.reduce((sum, h) => sum + h.areaKm2, 0);
@@ -519,7 +535,7 @@ export default function Trends() {
                 surface={result.surface}
                 plan={plan}
                 filter={filter}
-                seasonSubject={seasonAverage(months)}
+                seasonSubject={indicator.share ? `The ${monthsLabel(months)} water area` : seasonAverage(months)}
                 hotspotCount={hotspots.length}
                 hotspotKm2={shownKm2}
                 analysisHref={areaAnalysisHref(area, applied.area, active, plan, latest, linkParts)}
@@ -575,7 +591,7 @@ export default function Trends() {
                   {plan.kind === "trend" ? `: ${plan.baseline[0]}–${plan.baseline[1]} (baseline) with ${plan.recent[0]}–${plan.recent[1]} (recent), and tests every year read in between.` : "."}
                 </li>
                 <li>
-                  Hotspots: neighbouring pixels whose {monthsLabel(months)} average changed by at least {minChange} {indicator.unit}
+                  Hotspots: neighbouring pixels whose {indicator.share ? `share of years under water (water seen in any month of ${monthsLabel(months)})` : `${monthsLabel(months)} average`} changed by at least {minChange} {indicator.unit}
                   {plan.kind === "trend"
                     ? filter.strict
                       ? `, with their own yearly trend pointing the same way and clear after allowing for every pixel tested at once (Mann–Kendall, Benjamini–Hochberg false discovery rate ${STRICT_P * 100}%)`
@@ -590,16 +606,26 @@ export default function Trends() {
                     than chance made in every one of them is beyond chance. A patch&apos;s own yearly test isn&apos;t used as proof: it was picked because it changed.
                   </li>
                 )}
-                {plan.kind === "trend" && <li>Each pixel's yearly values are tested with Mann–Kendall; the slope is Sen's slope (robust to outliers).</li>}
+                {plan.kind === "trend" && (
+                  <li>
+                    {indicator.share
+                      ? "Each pixel's years of water or land are tested with Mann–Kendall, without the allowance for years that carry over: a shore that dries out does so once, as a step, which that allowance would read as a run of similar years. The whole area's trend keeps it."
+                      : "Each pixel's yearly values are tested with Mann–Kendall; the slope is Sen's slope (robust to outliers)."}
+                  </li>
+                )}
                 <li>Changing what is shown re-groups the pixels already read — no new maps are needed.</li>
                 <li>
                   {result.surface === "land"
-                    ? "Lakes and seas are left out; clouds or gaps leave pixels without data."
+                    ? "Seas and lakes are left out (lakes from NASA's land cover map, less any bed the vegetation maps saw dry last summer); clouds or gaps leave pixels without data."
                     : result.surface === "water"
                       ? indicator.surface === "water"
                         ? "Land is left out (this measure is read on the sea); clouds or gaps leave pixels without data."
                         : "Land is left out: this area is a sea, so the air over its water is read."
-                      : "This measure covers the air over land and sea alike, so nothing is left out."}
+                      : indicator.share
+                        ? "Land and water are both read: the land a shrinking lake leaves behind is part of the answer."
+                        : indicator.surface === "water"
+                          ? "The land/water map doesn't mark this lake, so it is read wherever NASA's own map has values: its water, not the land."
+                          : "This measure covers the air over land and sea alike, so nothing is left out."}
                 </li>
                 {result.notes.map((note) => (
                   <li key={note}>{note}</li>
@@ -624,7 +650,7 @@ export default function Trends() {
         {!applied && !draft.understood && (
           <div>
             <p className="font-mono text-[10.5px] tabular-nums text-panel-muted">
-              {INDICATOR_ORDER.length} measures · {FIRST_YEAR}–{LAST_YEAR} · one NASA map per month
+              {INDICATOR_ORDER.length} measures · {FIRST_YEAR}–{lastYear} · one NASA map per month
             </p>
             <h2 className="field-label mt-5">Worked examples</h2>
             <ul className="mt-2 border-b border-panel-line">
@@ -693,7 +719,7 @@ export default function Trends() {
             )}
           </div>
         }
-        years={{ first: FIRST_YEAR, last: LAST_YEAR }}
+        years={{ first: FIRST_YEAR, last: lastYear }}
         onEdit={edit}
         onRun={() => runSearch(draft)}
         dirty={dirty}
@@ -825,14 +851,15 @@ export default function Trends() {
         </div>
       )}
       {result && scale && indicator && viewMode === "change" && (
-        // Phones: a small legend under the top row, clear of the controls along the bottom.
-        <div className="absolute right-3 top-16 sm:hidden">
-          <TrendLegend compact scale={scale} strict={strict} title={`${indicator.label}: ${scale.mode === "perDecade" ? "trend" : "change"}`} />
+        // Phones: a small legend under the top row, clear of the controls along the bottom and left of
+        // the drawing buttons down the right edge (44px wide, 12px in).
+        <div className="absolute right-[4.25rem] top-16 sm:hidden">
+          <TrendLegend compact scale={scale} strict={strict} tested={result?.trends.tested} title={`${indicator.label}: ${scale.mode === "perDecade" ? "trend" : "change"}`} />
         </div>
       )}
       {result && scale && indicator && (
         <div className="absolute bottom-24 right-4 hidden sm:block">
-          {viewMode === "change" ? <TrendLegend scale={scale} strict={strict} title={`${indicator.label}: ${scale.mode === "perDecade" ? "trend" : "change"}`} /> : frameLayer && <LayerLegend layer={frameLayer} />}
+          {viewMode === "change" ? <TrendLegend scale={scale} strict={strict} tested={result.trends.tested} title={`${indicator.label}: ${scale.mode === "perDecade" ? "trend" : "change"}`} /> : indicator.share ? <WaterLegend /> : frameLayer && <LayerLegend layer={frameLayer} />}
         </div>
       )}
     </>

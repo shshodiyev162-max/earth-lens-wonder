@@ -51,8 +51,39 @@ export function seasonMeanGrids(monthGrids: Map<string, Float32Array>, years: nu
   });
 }
 
-/** Mann–Kendall p-value and Sen's slope for one short series; reuses the scratch buffers. */
-export function pixelTrend(xs: Float64Array, ys: Float64Array, n: number, slopes: Float64Array, sorted: Float64Array): { slope: number; p: number } {
+/**
+ * One grid per year for a pixel that is either one thing or the other (open water): 100 when any
+ * month of the season it was read in said so, 0 when none did (at least half the months must be
+ * read). Water can read as land in a hazy month, but land almost never reads as water, so one
+ * month that saw water is the better witness.
+ */
+export function seasonAnyGrids(monthGrids: Map<string, Float32Array>, years: number[], months: number[], size: number): Float32Array[] {
+  const minValid = Math.max(1, Math.ceil(months.length / 2));
+  return years.map((year) => {
+    const grids = seasonYearMonths(year, months)
+      .map((month) => monthGrids.get(month))
+      .filter((grid): grid is Float32Array => Boolean(grid));
+    const out = new Float32Array(size).fill(NaN);
+    for (let i = 0; i < size; i++) {
+      let count = 0;
+      let top = 0;
+      for (const grid of grids) {
+        const v = grid[i];
+        if (!Number.isFinite(v)) continue;
+        count += 1;
+        if (v > top) top = v;
+      }
+      if (count >= minValid) out[i] = top;
+    }
+    return out;
+  });
+}
+
+/**
+ * Mann–Kendall p-value and Sen's slope for one short series; reuses the scratch buffers. With
+ * `steps`, a single switch from one state to the other counts as a change (see computePixelTrends).
+ */
+export function pixelTrend(xs: Float64Array, ys: Float64Array, n: number, slopes: Float64Array, sorted: Float64Array, steps = false): { slope: number; p: number } {
   let s = 0;
   let count = 0;
   for (let i = 0; i < n - 1; i++) {
@@ -81,7 +112,7 @@ export function pixelTrend(xs: Float64Array, ys: Float64Array, n: number, slopes
   for (let i = 0; i < n; i++) sorted[i] = ys[i] - slope * xs[i];
   const offsets = sorted.subarray(0, n).sort();
   const intercept = n % 2 ? offsets[(n - 1) / 2] : (offsets[n / 2 - 1] + offsets[n / 2]) / 2;
-  const varS = ((n * (n - 1) * (2 * n + 5) - ties) / 18) * carryOverFactor(lag1Autocorrelation(xs, ys, n, slope, intercept), n);
+  const varS = ((n * (n - 1) * (2 * n + 5) - ties) / 18) * (steps ? 1 : carryOverFactor(lag1Autocorrelation(xs, ys, n, slope, intercept), n));
   const z = varS > 0 && s !== 0 ? (s - Math.sign(s)) / Math.sqrt(varS) : 0;
   const p = z === 0 ? 1 : 2 * (1 - normalCdf(Math.abs(z)));
   return { slope, p };
@@ -108,6 +139,12 @@ const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 /**
  * Change (recent − baseline) and, when `trend` is set, Sen's slope and Mann–Kendall p per pixel.
  * Yields to the browser every `chunk` pixels so the page stays responsive; stops on `signal`.
+ *
+ * `steps` is for pixels that switch between two states (open water: water or land). A shore that
+ * dries out does it once, as a step: Mann–Kendall sees that as a change, but the carry-over
+ * allowance reads a step as a run of similar years and would never let one count. So with `steps`
+ * the allowance is left out for each pixel (the whole area's trend keeps it, and patches still face
+ * the chance check, which shuffles the years).
  */
 export async function computePixelTrends(
   yearGrids: Float32Array[],
@@ -115,9 +152,9 @@ export async function computePixelTrends(
   baseline: [number, number],
   recent: [number, number],
   mask: Uint8Array,
-  options: { width: number; height: number; trend: boolean; signal?: AbortSignal; chunk?: number },
+  options: { width: number; height: number; trend: boolean; steps?: boolean; signal?: AbortSignal; chunk?: number },
 ): Promise<PixelTrends> {
-  const { width, height, trend, signal } = options;
+  const { width, height, trend, signal, steps = false } = options;
   const size = width * height;
   const chunk = options.chunk ?? 4000;
   const baselineMean = new Float32Array(size).fill(NaN);
@@ -154,7 +191,7 @@ export async function computePixelTrends(
       }
     }
     if (count >= minYears) {
-      const result = pixelTrend(xs, ys, count, slopes, sorted);
+      const result = pixelTrend(xs, ys, count, slopes, sorted, steps);
       slope[i] = result.slope;
       p[i] = result.p;
     }

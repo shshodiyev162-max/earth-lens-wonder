@@ -34,7 +34,7 @@ function setup(params: string, placeError: string | null = null) {
 describe("AreaPicker", () => {
   it("lists known regions, seas and oceans, and picks one by name", () => {
     const { onEdit } = setup("ind=dust&place=");
-    const list = screen.getByLabelText("Or choose a known region, sea or ocean");
+    const list = screen.getByLabelText("Or choose a known region, lake, sea or ocean");
     for (const name of ["Aral Sea", "Pamirs", "Central Asia", "Mediterranean Sea", "Black Sea", "North Atlantic", "Western Pacific", "Eastern Pacific"]) {
       expect(screen.getByRole("option", { name })).toBeInTheDocument();
     }
@@ -42,10 +42,19 @@ describe("AreaPicker", () => {
     expect(onEdit).toHaveBeenCalledWith({ place: "Aral Sea" });
   });
 
+  it("keeps lakes in a list of their own, the Aral Sea among them", () => {
+    setup("ind=water&place=Aral+Sea");
+    const lakes = screen.getByRole("group", { name: "Lakes" });
+    for (const name of ["Aral Sea", "Lake Urmia", "Lake Balkhash", "Great Salt Lake", "Lake Victoria"]) expect(within(lakes).getByRole("option", { name })).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Regions" })).queryByRole("option", { name: "Aral Sea" })).toBeNull();
+    expect(screen.getByText("Lake: Kazakhstan / Uzbekistan")).toBeInTheDocument();
+    expect(screen.getByText(/largest area NASA's maps show it under water since 2000/)).toBeInTheDocument();
+  });
+
   it("shows a chosen sea as a sea, selected in the list", () => {
     setup("ind=sst&place=Mediterranean+Sea");
     expect(screen.getByText("Sea: its water only")).toBeInTheDocument();
-    expect((screen.getByLabelText("Or choose a known region, sea or ocean") as HTMLSelectElement).value).toBe("Mediterranean Sea");
+    expect((screen.getByLabelText("Or choose a known region, lake, sea or ocean") as HTMLSelectElement).value).toBe("Mediterranean Sea");
   });
 
   it("lists continents on their own, and says how a continent's land was drawn", () => {
@@ -56,7 +65,7 @@ describe("AreaPicker", () => {
     expect(within(screen.getByRole("group", { name: "Regions" })).getByRole("option", { name: "Western Europe" })).toBeInTheDocument();
     expect(screen.getByText("Continent")).toBeInTheDocument();
     expect(screen.getByText(/only west of the Ural Mountains, the Ural River and the Bosporus/)).toBeInTheDocument();
-    expect((screen.getByLabelText("Or choose a known region, sea or ocean") as HTMLSelectElement).value).toBe("Europe");
+    expect((screen.getByLabelText("Or choose a known region, lake, sea or ocean") as HTMLSelectElement).value).toBe("Europe");
   });
 
   it("drops the note when the region's surroundings are added", () => {
@@ -67,7 +76,7 @@ describe("AreaPicker", () => {
 
   it("offers to click a country or a sea on the map", () => {
     const { onDraw } = setup("ind=sst&place=");
-    fireEvent.click(screen.getByRole("button", { name: "Country or sea" }));
+    fireEvent.click(screen.getByRole("button", { name: "Country, lake or sea" }));
     expect(onDraw).toHaveBeenCalledWith("country");
   });
 
@@ -140,8 +149,8 @@ describe("AreaPicker with places added together", () => {
     expect(screen.getByText("Uzbekistan + Turkmenistan")).toBeInTheDocument();
     expect(screen.getByText("2 places together")).toBeInTheDocument();
     const list = screen.getByRole("list", { name: "Places in this area" });
-    expect(list).toHaveTextContent("447k km²");
-    expect(list).toHaveTextContent("918k km²");
+    expect(list).toHaveTextContent("447,000 km²");
+    expect(list).toHaveTextContent("918,000 km²");
     fireEvent.click(screen.getByRole("button", { name: "Take Turkmenistan out of the area" }));
     expect(onRemovePart).toHaveBeenCalledWith(1);
   });
@@ -161,7 +170,7 @@ describe("AreaPicker with places added together", () => {
   it("adds a listed sea or a searched place instead of replacing the area", async () => {
     const { onAdd, onEdit } = adding("ind=vegetation&place=Uzbekistan", true, rows.slice(0, 1));
     expect(screen.getByText("Adding places.")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Or add a known region, sea or ocean"), { target: { value: "Aral Sea" } });
+    fireEvent.change(screen.getByLabelText("Or add a known region, lake, sea or ocean"), { target: { value: "Aral Sea" } });
     expect(onAdd).toHaveBeenCalledWith({ kind: "region", label: "Aral Sea" });
     fireEvent.change(screen.getByRole("combobox", { name: "Search a place to add to the area" }), { target: { value: "Samarkand" } });
     fireEvent.click(await screen.findByRole("option", { name: /Samarkand/ }));

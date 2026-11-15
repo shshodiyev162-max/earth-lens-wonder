@@ -64,6 +64,16 @@ export function completeSeasonYears(months: number[], window: DataWindow): { fir
   return first !== null && last !== null ? { first, last } : null;
 }
 
+/**
+ * The last year a search can reach, before each product's own record is checked: the latest year
+ * whose months, for every set given, are all published by `latest`, taking the set that reaches
+ * furthest. A summer measure reaches this year once August is out; an all-year one waits for December.
+ */
+export function lastSeasonYear(monthSets: number[][], latest: string): number {
+  const years = monthSets.map((months) => completeSeasonYears(months, { earliest: "2000-01", latest })?.last ?? Number(latest.slice(0, 4)) - 1);
+  return years.length ? Math.max(...years) : Number(latest.slice(0, 4)) - 1;
+}
+
 function windowLength(years: number): number {
   return Math.max(2, Math.min(5, Math.round(years / 4)));
 }

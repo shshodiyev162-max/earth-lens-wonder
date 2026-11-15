@@ -1,5 +1,5 @@
 import { useId, useMemo } from "react";
-import { senSlope } from "@/lib/analysis/stats";
+import { grouped, senSlope } from "@/lib/analysis/stats";
 import type { YearValue } from "@/lib/trends/scan";
 
 interface YearTrendChartProps {
@@ -89,7 +89,7 @@ export default function YearTrendChart({ series, baseline, recent, color = "curr
   const windows = [baseline ? { ...band(baseline), name: "then" } : null, recent ? { ...band(recent), name: "now" } : null].filter((w): w is { x: number; w: number; name: string } => w !== null && w.w > 0);
   const first = valid[0];
   const last = valid[valid.length - 1];
-  const print = (value: number) => `${value.toFixed(decimals)}${unit ? ` ${unit}` : ""}`;
+  const print = (value: number) => `${grouped(value, decimals)}${unit ? ` ${unit}` : ""}`;
 
   return (
     <figure className="m-0">

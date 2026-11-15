@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completeSeasonYears, planPeriod, seasonYearMonths, timeSpan, trendWindows, type PeriodPlan, type TimeSpec } from "../period";
+import { completeSeasonYears, lastSeasonYear, planPeriod, seasonYearMonths, timeSpan, trendWindows, type PeriodPlan, type TimeSpec } from "../period";
 
 const NDVI = { earliest: "2000-03", latest: "2026-08" };
 const GROWING = [4, 5, 6, 7, 8, 9];
@@ -98,5 +98,17 @@ describe("the years a timeline shows", () => {
     }
     // A short span right at the start of the record has nothing earlier to compare with.
     expect(trendWindows(2000, 2002, 2000)).toBeNull();
+  });
+});
+
+describe("the last year a search can reach", () => {
+  it("is this year once a season's months are out, and last year for a whole year", () => {
+    // In mid-November 2026 NASA has published up to October.
+    expect(lastSeasonYear([[6, 7, 8]], "2026-10")).toBe(2026);
+    expect(lastSeasonYear([[4, 5, 6, 7, 8, 9]], "2026-10")).toBe(2026);
+    expect(lastSeasonYear([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]], "2026-10")).toBe(2025);
+    // Several measures: the one that reaches furthest sets the timeline; each scan stops at its own.
+    expect(lastSeasonYear([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [6, 7, 8]], "2026-10")).toBe(2026);
+    expect(lastSeasonYear([], "2026-10")).toBe(2025);
   });
 });

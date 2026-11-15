@@ -8,6 +8,7 @@ import { findCountry, loadCountries, type CountryIndex } from "./countries";
 import { continentPolygons, countryOnContinent, type ContinentId } from "./continents";
 import { bboxOf, bboxPolygon, polygonsOf, type BBox, type LatLng, type PolygonGeometry, type Position } from "./geometry";
 import { findWater, WATERS, waterShape, type WaterKind } from "./waters";
+import { findLake, LAKES, lakeShape } from "./lakes";
 
 export interface NamedRegion {
   names: string[];
@@ -24,6 +25,8 @@ export interface NamedRegion {
   /** A rough outline (longitude, latitude): for seas, whose water area is loaded separately. */
   outline?: [number, number][];
   water?: WaterKind;
+  /** A lake: its outline is loaded separately (lib/geo/lakes), and the land around it can be read. */
+  lake?: boolean;
 }
 
 const UN_LIST = "Countries as on the UN's list of world regions.";
@@ -131,7 +134,6 @@ const LAND_REGIONS: NamedRegion[] = [
   // Asia
   { names: ["central asia"], label: "Central Asia", context: "Kazakhstan, Kyrgyzstan, Tajikistan, Turkmenistan, Uzbekistan", countries: ["KAZ", "KGZ", "TJK", "TKM", "UZB"] },
   { names: ["pamirs", "pamir", "pamir mountains", "the pamirs"], label: "Pamirs", context: "Tajikistan, Afghanistan, China, Kyrgyzstan", bbox: [70.5, 36.6, 75.4, 39.7] },
-  { names: ["aral sea", "the aral sea", "aral"], label: "Aral Sea", context: "Kazakhstan / Uzbekistan", bbox: [57.8, 43.3, 62.0, 47.2] },
   { names: ["fergana valley", "ferghana valley", "fergana"], label: "Fergana Valley", context: "Uzbekistan, Kyrgyzstan, Tajikistan", bbox: [70.3, 40.0, 73.6, 41.6] },
   { names: ["kyzylkum", "kyzylkum desert", "kyzyl kum", "kyzyl-kum"], label: "Kyzylkum Desert", context: "Uzbekistan / Kazakhstan", bbox: [60.5, 40.0, 66.8, 44.2] },
   { names: ["karakum", "karakum desert", "kara kum", "garagum"], label: "Karakum Desert", context: "Turkmenistan", bbox: [54.5, 36.5, 65.0, 41.8] },
@@ -216,6 +218,7 @@ const LAND_REGIONS: NamedRegion[] = [
 export const NAMED_REGIONS: NamedRegion[] = [
   ...CONTINENTS,
   ...LAND_REGIONS,
+  ...LAKES.map((lake) => ({ names: lake.names, label: lake.label, context: lake.context, bbox: lake.bbox, lake: true })),
   ...WATERS.map((water) => ({ names: water.names, label: water.label, context: water.kind === "sea" ? "Sea" : "Ocean", outline: water.outline, water: water.kind })),
 ];
 
@@ -234,6 +237,7 @@ function merge(geometries: PolygonGeometry[]): PolygonGeometry {
 /** How the region was drawn, when it matters: its own note, or that a box takes in land at its edges. */
 export function regionNote(region: NamedRegion): string | undefined {
   if (region.note) return region.note;
+  if (region.lake) return "Drawn as the largest area NASA's maps show it under water since 2000, with a 2 km margin, so shores that have dried up since are included.";
   if (region.bbox) return "Drawn as a box around it, so it takes in some land at its edges.";
   return undefined;
 }
@@ -264,6 +268,8 @@ function regionLand(region: NamedRegion, countries: CountryIndex | null): Polygo
 export async function regionGeometry(region: NamedRegion, countries?: CountryIndex | null): Promise<PolygonGeometry | null> {
   const water = region.water ? findWater(region.label) : null;
   if (water) return waterShape(water);
+  const lake = region.lake ? findLake(region.label) : null;
+  if (lake) return lakeShape(lake);
   if (region.outline) return { type: "Polygon", coordinates: [region.outline] };
   if (region.bbox) return bboxPolygon(region.bbox);
   return regionLand(region, countries === undefined ? await loadCountries() : countries);
@@ -297,5 +303,5 @@ export async function regionPlace(region: NamedRegion): Promise<PlaceResult | nu
   const bbox = regionBBox(region, fromCountries(region) ? await loadCountries() : null);
   if (!bbox) return null;
   const center: LatLng = [(bbox[1] + bbox[3]) / 2, (bbox[0] + bbox[2]) / 2];
-  return { id: `region:${region.label}`, name: region.label, context: region.context, kind: region.water ? "water" : "region", center, bbox, region: region.label, source: "terrascope" };
+  return { id: `region:${region.label}`, name: region.label, context: region.context, kind: region.water || region.lake ? "water" : "region", center, bbox, region: region.label, source: "terrascope" };
 }

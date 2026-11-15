@@ -23,6 +23,8 @@ export interface ScanArea {
   countryId?: string;
   /** A named sea or ocean (its water only): land measures can't be read there. */
   water?: WaterKind;
+  /** A named lake (lib/geo/lakes): its outline takes in the shore it left, so land and water measures are both read. */
+  lake?: boolean;
   /** The named region, sea or ocean this is (for exact links to other pages). */
   region?: string;
 }
@@ -41,7 +43,7 @@ function area(name: string, context: string | undefined, geometry: PolygonGeomet
 export function widen(target: ScanArea): ScanArea {
   const bbox = clampBBox(padBBox(target.bbox, 0.6, 0.5));
   // A box around the place, no longer the country itself.
-  return { ...target, name: `Around ${target.name}`, geometry: bboxPolygon(bbox), bbox, kind: target.kind === "country" ? "region" : target.kind, countryId: undefined, water: undefined, region: undefined };
+  return { ...target, name: `Around ${target.name}`, geometry: bboxPolygon(bbox), bbox, kind: target.kind === "country" ? "region" : target.kind, countryId: undefined, water: undefined, lake: undefined, region: undefined };
 }
 
 export interface ResolveOptions {
@@ -103,7 +105,7 @@ export async function resolveArea(text: string | null, options: ResolveOptions =
     if (geometry) {
       // A sea keeps the extent of its outline, so its scans read the same map tiles whatever its exact shape.
       const bbox = regionBBox(region, countries) ?? bboxOf(geometry);
-      return finish({ ...area(region.label, region.context, geometry, "region"), bbox, water: region.water, region: region.label });
+      return finish({ ...area(region.label, region.context, geometry, "region"), bbox, water: region.water, lake: region.lake || undefined, region: region.label });
     }
   }
 

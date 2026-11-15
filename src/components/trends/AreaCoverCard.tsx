@@ -1,6 +1,7 @@
 import { Loader2, Plus } from "lucide-react";
 import { demoAttr } from "@/lib/demo/scripts";
 import { INDICATORS, type IndicatorId } from "@/lib/query/indicators";
+import { formatArea } from "@/lib/geo/geometry";
 import { COVER_COLOR, COVER_GROUPS, COVER_LABEL, describeCover, type LandCover, type Suggestion } from "@/lib/trends/landcover";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,12 @@ export default function AreaCoverCard({ name, status, cover, suggestions, select
       {cover && cover.totalKm2 > 0 && (
         <>
           <p className="text-xs leading-relaxed text-panel-soft">{describeCover(cover)}</p>
+          {(cover.driedKm2 ?? 0) >= Math.max(1, cover.totalKm2 * 0.01) && cover.checkedIn && (
+            <p className="text-[11px] leading-relaxed text-panel-muted">
+              NASA&apos;s land cover map keeps lakes and seas at a fixed outline. {formatArea(cover.driedKm2 ?? 0)} of its water here was dry land in {cover.checkedIn} by NASA&apos;s
+              vegetation maps, so it counts as bare ground.
+            </p>
+          )}
           <div className="flex h-1.5 overflow-hidden rounded-full" aria-hidden>
             {groups.map((g) => (
               <div key={g} style={{ width: `${cover.shares[g] * 100}%`, background: COVER_COLOR[g] }} />

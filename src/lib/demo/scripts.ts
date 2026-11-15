@@ -55,7 +55,7 @@ export const DEMOS: DemoScript[] = [
       {
         target: "where",
         action: { kind: "edit", edit: { area: { country: "UZB", name: "Uzbekistan" } } },
-        caption: "First the place. Here Uzbekistan is picked by clicking it on the map with “Country or sea”; you can also draw a shape, search for a place, or choose a known region.",
+        caption: "First the place. Here Uzbekistan is picked by clicking it on the map with “Country, lake or sea”; you can also draw a shape, search for a place, or choose a known region.",
       },
       {
         target: "form",
@@ -110,7 +110,7 @@ export const DEMOS: DemoScript[] = [
       {
         target: "where",
         action: { kind: "edit", edit: { place: "Mediterranean Sea" } },
-        caption: "Pick the sea: press “Country or sea” and click the water, search for it, or choose it from the list of known seas. TerraScope uses the sea's own shape, so only water is scanned.",
+        caption: "Pick the sea: press “Country, lake or sea” and click the water, search for it, or choose it from the list of known seas. TerraScope uses the sea's own shape, so only water is scanned.",
       },
       {
         target: "form",
@@ -145,7 +145,7 @@ export const DEMOS: DemoScript[] = [
       {
         target: "where",
         action: { kind: "edit", edit: { place: "Aral Sea", indicators: ["dust"], time: { kind: "default" }, season: null, months: null } },
-        caption: "Here the Aral Sea is chosen from the list of known regions — the lake that shrank to a fraction of its size, leaving a dusty seabed.",
+        caption: "Here the Aral Sea is chosen from the list of known lakes — the lake that shrank to a fraction of its size, leaving a dusty seabed.",
       },
       {
         target: "cover",
@@ -154,8 +154,8 @@ export const DEMOS: DemoScript[] = [
       },
       {
         target: "form",
-        action: { kind: "edit", edit: { indicators: ["vegetation", "dust"] } },
-        caption: "Pick measures — here vegetation and dust — then the years and the months. Nothing is read from NASA until you ask.",
+        action: { kind: "edit", edit: { indicators: ["water", "dust"] } },
+        caption: "Pick measures — here open water, to see how far the sea has shrunk, and dust from the seabed it left — then the years and the months. Nothing is read from NASA until you ask.",
       },
       {
         target: "find",

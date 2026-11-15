@@ -11,7 +11,20 @@ function format(value: number): string {
  * Diverging legend for the change map, in real units (per decade for trends). `compact` is the
  * phone version: the colours, their ends and the unit, small enough to sit over the map.
  */
-export default function TrendLegend({ scale, title, strict = true, compact = false }: { scale: ChangeScale; title: string; strict?: boolean; compact?: boolean }) {
+export default function TrendLegend({
+  scale,
+  title,
+  strict = true,
+  compact = false,
+  tested = scale.mode === "perDecade",
+}: {
+  scale: ChangeScale;
+  title: string;
+  strict?: boolean;
+  compact?: boolean;
+  /** Whether each pixel was tested (always for trends; open water shows then vs now, tested too). */
+  tested?: boolean;
+}) {
   return (
     <div className={compact ? "float-surface pointer-events-auto w-44 px-2.5 py-2 text-panel-foreground" : "float-surface pointer-events-auto w-60 p-3 text-panel-foreground"}>
       <p className={compact ? "truncate text-[11px] font-medium" : "text-xs font-medium"}>{title}</p>
@@ -22,9 +35,9 @@ export default function TrendLegend({ scale, title, strict = true, compact = fal
         <span>0</span>
         <span>{format(scale.max)}</span>
       </div>
-      {scale.mode === "perDecade" && !compact && (
+      {tested && !compact && (
         <p className="mt-2 text-[11px] leading-snug text-panel-muted">
-          {strict ? "Faded pixels: no clear trend, allowing for the many pixels tested at once." : "Faded pixels: no trend at p < 0.1 (Mann–Kendall)."}
+          {strict ? `Faded pixels: no clear ${scale.mode === "perDecade" ? "trend" : "change"}, allowing for the many pixels tested at once.` : "Faded pixels: no trend at p < 0.1 (Mann–Kendall)."}
         </p>
       )}
     </div>

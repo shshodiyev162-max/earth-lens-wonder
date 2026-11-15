@@ -19,7 +19,7 @@ const TOOLS: { mode: DrawMode; label: string; icon: typeof Square; title: string
   { mode: "rectangle", label: "Rectangle", icon: Square, title: "Draw a rectangle on the map" },
   { mode: "polygon", label: "Polygon", icon: Hexagon, title: "Draw a polygon on the map" },
   { mode: "circle", label: "Circle", icon: Circle, title: "Draw a circle on the map" },
-  { mode: "country", label: "Country or sea", icon: Flag, title: "Click a country or a sea on the map" },
+  { mode: "country", label: "Country, lake or sea", icon: Flag, title: "Click a country, a lake or a sea on the map" },
 ];
 
 const byLabel = (a: NamedRegion, b: NamedRegion) => a.label.localeCompare(b.label);
@@ -27,7 +27,8 @@ const continental = (r: NamedRegion) => Boolean(r.continents?.length && !r.excep
 /** Places TerraScope knows the outline of, for the "known places" list. */
 const KNOWN: { group: string; regions: NamedRegion[] }[] = [
   { group: "Continents", regions: NAMED_REGIONS.filter(continental).sort(byLabel) },
-  { group: "Regions", regions: NAMED_REGIONS.filter((r) => !r.water && !continental(r)).sort(byLabel) },
+  { group: "Regions", regions: NAMED_REGIONS.filter((r) => !r.water && !r.lake && !continental(r)).sort(byLabel) },
+  { group: "Lakes", regions: NAMED_REGIONS.filter((r) => r.lake).sort(byLabel) },
   { group: "Seas", regions: NAMED_REGIONS.filter((r) => r.water === "sea").sort(byLabel) },
   { group: "Oceans", regions: NAMED_REGIONS.filter((r) => r.water === "ocean").sort(byLabel) },
 ];
@@ -74,7 +75,13 @@ function describe(query: TrendQuery, foundName: string | null, parts: PartRow[])
   const region = query.place ? findNamedRegion(query.place) : null;
   if (region) {
     const around = query.near ? ", with its surroundings" : "";
-    const detail = region.water ? `${WATER_WORD[region.water]}: its water only${around}` : isContinent(region) ? `Continent${around}` : `Region: ${region.context}${around}`;
+    const detail = region.water
+      ? `${WATER_WORD[region.water]}: its water only${around}`
+      : region.lake
+        ? `Lake: ${region.context}${around}`
+        : isContinent(region)
+          ? `Continent${around}`
+          : `Region: ${region.context}${around}`;
     // "With its surroundings" is a box around the region, so how its land was drawn no longer applies.
     return { title: region.label, detail, note: query.near ? undefined : regionNote(region) };
   }
@@ -188,7 +195,7 @@ export default function AreaPicker({
 
       <div>
         <p className="mb-1.5 text-[11px] text-panel-muted">{adding ? "Add an area from the map" : "Highlight an area on the map"}</p>
-        <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Draw an area, or pick a country or sea, on the map">
+        <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Draw an area, or pick a country, lake or sea, on the map">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
             const active = drawMode === tool.mode;
@@ -218,7 +225,7 @@ export default function AreaPicker({
 
       <div>
         <label htmlFor={knownId} className="mb-1.5 block text-[11px] text-panel-muted">
-          {adding ? "Or add a known region, sea or ocean" : "Or choose a known region, sea or ocean"}
+          {adding ? "Or add a known region, lake, sea or ocean" : "Or choose a known region, lake, sea or ocean"}
         </label>
         <div className="flex gap-1.5">
           <select id={knownId} value={known} onChange={(event) => pickKnown(event.target.value)} className="field min-w-0 flex-1">

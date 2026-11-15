@@ -1,6 +1,6 @@
 import { signed } from "@/lib/analysis/stats";
 import { formatArea } from "@/lib/geo/geometry";
-import type { Indicator } from "@/lib/query/indicators";
+import { seriesUnit, type Indicator } from "@/lib/query/indicators";
 import type { PeriodPlan } from "@/lib/query/period";
 import { beyondChance, type ChanceCheck } from "@/lib/trends/chance";
 import { hotspotTitle } from "@/lib/trends/query";
@@ -46,7 +46,7 @@ export default function HotspotList({ hotspots, labels, indicator, plan, selecte
                 </span>
               </span>
               <span className="text-panel-soft">
-                <YearTrendChart series={hotspot.series} unit={indicator.unit} decimals={indicator.decimals} compact label={`${title} over time`} />
+                <YearTrendChart series={hotspot.series} {...seriesUnit(indicator)} compact label={`${title} over time`} />
               </span>
             </button>
           </li>

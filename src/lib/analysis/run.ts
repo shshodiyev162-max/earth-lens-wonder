@@ -10,6 +10,8 @@ import { areaKm2 as geometryArea, representativePoints, type LatLng, type Polygo
 import { getLayer, type GibsLayer } from "../gibs/catalog";
 import { sampleArea, type AreaStats } from "../gibs/sample";
 import { addMonthsToMonth, dateForMonth, fetchTimeDomain, monthRange, monthsInDomain } from "../gibs/time";
+import { fetchMonthGrid } from "../trends/grid";
+import { waterInArea } from "../trends/water";
 import {
   averageClimatology,
   averageMonthly,
@@ -111,6 +113,16 @@ export const DATASETS: DatasetInfo[] = [
     layerId: "GRACE_Tellus_Liquid_Water_Equivalent_Thickness_Mascon_CRI",
     unit: "cm",
     decimals: 1,
+    group: "water",
+  },
+  {
+    id: "water",
+    label: "Open water",
+    description: "Area of lakes, seas and reservoirs, in km², from July 2002. Snowy ground is left out, since snow and ice look like water; each year shows its clearest month.",
+    source: "Open water from MODIS Terra and Aqua monthly NDVI (MOD13A3, MYD13A3) and snow cover (MOD10CM) · NASA GIBS",
+    layerId: "MODIS_Terra_L3_NDVI_Monthly",
+    unit: "km²",
+    decimals: 0,
     group: "water",
   },
   {
@@ -372,7 +384,10 @@ async function runSatellite(
   }
   const available = new Set(domainMonths);
   // Months that are not published yet still count toward progress.
-  months.filter((m) => !available.has(m)).forEach(() => tick());
+  const tickMonth = () => {
+    for (let k = 0; k < mapsPerMonth(dataset); k++) tick();
+  };
+  months.filter((m) => !available.has(m)).forEach(tickMonth);
 
   let failures = 0;
   let lastError: unknown = null;
@@ -380,6 +395,11 @@ async function runSatellite(
     months.map(async (month) => {
       if (!available.has(month)) return toSatellitePoint(dataset, month, null);
       try {
+        if (dataset === "water") {
+          // Worked out pixel by pixel from both satellites' maps and the snow map, as on the Trends page.
+          const value = await waterInArea(fetchMonthGrid, request.target.geometry, request.target.bbox, month, signal);
+          return { month, value, p10: null, p90: null, coverage: value === null ? 0 : 1 };
+        }
         const stats = await cachedSample(layer, request.target.geometry, key, month, signal);
         return toSatellitePoint(dataset, month, stats);
       } catch (error) {
@@ -388,7 +408,7 @@ async function runSatellite(
         lastError = error;
         return toSatellitePoint(dataset, month, null);
       } finally {
-        tick();
+        tickMonth();
       }
     }),
   );
@@ -507,8 +527,14 @@ export function requestMonths(request: Pick<AnalysisRequest, "start" | "end" | "
 }
 
 /** Monthly satellite maps an analysis needs (the load that takes time). */
+/** Maps read for one month of a dataset: open water reads both satellites' vegetation maps and the snow map. */
+export function mapsPerMonth(dataset: DatasetId): number {
+  return dataset === "water" ? 3 : 1;
+}
+
 export function countMaps(request: Pick<AnalysisRequest, "start" | "end" | "months" | "datasets">): number {
-  return requestMonths(request).length * request.datasets.filter((d) => d !== "climate").length;
+  const perMonth = request.datasets.filter((d) => d !== "climate").reduce((total, d) => total + mapsPerMonth(d), 0);
+  return requestMonths(request).length * perMonth;
 }
 
 /** Requests to NASA POWER (monthly values and normals at each sample point). */
@@ -535,7 +561,7 @@ export async function runAnalysis(
   const total = Math.max(1, countTasks(request));
   const satelliteIds = request.datasets.filter((d): d is Exclude<DatasetId, "climate"> => d !== "climate");
   const datasets: NonNullable<AnalysisProgress["datasets"]> = {};
-  for (const id of satelliteIds) datasets[id] = { done: 0, total: months.length };
+  for (const id of satelliteIds) datasets[id] = { done: 0, total: months.length * mapsPerMonth(id) };
   if (request.datasets.includes("climate")) datasets.climate = { done: 0, total: countClimateRequests(request) };
 
   let done = 0;

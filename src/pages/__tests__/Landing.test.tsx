@@ -83,9 +83,9 @@ describe("the home page", () => {
 
   it("lists every measure, says how many there are, and opens each on the Trends page", () => {
     renderPage();
-    expect(INDICATOR_ORDER).toHaveLength(29);
-    const heading = screen.getByRole("heading", { name: /^Twenty-nine measures/ });
-    // All the links at once: finding them one by one, 29 times, failed the time limit on a laptop on battery.
+    expect(INDICATOR_ORDER).toHaveLength(30);
+    const heading = screen.getByRole("heading", { name: /^Thirty measures/ });
+    // All the links at once: finding them one by one, 30 times, failed the time limit on a laptop on battery.
     const links = within(heading.closest("section") as HTMLElement).getAllByRole("link");
     for (const id of INDICATOR_ORDER) {
       const matching = links.filter((link) => link.textContent?.startsWith(INDICATORS[id].label));
@@ -122,8 +122,10 @@ describe("the home page", () => {
 
   it("doesn't list as unmeasured anything the app now measures", () => {
     const { container } = renderPage();
-    const unmeasured = (container.textContent ?? "").match(/[^.]*aren't measured/)?.[0] ?? "";
+    const unmeasured = (container.textContent ?? "").match(/[^.]*aren't measured[^.]*/)?.[0] ?? "";
     expect(unmeasured).toMatch(/Sea level/);
+    // Lakes are measured by their area now; how deep they are still isn't.
+    expect(unmeasured).toMatch(/lakes only by their area/);
     for (const measured of ["groundwater", "methane", "salinity", "ozone layer", "snowfall"]) expect(unmeasured, measured).not.toMatch(new RegExp(measured, "i"));
   });
 

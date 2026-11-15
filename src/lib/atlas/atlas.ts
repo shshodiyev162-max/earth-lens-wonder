@@ -91,8 +91,24 @@ export function atlasPixel(measure: AtlasMeasure): { degrees: number; km: number
 }
 
 /** A hotspot's name, or its rank when it has none. */
-export function hotspotName(hotspot: AtlasHotspot): string {
-  return hotspot.name ?? `Change ${hotspot.rank}`;
+/** Patches at least this big are named by their country: a province's name would undersell them. */
+const COUNTRY_SIZE_KM2 = 100_000;
+
+function baseName(hotspot: AtlasHotspot): string {
+  const name = hotspot.name ?? `Change ${hotspot.rank}`;
+  if (hotspot.areaKm2 < COUNTRY_SIZE_KM2 || !name.includes(", ")) return name;
+  return name.slice(name.lastIndexOf(", ") + 2);
+}
+
+/**
+ * A patch's name. One of 194,000 km² is "Poland", not "Silesian Voivodeship, Poland" (where its
+ * middle happens to be). Given the measure's other patches, a name shared with a bigger one gets a number.
+ */
+export function hotspotName(hotspot: AtlasHotspot, all: AtlasHotspot[] = [hotspot]): string {
+  const name = baseName(hotspot);
+  const same = all.filter((other) => baseName(other) === name).sort((a, b) => a.rank - b.rank);
+  const k = same.findIndex((other) => other.rank === hotspot.rank);
+  return k > 0 ? `${name} (${k + 1})` : name;
 }
 
 /** The Trends page for one hotspot: its outline, the same measure, direction and years, every month. */
@@ -101,7 +117,7 @@ export function atlasTrendsHref(measure: AtlasMeasure, hotspot: AtlasHotspot): s
     ind: measure.id,
     dir: hotspot.sign < 0 ? "decline" : "increase",
     poly: hotspot.outline,
-    name: hotspotName(hotspot),
+    name: hotspotName(hotspot, measure.hotspots),
     t: `since-${measure.startYear}`,
     season: "all",
   });

@@ -5,7 +5,7 @@ import { demoAttr } from "@/lib/demo/scripts";
 import { signed } from "@/lib/analysis/stats";
 import { rateText } from "@/lib/analysis/trend";
 import { formatArea } from "@/lib/geo/geometry";
-import type { Indicator } from "@/lib/query/indicators";
+import { seriesUnit, type Indicator } from "@/lib/query/indicators";
 import type { PeriodPlan } from "@/lib/query/period";
 import type { HotspotDetail } from "@/lib/trends/scan";
 import { beyondChance, hotspotChanceText } from "@/lib/trends/chance";
@@ -47,7 +47,10 @@ function headline(hotspot: HotspotDetail, chance: ChanceState | undefined): stri
 /** Details of one hotspot, with links to the full analysis and the then-vs-now swipe. */
 export default function HotspotCard({ hotspot, title, indicator, plan, analysisHref, compareHref, onScanHere, causes, chance, onClose, className }: HotspotCardProps) {
   const verdict = hotspot.verdict;
-  const rate = verdict ? rateText(verdict, { unit: indicator.unit, decimals: indicator.decimals }) : null;
+  const total = seriesUnit(indicator);
+  const rate = verdict ? rateText(verdict, total) : null;
+  // Open water: the patch's change in time under water, as km² of water lost or gained.
+  const waterKm2 = indicator.share ? (hotspot.meanChange / 100) * hotspot.areaKm2 : null;
   const compared = plan.kind === "comparison" ? `${plan.baseline[0]} → ${plan.recent[0]}` : `${plan.baseline[0]}–${plan.baseline[1]} → ${plan.recent[0]}–${plan.recent[1]}`;
   return (
     <section {...demoAttr("hotspot-card")} aria-label={`Hotspot ${hotspot.rank}: ${title}`} className={cn("float-surface w-full max-w-sm bg-panel/90 p-5 text-panel-foreground", className)}>
@@ -73,8 +76,8 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
           baseline={plan.baseline}
           recent={plan.recent}
           color={TONE_COLOUR[toneOf(verdict?.direction ?? "none", indicator.concern)]}
-          unit={indicator.unit}
-          decimals={indicator.decimals}
+          unit={total.unit}
+          decimals={total.decimals}
           showRange={Boolean(verdict)}
           label={`${indicator.subject} in ${title}, year by year${verdict ? ", with the trend line and its 95% range" : ""}`}
         />
@@ -98,6 +101,12 @@ export default function HotspotCard({ hotspot, title, indicator, plan, analysisH
             {signed(hotspot.meanChange, indicator.decimals)} {indicator.unit}
           </dd>
         </div>
+        {waterKm2 !== null && (
+          <div className="flex justify-between gap-3 border-t border-panel-line py-1.5">
+            <dt className="text-panel-muted">{waterKm2 < 0 ? "Water lost" : "Water gained"}</dt>
+            <dd>{formatArea(Math.abs(waterKm2))}</dd>
+          </div>
+        )}
         {plan.kind === "trend" && (
           <div className="flex justify-between gap-3 border-t border-panel-line py-1.5">
             <dt className="text-panel-muted">Pixels with a significant trend</dt>

@@ -56,7 +56,7 @@ export interface ShuffleInput {
 /** Every pixel tested again on each shuffled order of the years. */
 export async function shuffledTrends(
   input: ShuffleInput,
-  options: { runs?: number; signal?: AbortSignal; onProgress?: (done: number, total: number) => void; chunk?: number } = {},
+  options: { runs?: number; signal?: AbortSignal; onProgress?: (done: number, total: number) => void; chunk?: number; steps?: boolean } = {},
 ): Promise<ShuffledTrends[]> {
   const orders = shuffledOrders(input.plan.years.length, options.runs ?? CHANCE_RUNS);
   const out: ShuffledTrends[] = [];
@@ -68,7 +68,8 @@ export async function shuffledTrends(
       input.plan.baseline,
       input.plan.recent,
       input.mask,
-      { width: input.grid.width, height: input.grid.height, trend: true, signal: options.signal, chunk: options.chunk },
+      // Tested exactly as the scan tested them (open water allows a step: lib/trends/pixels).
+      { width: input.grid.width, height: input.grid.height, trend: true, steps: options.steps, signal: options.signal, chunk: options.chunk },
     );
     // Only what grouping into patches reads is kept, to spare memory.
     out.push({ width: trends.width, height: trends.height, change: trends.change, slope: trends.slope, p: trends.p, tested: true });

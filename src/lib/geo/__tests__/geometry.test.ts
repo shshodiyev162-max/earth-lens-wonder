@@ -75,6 +75,8 @@ describe("geometry", () => {
     expect(formatArea(0.5)).toBe("50 ha");
     expect(formatArea(12.34)).toBe("12.3 km²");
     expect(formatArea(4321)).toBe("4,321 km²");
-    expect(formatArea(447_400)).toBe("447k km²");
+    expect(formatArea(447_400)).toBe("447,000 km²");
+    expect(formatArea(1_512_300)).toBe("1.5 million km²");
+    expect(formatArea(17_098_000)).toBe("17 million km²");
   });
 });

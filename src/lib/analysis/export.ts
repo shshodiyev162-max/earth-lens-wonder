@@ -36,7 +36,7 @@ export function buildCsv(result: AnalysisResult): string {
     if (!series) return;
     const byMonth = new Map(series.points.map((p) => [p.month, p]));
     columns.push({ header, value: (m) => fmt(byMonth.get(m)?.value, decimals) });
-    if (key !== "snow" && key !== "snowWater") columns.push({ header: `${header}_coverage`, value: (m) => fmt(byMonth.get(m)?.coverage, 2) });
+    if (key !== "snow" && key !== "snowWater" && key !== "water") columns.push({ header: `${header}_coverage`, value: (m) => fmt(byMonth.get(m)?.coverage, 2) });
   };
   satColumn("vegetation", "ndvi_mean", 3);
   satColumn("evi", "evi_mean", 3);
@@ -51,6 +51,7 @@ export function buildCsv(result: AnalysisResult): string {
   satColumn("evaporation", "evaporation_mm_month", 1);
   satColumn("topsoil", "topsoil_moisture_pct_vol", 1);
   satColumn("waterStorage", "water_storage_cm", 2);
+  satColumn("water", "open_water_km2", 0);
   satColumn("waterVapour", "water_vapour_mm", 1);
   satColumn("sst", "sea_surface_temp_night_c", 2);
   satColumn("salinity", "sea_surface_salinity_psu", 2);

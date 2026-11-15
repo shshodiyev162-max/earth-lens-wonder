@@ -25,6 +25,8 @@ export const MEASURE_DEFINITIONS: Record<IndicatorId, string> = {
   sunlight: "How much sunlight reaches the land after clouds and haze, in watts per square metre, from NASA's MERRA-2 model.",
   topsoil: "How much water is in the top 10 cm of soil, as a share of the soil's volume, from NASA's GLDAS land model. It reacts to rain within days; deeper soil moisture reacts more slowly.",
   waterStorage: "All the water the land holds (ice, snow, lakes, soil, groundwater), from small changes in Earth's gravity, in cm above or below the 2004–2009 average. Each reading blurs about 300 km.",
+  water:
+    "How much of the area is open water (lakes, seas, reservoirs), from two NASA satellites' monthly vegetation maps, where water shows as having no plants. Snow and ice are left out.",
   snowWater: "How much water the snowpack would make if it melted, in millimetres, measured by microwave from the AMSR2 satellite instrument. It can read too low under deep snow and in forests.",
   snowfall: "How much snow falls each month, as millimetres of melted water, from NASA's MERRA-2 model.",
   humidity: "How close the air near the surface is to being full of water vapour (relative humidity), in the daytime, measured by the AIRS satellite instrument.",
@@ -60,6 +62,7 @@ export const METRIC_DEFINITIONS: Record<MetricId, string> = {
   wind: "How fast the wind blows 2 metres above the ground, in metres per second.",
   topsoil: MEASURE_DEFINITIONS.topsoil,
   waterStorage: MEASURE_DEFINITIONS.waterStorage,
+  water: MEASURE_DEFINITIONS.water,
   snowWater: MEASURE_DEFINITIONS.snowWater,
   snowfall: "How much snow falls, as millimetres of melted water. Each year's value is the total of the chosen months.",
   waterVapour: MEASURE_DEFINITIONS.waterVapour,

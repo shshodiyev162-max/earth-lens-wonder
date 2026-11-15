@@ -8,10 +8,13 @@ import {
   parseCoverLegend,
   suggestMeasures,
   summarizeCover,
+  correctWater,
+  keepsCorrection,
   type CoverGroup,
   type LandCover,
 } from "../landcover";
 import { CORE_INDICATORS } from "../../query/indicators";
+import { scanGrid } from "../grid";
 
 /** NASA's legend file, cut down to four classes. */
 const LEGEND_XML = `<?xml version="1.0"?><ColorMaps><ColorMap title="Classifications"><Legend type="classification">
@@ -102,8 +105,50 @@ describe("measures for a place", () => {
     expect(ocean).not.toContain("vegetation");
     expect(ocean).not.toContain("dust");
     expect(ocean).not.toContain("rainfall");
+    // A lake: its open water first, its surface temperature, and never sea salinity, which NASA doesn't measure on lakes.
+    const lake = suggestMeasures(cover({ water: 0.6, barren: 0.4 }), 45, "lake").map((s) => s.indicator);
+    expect(lake.slice(0, 2)).toEqual(["water", "sst"]);
+    expect(lake).not.toContain("salinity");
+    // The dried shore around it is land, so land measures come too.
+    expect(lake).toContain("dust");
     const sea = suggestMeasures(cover({ water: 1 }), 35, "sea");
     expect(sea.map((s) => s.indicator)).toEqual(["sst", "airTemp", "salinity"]);
     expect(sea[2].reason).toMatch(/salty/);
+  });
+});
+
+describe("water on the land cover map, checked", () => {
+  const W = COVER_GROUPS.indexOf("water");
+  const B = COVER_GROUPS.indexOf("barren");
+  const G = COVER_GROUPS.indexOf("grass");
+
+  it("counts a dried lake bed as bare ground, and keeps water still seen", () => {
+    // Four pixels the map calls water: still wet in July, dry all summer, unread (snow), and one of grassland.
+    const classes = Uint8Array.from([W, W, W, G]);
+    const june = Float32Array.from([0, 0, NaN, 0]);
+    const july = Float32Array.from([100, 0, NaN, 0]);
+    const { classes: out, dried } = correctWater(classes, [june, july]);
+    expect([...out]).toEqual([W, B, W, G]);
+    expect([...dried]).toEqual([0, 1, 0, 0]);
+    // Nothing read: the map is taken as it is.
+    expect([...correctWater(classes, []).classes]).toEqual([...classes]);
+  });
+
+  it("believes it only where a real share of the water dried, not for a few percent of map error", () => {
+    const grid = scanGrid([0, 0, 2, 2], 2, 0.5);
+    const mask = new Uint8Array([1, 1, 1, 1]);
+    const before = summarizeCover(Uint8Array.from([W, W, W, W]), mask, grid, 2024);
+    const shrunk = summarizeCover(Uint8Array.from([B, B, B, W]), mask, grid, 2024, Uint8Array.from([1, 1, 1, 0]), "Jun–Aug 2024");
+    expect(keepsCorrection(before, shrunk)).toBe(true);
+    const steady = { ...shrunk, driedKm2: before.km2.water * 0.06 };
+    expect(keepsCorrection(before, steady)).toBe(false);
+  });
+
+  it("says how much of the water it moved", () => {
+    const grid = scanGrid([0, 0, 2, 2], 2, 0.5);
+    const cover = summarizeCover(Uint8Array.from([B, B, W, W]), new Uint8Array([1, 1, 1, 1]), grid, 2024, Uint8Array.from([1, 0, 0, 0]), "Jun–Aug 2024");
+    expect(cover.driedKm2).toBeGreaterThan(0);
+    expect(cover.driedKm2).toBeLessThan(cover.km2.barren);
+    expect(cover.checkedIn).toBe("Jun–Aug 2024");
   });
 });

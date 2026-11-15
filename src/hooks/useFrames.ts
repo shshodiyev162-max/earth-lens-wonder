@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { getLayer, type GibsLayer } from "@/lib/gibs/catalog";
 import { applyTransform, fetchColorMap } from "@/lib/gibs/colormap";
 import { formatMonth } from "@/lib/gibs/time";
+import { INDICATORS } from "@/lib/query/indicators";
 import { fetchMonthGrid } from "@/lib/trends/grid";
+import { openWaterMonth, WATER_STOPS } from "@/lib/trends/water";
 import { colorizer, frameImage, type ColorStop } from "@/lib/trends/render";
 import type { ScanResult } from "@/lib/trends/scan";
 
@@ -33,11 +35,18 @@ export function sampleMonths(months: string[], max = MAX_FRAMES): string[] {
  */
 export function useFrames(result: ScanResult | null, mode: FrameMode, enabled: boolean): { frames: Frame[]; layer: GibsLayer | null; loading: boolean } {
   const layer = result ? (getLayer(result.layerId) ?? null) : null;
+  // Open water is drawn land to water, not in the colours of the vegetation map it was read from.
+  const share = result ? Boolean(INDICATORS[result.indicator].share) : false;
   const [stops, setStops] = useState<ColorStop[] | null>(null);
   const [monthly, setMonthly] = useState<{ result: ScanResult; grids: { month: string; grid: Float32Array }[] } | null>(null);
 
   useEffect(() => {
-    if (!enabled || !layer?.colormap) return;
+    if (!enabled) return;
+    if (share) {
+      setStops(WATER_STOPS);
+      return;
+    }
+    if (!layer?.colormap) return;
     let active = true;
     fetchColorMap(layer.colormap)
       .then((map) => {
@@ -48,7 +57,7 @@ export function useFrames(result: ScanResult | null, mode: FrameMode, enabled: b
     return () => {
       active = false;
     };
-  }, [enabled, layer]);
+  }, [enabled, layer, share]);
 
   const wantMonthly = enabled && mode === "monthly" && result !== null && layer !== null;
   useEffect(() => {
@@ -56,7 +65,7 @@ export function useFrames(result: ScanResult | null, mode: FrameMode, enabled: b
     const controller = new AbortController();
     Promise.all(
       sampleMonths(result.monthsRead).map((month) =>
-        fetchMonthGrid(layer, result.grid, month, controller.signal).then(
+        (share ? openWaterMonth(fetchMonthGrid, result.grid, month, controller.signal).then((water) => water.grid) : fetchMonthGrid(layer, result.grid, month, controller.signal)).then(
           (grid) => ({ month, grid }),
           () => null,
         ),
@@ -65,7 +74,7 @@ export function useFrames(result: ScanResult | null, mode: FrameMode, enabled: b
       if (!controller.signal.aborted) setMonthly({ result, grids: list.filter((item): item is { month: string; grid: Float32Array } => item !== null) });
     });
     return () => controller.abort();
-  }, [wantMonthly, result, layer, monthly]);
+  }, [wantMonthly, result, layer, monthly, share]);
 
   const frames = useMemo(() => {
     if (!enabled || !result || !stops) return [];

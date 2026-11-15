@@ -58,6 +58,9 @@ const chanceSentence = (measure: AtlasMeasure, hotspot: AtlasHotspot) =>
 const perDecade = (value: number | null, unit: string, decimals: number) => (value === null ? "" : `${signed(value, decimals)} ${unit} per decade`);
 
 /** Where Earth is changing most: six measures, already scanned over the whole map. */
+/** "14 November 2026", as dates are written elsewhere on the site. */
+const measuredOn = new Date(`${WORLD_ATLAS.measuredOn}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
 export default function Atlas() {
   const [params, setParams] = useSearchParams();
   const measure = atlasMeasure(params.get("m"));
@@ -149,7 +152,7 @@ export default function Atlas() {
                   <span className="pt-0.5 font-mono text-[11px] tabular-nums text-panel-muted">{String(hotspot.rank).padStart(2, "0")}</span>
                   <span className="min-w-0">
                     <span translate="no" className="block truncate text-[13px] text-panel-foreground">
-                      {hotspotName(hotspot)}
+                      {hotspotName(hotspot, measure.hotspots)}
                     </span>
                     <span className="mt-0.5 block font-mono text-[10.5px] leading-snug tabular-nums text-panel-muted">
                       {hotspot.sign < 0 ? "Falling" : "Rising"} · {formatArea(hotspot.areaKm2)}
@@ -173,7 +176,7 @@ export default function Atlas() {
 
       <div className="space-y-2 text-[11px] leading-relaxed text-panel-muted">
         <p>
-          Measured on {WORLD_ATLAS.measuredOn} with the same tests as the Trends page: {measure.mapsRead} monthly NASA maps, every month of each year from 60°S to 80°N, on
+          Measured on {measuredOn} with the same tests as the Trends page: {measure.mapsRead} monthly NASA maps, every month of each year from 60°S to 80°N, on
           a grid of {pixel.degrees}° (about {pixel.km} km). Each pixel gets a Mann–Kendall test and Sen&apos;s slope, allowing for years that follow the year before. Colour
           is faded where a pixel&apos;s trend isn&apos;t clear once thousands of pixels tested at once are allowed for (a 5% false discovery rate), and only
           clear pixels make a patch.

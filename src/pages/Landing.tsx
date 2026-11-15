@@ -135,7 +135,7 @@ const STEPS = [
   },
 ];
 
-/** "Twenty-nine", from the list itself, so the words can't fall out of date. */
+/** "Thirty", from the list itself, so the words can't fall out of date. */
 const MEASURE_COUNT = numberInWords(INDICATOR_ORDER.length).replace(/^./, (first) => first.toUpperCase());
 
 const TOOLS = [
@@ -155,7 +155,7 @@ const LIMITS = [
     title: "Why it changed, for certain",
     text: "It suggests what may be behind a change, with the evidence for each, but it doesn't prove what caused it, and it can't see grazing, irrigation, dams or policy.",
   },
-  { title: "Everything", text: "Sea level, lake and river levels, river flow, burned area, NO₂, CO₂ and ground-level ozone aren't measured." },
+  { title: "Everything", text: "Sea level, river flow, burned area, NO₂, CO₂ and ground-level ozone aren't measured, and lakes only by their area, not their depth or volume." },
   { title: "Finer than the colours", text: "Values come from the colour steps of NASA's maps, so they are only as precise as that scale." },
   { title: "Beyond doubt", text: "Testing thousands of pixels at once throws up false alarms. Pixels are held to a 5% false discovery rate and every hotspot is checked against chance, which narrows the odds but never closes them." },
 ];
@@ -377,7 +377,7 @@ export default function Landing() {
                 className="max-w-[34rem] portrait:mx-auto portrait:text-center"
               >
                 <h2 className="font-editorial text-[clamp(3rem,6vw,5.5rem)] leading-[1] tracking-[-0.015em] text-white">Now ask your own.</h2>
-                <p className="mt-6 max-w-[28rem] text-[17px] leading-relaxed text-white/80 portrait:mx-auto">Any country, any sea, or a shape you draw yourself. {MEASURE_COUNT} measures. No account, no keys, no simulated numbers.</p>
+                <p className="mt-6 max-w-[28rem] text-[17px] leading-relaxed text-white/80 portrait:mx-auto">Any country, lake or sea, or a shape you draw yourself. {MEASURE_COUNT} measures. No account, no keys, no simulated numbers.</p>
                 <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-2 portrait:justify-center">
                   <PrimaryLink to="/trends">Find changes</PrimaryLink>
                   <QuietLink to="/trends?demo=choose">Watch a demo</QuietLink>

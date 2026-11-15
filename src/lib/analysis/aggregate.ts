@@ -56,7 +56,7 @@ export const MIN_YEAR_SHARE = 0.75;
  * One value per (season) year. Averages use each month's departure from its own long-run mean,
  * so one missing winter month can't make a year look greener; totals need every month.
  */
-export function yearlyValues(values: MonthlyValue[], months: number[], mode: "mean" | "sum" = "mean"): YearValue[] {
+export function yearlyValues(values: MonthlyValue[], months: number[], mode: "mean" | "sum" | "max" = "mean"): YearValue[] {
   const wanted = new Set(months);
   const expected = wanted.size;
   const inSeason = values.filter((v) => wanted.has(calendar(v.month)));
@@ -82,6 +82,10 @@ export function yearlyValues(values: MonthlyValue[], months: number[], mode: "me
       let value: number | null = null;
       if (complete && mode === "sum") {
         value = valid.length === expected ? valid.reduce((s, v) => s + v.value, 0) : null;
+      } else if (complete && mode === "max") {
+        // The clearest month is the witness, so months left out (snow over a lake in winter) are
+        // expected: a third of them is enough.
+        value = valid.length >= Math.max(1, Math.ceil(expected / 3)) ? Math.max(...valid.map((v) => v.value)) : null;
       } else if (complete && valid.length >= Math.ceil(MIN_YEAR_SHARE * expected)) {
         value =
           valid.length === expected || normalMean === null

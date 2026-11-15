@@ -42,7 +42,7 @@ export interface GroundComparison {
  * it measured, when it measured at least half of them; for rainfall the departures are scaled up to
  * a season total. A year measured only in summer then can't pass for a warmer year.
  */
-export function stationYearly(monthly: MonthlyValue[], months: number[], aggregate: "mean" | "sum", first: number, last: number): YearValue[] {
+export function stationYearly(monthly: MonthlyValue[], months: number[], aggregate: "mean" | "sum" | "max", first: number, last: number): YearValue[] {
   const wanted = new Set(months);
   const calendar = (month: string) => Number(month.slice(5, 7));
   const measured = monthly.filter((m): m is { month: string; value: number } => m.value !== null && Number.isFinite(m.value) && wanted.has(calendar(m.month)));

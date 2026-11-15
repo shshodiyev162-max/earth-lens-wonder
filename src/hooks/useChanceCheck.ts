@@ -40,6 +40,7 @@ export function useChanceCheck(result: ScanResult | null, filter: HotspotFilter 
     const controller = new AbortController();
     setState({ result: checkable, shuffled: null, done: 0, total: 0, error: false });
     shuffledTrends(checkable, {
+      steps: Boolean(INDICATORS[checkable.indicator].share),
       signal: controller.signal,
       onProgress: (done, total) => setState((previous) => (previous.result === checkable ? { ...previous, done, total } : previous)),
     })

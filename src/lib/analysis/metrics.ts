@@ -1,7 +1,7 @@
 // The measured quantities in an analysis, each as a list of monthly values. Charts, yearly
 // summaries, period comparisons, trend verdicts and driver correlations all start here.
 
-import type { MonthlyValue } from "./stats";
+import { grouped, type MonthlyValue } from "./stats";
 import type { AnalysisResult, ClimatePoint, DatasetId, SatelliteSeries } from "./types";
 
 export type MetricId =
@@ -17,6 +17,7 @@ export type MetricId =
   | "sunshine"
   | "topsoil"
   | "waterStorage"
+  | "water"
   | "snow"
   | "snowWater"
   | "snowfall"
@@ -47,8 +48,11 @@ export interface MetricDef {
   /** Unit after numbers ("" for indices). */
   unit: string;
   decimals: number;
-  /** Yearly value: the average of the months, or their total (rainfall). */
-  aggregate: "mean" | "sum";
+  /**
+   * Yearly value: the average of the months, their total (rainfall), or the largest (open water,
+   * where a hazy month reads too little water and the clearest month is the best witness).
+   */
+  aggregate: "mean" | "sum" | "max";
   /** Whether "−12%" is meaningful (not for temperatures in °C). */
   percent: boolean;
   /** The direction of change that is usually a worry ("none" when neither is). */
@@ -77,6 +81,7 @@ export const METRICS: MetricDef[] = [
 
   { id: "topsoil", dataset: "topsoil", label: "Topsoil moisture", subject: "Water in the top 10 cm of soil", noun: "topsoil moisture", unit: "%", decimals: 1, aggregate: "mean", percent: false, concern: "decline", source: "GLDAS Noah monthly soil moisture, top 10 cm" },
   { id: "waterStorage", dataset: "waterStorage", label: "Water storage", subject: "Water stored on and under the land", noun: "water storage", unit: "cm", decimals: 1, aggregate: "mean", percent: false, concern: "decline", source: "GRACE and GRACE-FO monthly water storage", first: "2002-04", last: "2022-07" },
+  { id: "water", dataset: "water", label: "Open water", subject: "Open water", noun: "open water", unit: "km²", decimals: 0, aggregate: "max", percent: true, concern: "decline", source: "Open water from MODIS Terra and Aqua monthly NDVI and snow cover", first: "2002-07" },
   { id: "snow", dataset: "snow", label: "Snow cover", subject: "Snow cover", noun: "snow cover", unit: "%", decimals: 1, aggregate: "mean", percent: false, concern: "decline", source: "MODIS Terra monthly snow cover", minLevel: 1 },
   { id: "snowWater", dataset: "snowWater", label: "Snow water", subject: "Water held in the snowpack", noun: "snow water", unit: "mm", decimals: 1, aggregate: "mean", percent: true, concern: "decline", source: "AMSR2 monthly snow water equivalent", first: "2012-07", last: "2025-09", minLevel: 1 },
   { id: "snowfall", dataset: "snowfall", label: "Snowfall", subject: "Snowfall", noun: "snowfall", unit: "mm", decimals: 0, aggregate: "sum", percent: true, concern: "none", source: "MERRA-2 monthly snowfall", minLevel: 1 },
@@ -139,5 +144,5 @@ export function measuredMetrics(result: AnalysisResult): MetricDef[] {
 }
 
 export function formatValue(value: number, metric: MetricDef, decimals = metric.decimals): string {
-  return `${value.toFixed(decimals)}${metric.unit ? ` ${metric.unit}` : ""}`;
+  return `${grouped(value, decimals)}${metric.unit ? ` ${metric.unit}` : ""}`;
 }

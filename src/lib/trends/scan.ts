@@ -15,8 +15,10 @@ import { INDICATORS, type Direction, type IndicatorId } from "../query/indicator
 import { seasonYearMonths, type DataWindow, type PeriodPlan } from "../query/period";
 import { fetchMonthGrid, fetchSurfaceMask, scanGrid, type Surface } from "./grid";
 import { buildHotspots, clusterPixels, flagPixels, hotspotOptions, insidePoint, pixelAreaKm2, pixelCenter, pixelSize, traceOutline, type GridSpec, type Hotspot, type HotspotFilter } from "./hotspots";
-import { computePixelTrends, seasonMeanGrids, type PixelTrends } from "./pixels";
+import { computePixelTrends, seasonAnyGrids, seasonMeanGrids, type PixelTrends } from "./pixels";
 import type { ScanArea } from "./place";
+import { openWaterMonth, unsteadyNote, unsteadyShare } from "./water";
+import { fetchInlandWater } from "./landcover";
 
 export interface ScanProgress {
   phase: "maps" | "computing" | "refining" | "done";
@@ -98,8 +100,13 @@ export class WrongPlaceError extends ScanError {}
  * everywhere) are read over the water only when the area is a named sea or ocean (the land/water map
  * then also trims the coast, so the sea is read exactly as sea measures read it).
  */
-export function surfaceFor(indicator: IndicatorId, area: Pick<ScanArea, "water">): Surface {
+export function surfaceFor(indicator: IndicatorId, area: Pick<ScanArea, "water" | "lake">): Surface {
+  // Open water is read everywhere: the land a shrinking sea leaves behind is part of its answer.
+  if (INDICATORS[indicator].share) return "any";
   const own = INDICATORS[indicator].surface;
+  // The land/water map has no inland lakes, so a lake's water measures (its surface temperature) are
+  // read wherever NASA's own map has values: water, not land.
+  if (own === "water" && area.lake) return "any";
   return own === "any" && area.water ? "water" : own;
 }
 
@@ -116,7 +123,7 @@ function emptySurfaceMessage(indicator: IndicatorId, area: ScanArea, surface: Su
   const info = INDICATORS[indicator];
   if (surface === "water") {
     return info.surface === "water"
-      ? `There's no sea or large lake in ${area.name}, and ${info.label.toLowerCase()} is measured on water only. Choose a sea (“Country or sea” lets you click one on the map) or an area on the coast.`
+      ? `There's no sea or large lake in ${area.name}, and ${info.label.toLowerCase()} is measured on water only. Choose a sea (“Country, lake or sea” lets you click one on the map) or an area on the coast.`
       : `There's no water in ${area.name} to read ${info.label.toLowerCase()} over.`;
   }
   return `There's no land in ${area.name}, and ${info.label.toLowerCase()} is measured on land. Choose sea surface temperature or a measure of the air, or an area with land.`;
@@ -131,16 +138,19 @@ export interface DataAvailability {
 /** The first and last month of the indicator's product, and the months it really has. */
 export async function fetchAvailability(indicator: IndicatorId): Promise<DataAvailability> {
   const layer = getLayer(INDICATORS[indicator].layerId) as GibsLayer;
+  // A measure can start later than its map (open water waits for Aqua, from July 2002).
+  const first = INDICATORS[indicator].firstMonth ?? "";
   try {
     const domain = await fetchTimeDomain(layer);
     if (domain) {
       const window = domainWindow(domain);
-      return { window, available: new Set(monthsInDomain(layer, domain, window.earliest, window.latest)) };
+      const earliest = first > window.earliest ? first : window.earliest;
+      return { window: { ...window, earliest }, available: new Set(monthsInDomain(layer, domain, earliest, window.latest)) };
     }
   } catch (error) {
     if (isAbortError(error)) throw error;
   }
-  return { window: { earliest: "2000-03", latest: defaultEndMonth() }, available: null };
+  return { window: { earliest: first > "2000-03" ? first : "2000-03", latest: defaultEndMonth() }, available: null };
 }
 
 export interface ScanLoaders {
@@ -151,6 +161,20 @@ export interface ScanLoaders {
   scaleTop?: (layer: GibsLayer) => Promise<number | null>;
   /** The bottom of the scale, when values below it are all shown as that value. */
   scaleBottom?: (layer: GibsLayer) => Promise<number | null>;
+  /** 1 = inland water the land/water map misses (lakes), left out of land measures; null = none. */
+  inlandWater?: (grid: GridSpec, signal?: AbortSignal) => Promise<Uint8Array | null>;
+}
+
+/** Inland water for a land measure's grid; null (and a note) when it can't be read. */
+async function inlandWaterFor(loaders: ScanLoaders, surface: Surface, grid: GridSpec, signal: AbortSignal | undefined, notes?: string[]): Promise<Uint8Array | null> {
+  if (surface !== "land" || !loaders.inlandWater) return null;
+  try {
+    return await loaders.inlandWater(grid, signal);
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    notes?.push("NASA's land cover map couldn't be read, so lakes the land/water map doesn't mark may be read as land.");
+    return null;
+  }
 }
 
 /** Values past the open-ended end bins of NASA's colour scale can't be told apart. */
@@ -164,6 +188,7 @@ const NETWORK: ScanLoaders = {
   surfaceMask: fetchSurfaceMask,
   scaleTop: (layer) => colourScaleEnds(layer).then((ends) => ends.top),
   scaleBottom: (layer) => colourScaleEnds(layer).then((ends) => ends.bottom),
+  inlandWater: fetchInlandWater,
 };
 
 const SURFACE_WORDS: Record<Surface, { failed: string }> = {
@@ -245,8 +270,11 @@ export function readingOrder(months: string[], firstLook: Map<number, string>): 
   return [...months.filter((m) => first.has(m)), ...months.filter((m) => !first.has(m))];
 }
 
-/** Area-weighted mean of a grid over some pixels; null when under 30 % of them have data. */
-function areaMean(grid: Float32Array, pixels: ArrayLike<number>, spec: GridSpec): number | null {
+/**
+ * Area-weighted mean of a grid over some pixels; null when under `minShare` of them have data (30%;
+ * 95% for open water, where what snow hides is lake ice or snowy shore, unlike the rest).
+ */
+function areaMean(grid: Float32Array, pixels: ArrayLike<number>, spec: GridSpec, minShare = 0.3): number | null {
   let total = 0;
   let weight = 0;
   let count = 0;
@@ -259,11 +287,33 @@ function areaMean(grid: Float32Array, pixels: ArrayLike<number>, spec: GridSpec)
     weight += a;
     count += 1;
   }
-  return count >= Math.max(1, pixels.length * 0.3) && weight > 0 ? total / weight : null;
+  return count >= Math.max(1, pixels.length * minShare) && weight > 0 ? total / weight : null;
 }
 
-function yearlySeries(yearGrids: Float32Array[], years: number[], pixels: ArrayLike<number>, grid: GridSpec): YearValue[] {
-  return years.map((year, k) => ({ year, value: areaMean(yearGrids[k], pixels, grid) }));
+/** Area of some pixels. */
+function pixelsKm2(pixels: ArrayLike<number>, spec: GridSpec): number {
+  let total = 0;
+  for (let k = 0; k < pixels.length; k++) total += pixelAreaKm2(spec, Math.floor(pixels[k] / spec.width));
+  return total;
+}
+
+/**
+ * Per hundred: what turns an average share (open water, % of the time) into km² of these pixels.
+ * 1 for every other measure, whose series are averages.
+ */
+function totalScale(indicator: IndicatorId, pixels: ArrayLike<number>, spec: GridSpec): number {
+  return INDICATORS[indicator].share ? pixelsKm2(pixels, spec) / 100 : 1;
+}
+
+/** The share of pixels a year needs read (see areaMean). */
+const minShareOf = (indicator: IndicatorId) => (INDICATORS[indicator].share ? 0.95 : 0.3);
+
+function yearlySeries(yearGrids: Float32Array[], years: number[], pixels: ArrayLike<number>, grid: GridSpec, indicator: IndicatorId): YearValue[] {
+  const scale = totalScale(indicator, pixels, grid);
+  return years.map((year, k) => {
+    const mean = areaMean(yearGrids[k], pixels, grid, minShareOf(indicator));
+    return { year, value: mean === null ? null : mean * scale };
+  });
 }
 
 function verdictOf(series: YearValue[]): TrendVerdict | null {
@@ -314,6 +364,15 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   const coarse = Math.max(e - w, n - s) > COARSE_SPAN && info.nativeDeg < 0.2;
   const grid = scanGrid(area.bbox, request.maxSize ?? (coarse ? 160 : 200), info.nativeDeg);
   const size = grid.width * grid.height;
+  // Open water is worked out from two NASA maps a month; every other measure is one map read as it is.
+  let snowUnchecked = 0;
+  const loadMonth = (target: GridSpec, month: string) =>
+    info.share
+      ? openWaterMonth(loaders.monthGrid, target, month, signal).then((water) => {
+          if (!water.snowChecked) snowUnchecked += 1;
+          return water.grid;
+        })
+      : loaders.monthGrid(layer, target, month, signal);
 
   const wanted = monthsFor(plan, plan.years);
   const months = availability.available ? wanted.filter((m) => availability.available?.has(m)) : wanted;
@@ -332,26 +391,32 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   const total = months.length + 1;
   let preview: ScanPreview | undefined;
   const report = (phase: ScanProgress["phase"], message: string) => onProgress?.({ phase, done, total, message, ...(preview ? { preview } : {}) });
-  report("maps", `Reading NASA maps: 0 of ${months.length}`);
+  // Open water reads three maps for each month, so its progress counts months.
+  const counted = info.share ? " months" : "";
+  report("maps", `Reading NASA maps: 0 of ${months.length}${counted}`);
 
   // The land/water map first (one request, or none for "any"): no monthly maps are read for an area
   // with nothing to measure.
   const regionMask = rasterizeMask(area.geometry, grid);
-  const surfaceResult = await loaders.surfaceMask(grid, surface, signal).then(
-    (mask) => mask,
-    (error) => {
-      if (isAbortError(error)) throw error;
-      notes.push(SURFACE_WORDS[surface].failed);
-      return new Uint8Array(size).fill(1);
-    },
-  );
+  const [surfaceResult, inland] = await Promise.all([
+    loaders.surfaceMask(grid, surface, signal).then(
+      (mask) => mask,
+      (error) => {
+        if (isAbortError(error)) throw error;
+        notes.push(SURFACE_WORDS[surface].failed);
+        return new Uint8Array(size).fill(1);
+      },
+    ),
+    inlandWaterFor(loaders, surface, grid, signal, notes),
+  ]);
   const mask = new Uint8Array(size);
-  for (let i = 0; i < size; i++) mask[i] = regionMask[i] && surfaceResult[i] ? 1 : 0;
+  for (let i = 0; i < size; i++) mask[i] = regionMask[i] && surfaceResult[i] && !inland?.[i] ? 1 : 0;
   if (regionMask.some(Boolean) && !mask.some(Boolean)) throw new WrongPlaceError(emptySurfaceMessage(indicator, area, surface));
 
   // The first look: once every year's one map is in, the whole area's yearly series and its test.
   const lookPixels: number[] = [];
   for (let i = 0; i < size; i++) if (mask[i]) lookPixels.push(i);
+  const lookScale = totalScale(indicator, lookPixels, grid);
   const lookGrids = new Map<string, Float32Array | null>();
   const lookMonths = new Set(firstLook.values());
   const takeFirstLook = (month: string, monthGrid: Float32Array | null) => {
@@ -361,7 +426,8 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
     const series = plan.years.map((year) => {
       const pick = firstLook.get(year);
       const yearGrid = pick ? lookGrids.get(pick) : null;
-      return { year, value: yearGrid ? areaMean(yearGrid, lookPixels, grid) : null };
+      const mean = yearGrid ? areaMean(yearGrid, lookPixels, grid, minShareOf(indicator)) : null;
+      return { year, value: mean === null ? null : mean * lookScale };
     });
     preview = { series, verdict: verdictOf(series), maps: [...lookGrids.values()].filter(Boolean).length };
   };
@@ -369,16 +435,17 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
   const [monthResult, scaleTop, scaleBottom] = await Promise.all([
     loadMonths(
       readingOrder(months, firstLook),
-      (month) => loaders.monthGrid(layer, grid, month, signal),
+      (month) => loadMonth(grid, month),
       signal,
       (month, monthGrid) => {
         done += 1;
         takeFirstLook(month, monthGrid);
-        report("maps", `Reading NASA maps: ${done} of ${months.length} (${month})`);
+        report("maps", `Reading NASA maps: ${done} of ${months.length}${counted} (${month})`);
       },
     ),
-    (loaders.scaleTop?.(layer) ?? Promise.resolve(null)).catch(() => null),
-    (loaders.scaleBottom?.(layer) ?? Promise.resolve(null)).catch(() => null),
+    // Open water is 0 or 100 by its own rule, not a reading on NASA's colour scale.
+    (info.share ? Promise.resolve(null) : (loaders.scaleTop?.(layer) ?? Promise.resolve(null))).catch(() => null),
+    (info.share ? Promise.resolve(null) : (loaders.scaleBottom?.(layer) ?? Promise.resolve(null))).catch(() => null),
   ]);
   done = total;
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
@@ -391,6 +458,11 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
     );
   }
   if (failed.length) notes.push(`${failed.length} monthly map(s) couldn't be loaded and were skipped.`);
+  if (snowUnchecked) notes.push(`NASA's snow map couldn't be read for ${snowUnchecked} month(s), so snow and ice there may count as water.`);
+  if (info.share) {
+    const note = unsteadyNote(unsteadyShare(monthGrids, plan.years.map((year) => seasonYearMonths(year, plan.months)), mask));
+    if (note) notes.push(note);
+  }
 
   report("computing", "Testing each pixel for a trend");
   if (scaleTop !== null) {
@@ -411,22 +483,24 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
     }
   }
 
-  const yearGrids = seasonMeanGrids(monthGrids, plan.years, plan.months, size);
+  // Open water: a year counts a pixel as water when any month of its season saw water there.
+  const yearGrids = (info.share ? seasonAnyGrids : seasonMeanGrids)(monthGrids, plan.years, plan.months, size);
   const trends = await computePixelTrends(yearGrids, plan.years, plan.baseline, plan.recent, mask, {
     width: grid.width,
     height: grid.height,
     trend: plan.kind === "trend" && plan.years.length >= 4,
+    steps: Boolean(info.share),
     signal,
   });
 
   const found = buildHotspots(trends, grid, hotspotOptions(filter, info.minChange, coarse, trends));
   let hotspots: HotspotDetail[] = found.map((h) => {
-    const series = yearlySeries(yearGrids, plan.years, h.pixels, grid);
+    const series = yearlySeries(yearGrids, plan.years, h.pixels, grid, indicator);
     return { ...h, series, verdict: plan.kind === "trend" ? verdictOf(series) : null, refined: false };
   });
 
   if (coarse && hotspots.length && request.refine !== false) {
-    hotspots = await refineHotspots(hotspots, { request, layer, grid, loaders, report });
+    hotspots = await refineHotspots(hotspots, { request, grid, loaders, loadMonth, report });
   }
 
   // Whole-area summary.
@@ -446,7 +520,7 @@ export async function runScan(request: ScanRequest): Promise<ScanResult> {
       changeWeight += a;
     }
   }
-  const regionSeries = yearlySeries(yearGrids, plan.years, landPixels, grid);
+  const regionSeries = yearlySeries(yearGrids, plan.years, landPixels, grid, indicator);
   report("done", "Done");
   return {
     indicator,
@@ -497,7 +571,7 @@ export function rebuildHotspots(result: ScanResult, filter: HotspotFilter): Hots
   return buildHotspots(result.trends, result.grid, hotspotOptions(filter, info.minChange, result.coarse, result.trends)).map((hotspot) => {
     const previous = before.get(hotspot.id);
     if (previous && previous.pixels.length === hotspot.pixels.length) return { ...previous, rank: hotspot.rank };
-    const series = yearlySeries(result.yearGrids, result.plan.years, hotspot.pixels, result.grid);
+    const series = yearlySeries(result.yearGrids, result.plan.years, hotspot.pixels, result.grid, result.indicator);
     return { ...hotspot, series, verdict: result.plan.kind === "trend" ? verdictOf(series) : null, refined: false };
   });
 }
@@ -559,9 +633,15 @@ export function summarizeArea(result: ScanResult, filter: HotspotFilter): AreaSu
  */
 async function refineHotspots(
   hotspots: HotspotDetail[],
-  context: { request: ScanRequest; layer: GibsLayer; grid: GridSpec; loaders: ScanLoaders; report: (phase: ScanProgress["phase"], message: string) => void },
+  context: {
+    request: ScanRequest;
+    grid: GridSpec;
+    loaders: ScanLoaders;
+    loadMonth: (grid: GridSpec, month: string) => Promise<Float32Array>;
+    report: (phase: ScanProgress["phase"], message: string) => void;
+  },
 ): Promise<HotspotDetail[]> {
-  const { request, layer, grid: coarseGrid, loaders, report } = context;
+  const { request, grid: coarseGrid, loaders, loadMonth, report } = context;
   const { plan, area, availability, signal } = request;
   const info = INDICATORS[request.indicator];
   const minChange = info.minChange * filterOf(request).minFactor;
@@ -578,14 +658,16 @@ async function refineHotspots(
     budget -= months.length;
     report("refining", `Sharpening hotspot ${k + 1}`);
     try {
-      const [land, loaded] = await Promise.all([
-        loaders.surfaceMask(grid, surfaceFor(request.indicator, area), signal).catch((error) => {
+      const surface = surfaceFor(request.indicator, area);
+      const [land, inland, loaded] = await Promise.all([
+        loaders.surfaceMask(grid, surface, signal).catch((error) => {
           if (isAbortError(error)) throw error;
           return new Uint8Array(grid.width * grid.height).fill(1);
         }),
+        inlandWaterFor(loaders, surface, grid, signal),
         loadMonths(
           months,
-          (month) => loaders.monthGrid(layer, grid, month, signal),
+          (month) => loadMonth(grid, month),
           signal,
           () => undefined,
         ),
@@ -594,8 +676,8 @@ async function refineHotspots(
       const size = grid.width * grid.height;
       const region = rasterizeMask(area.geometry, grid);
       const mask = new Uint8Array(size);
-      for (let i = 0; i < size; i++) mask[i] = region[i] && land[i] ? 1 : 0;
-      const yearGrids = seasonMeanGrids(loaded.grids, years, plan.months, size);
+      for (let i = 0; i < size; i++) mask[i] = region[i] && land[i] && !inland?.[i] ? 1 : 0;
+      const yearGrids = (info.share ? seasonAnyGrids : seasonMeanGrids)(loaded.grids, years, plan.months, size);
       const trends = await computePixelTrends(yearGrids, years, plan.baseline, plan.recent, mask, { width: grid.width, height: grid.height, trend: false, signal });
       // Sharpen the edges only: a fine pixel counts if it changed and sits inside the coarse hotspot,
       // which already passed the trend test.

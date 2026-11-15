@@ -129,7 +129,8 @@ describe("verdicts", () => {
     expect(verdict?.label).toBe("Significant decline");
     expect(verdict?.slopePerDecade).toBeCloseTo(-0.1, 1);
     const text = explainVerdict(verdict!, "Plant greenness", "NDVI", 3);
-    expect(text).toMatch(/^Plant greenness fell by −0\.01\d NDVI per year/);
+    // The word says the direction, so the amount has no minus sign.
+    expect(text).toMatch(/^Plant greenness fell by 0\.01\d NDVI per year/);
     expect(text).toContain("per decade");
     expect(text).toContain("p < 0.001");
   });

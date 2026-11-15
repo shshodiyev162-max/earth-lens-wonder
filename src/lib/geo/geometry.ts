@@ -244,8 +244,10 @@ export function representativePoints(geometry: PolygonGeometry, max = 5): LatLng
 
 export function formatArea(km2: number): string {
   if (!Number.isFinite(km2)) return "—";
-  if (km2 >= 100_000) return `${Math.round(km2 / 1000).toLocaleString()}k km²`;
-  if (km2 >= 100) return `${Math.round(km2).toLocaleString()} km²`;
+  // "1.5 million km²" and "447,000 km²" read more plainly than "1,512k km²".
+  if (km2 >= 1_000_000) return `${(km2 / 1_000_000).toFixed(km2 >= 10_000_000 ? 0 : 1)} million km²`;
+  if (km2 >= 100_000) return `${(Math.round(km2 / 1000) * 1000).toLocaleString("en-US")} km²`;
+  if (km2 >= 100) return `${Math.round(km2).toLocaleString("en-US")} km²`;
   if (km2 >= 1) return `${km2.toFixed(1)} km²`;
   return `${Math.round(km2 * 100)} ha`;
 }

@@ -34,22 +34,26 @@ import { analysisTrends } from "@/lib/analysis/trend";
 import type { AnalysisPeriod, DatasetId } from "@/lib/analysis/types";
 import type { PlaceResult } from "@/lib/geo/geocode";
 import { formatArea, type LatLng, type PolygonGeometry } from "@/lib/geo/geometry";
+import { findNamedRegion } from "@/lib/geo/regions";
 import { togetherLabel } from "@/lib/areas/resolve";
 import { cn } from "@/lib/utils";
 
 const ALL_DATASETS = DATASETS.map((d) => d.id);
 
-function parseDatasets(value: string | null): DatasetId[] {
-  if (!value) return DEFAULT_DATASETS;
+/** What a lake is read for when nothing else is chosen: its area of open water, with the climate around it. */
+const LAKE_DATASETS: DatasetId[] = ["climate", "water", "vegetation"];
+
+function parseDatasets(value: string | null, lake = false): DatasetId[] {
+  if (!value) return lake ? LAKE_DATASETS : DEFAULT_DATASETS;
   const wanted = value.split(",").filter((id): id is DatasetId => (ALL_DATASETS as string[]).includes(id));
   return wanted.length ? ALL_DATASETS.filter((id) => wanted.includes(id)) : DEFAULT_DATASETS;
 }
 
-// Real coordinates for a quick first try; they open as a circle around the point.
-const EXAMPLES = [
-  { name: "Bukhara", ctx: "Uzbekistan", lat: 39.7747, lon: 64.4286, r: 10 },
-  { name: "Aral Sea", ctx: "Kazakhstan / Uzbekistan", lat: 45.0, lon: 59.6, r: 80 },
-  { name: "Nile Delta", ctx: "Egypt", lat: 30.85, lon: 31.05, r: 60 },
+// Places for a quick first try: a circle around a real point, or a known lake's own outline.
+const EXAMPLES: { name: string; ctx: string; target: Record<string, string> }[] = [
+  { name: "Bukhara", ctx: "Uzbekistan", target: { lat: "39.7747", lon: "64.4286", r: "10" } },
+  { name: "Aral Sea", ctx: "Kazakhstan / Uzbekistan", target: { region: "Aral Sea" } },
+  { name: "Nile Delta", ctx: "Egypt", target: { lat: "30.85", lon: "31.05", r: "60" } },
 ];
 
 /** Placeholder shaped like the report while NASA data is still arriving. */
@@ -129,7 +133,7 @@ export default function Analysis() {
     }),
     [calendarMonths, selection],
   );
-  const datasets = useMemo(() => parseDatasets(params.get("ds")), [params]);
+  const datasets = useMemo(() => parseDatasets(params.get("ds"), Boolean(findNamedRegion(params.get("region") ?? "")?.lake)), [params]);
   const problems = periodProblems(selection, months.length);
   const hints = periodHints(selection, calendarMonths, months.length);
 
@@ -386,7 +390,7 @@ export default function Analysis() {
                 <h2 className="font-editorial text-[1.45rem] leading-[1.05] text-panel-foreground sm:mt-2 sm:text-[clamp(1.6rem,3vw,2.1rem)]">Pick a place to start.</h2>
                 <p className="mt-1.5 text-xs leading-relaxed text-panel-soft sm:mt-2 sm:text-[13px]">
                   <span className="sm:hidden">Tap the map, or draw or pick with the tools on the right.</span>
-                  <span className="hidden sm:inline">Click anywhere for the area around that point, draw a shape, or pick a country or sea with the tools on the right. You can also search for a place.</span>
+                  <span className="hidden sm:inline">Click anywhere for the area around that point, draw a shape, or pick a country, lake or sea with the tools on the right. You can also search for a place.</span>
                 </p>
                 <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:mt-3">
                   <span className="mr-0.5 text-xs text-panel-muted">Or try</span>
@@ -395,7 +399,7 @@ export default function Analysis() {
                       key={example.name}
                       type="button"
                       onClick={() => {
-                        setTargetParams({ lat: String(example.lat), lon: String(example.lon), r: String(example.r), name: example.name, ctx: example.ctx });
+                        setTargetParams({ ...example.target, name: example.name, ctx: example.ctx });
                         setView("report");
                         revealResults();
                       }}
@@ -416,7 +420,7 @@ export default function Analysis() {
                 <p className="mt-2 hidden text-xs leading-relaxed text-panel-soft sm:block">
                   {adding
                     ? "Click countries and seas with the flag tool, draw shapes, or click for a circle: each joins the area. Pick one again to take it out."
-                    : "Click the map, draw, or pick a country or sea to choose another place."}
+                    : "Click the map, draw, or pick a country, lake or sea to choose another place."}
                 </p>
                 {adding ? (
                   <button type="button" onClick={() => changeAdding(false)} className="btn-solid mt-3">

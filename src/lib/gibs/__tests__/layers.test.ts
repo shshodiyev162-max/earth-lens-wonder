@@ -23,6 +23,8 @@ describe("the layer list on the map pages", () => {
     const twins: Record<string, string> = {
       MODIS_Terra_L3_NDVI_Monthly: "MODIS_Terra_L3_NDVI_16Day",
       MODIS_Terra_L3_EVI_Monthly: "MODIS_Terra_L3_NDVI_16Day",
+      // Read only with Terra's, for open water.
+      MODIS_Aqua_L3_NDVI_Monthly: "MODIS_Terra_L3_NDVI_16Day",
       MODIS_Terra_L3_Land_Surface_Temp_Monthly_Day: "MODIS_Terra_L3_Land_Surface_Temp_8Day_Day",
       MODIS_Terra_L3_Snow_Cover_Monthly_Average_Pct: "MODIS_Terra_L3_NDSI_Snow_Cover_Daily",
       MERRA2_Total_Aerosol_Optical_Thickness_550nm_Extinction_Monthly: "MODIS_Terra_Aerosol",

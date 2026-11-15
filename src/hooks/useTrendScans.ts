@@ -5,7 +5,7 @@ import { lookupOsm } from "@/lib/geo/geocode";
 import { areaKm2, bboxOf, centroidOf, type BBox } from "@/lib/geo/geometry";
 import { combineParts, PartError, resolvePart } from "@/lib/areas/resolve";
 import { decodeGeometry } from "@/lib/geo/polyline";
-import { INDICATORS, seasonMonths, type IndicatorId } from "@/lib/query/indicators";
+import { INDICATORS, ownMonths, seasonMonths, type IndicatorId } from "@/lib/query/indicators";
 import { fetchLandCover, measuresForEverything, type LandCover } from "@/lib/trends/landcover";
 import { MAX_GRIDS, planPeriod, type PeriodPlan } from "@/lib/query/period";
 import type { Hotspot } from "@/lib/trends/hotspots";
@@ -191,14 +191,14 @@ export function useTrendScans(query: TrendQuery | null, view: BBox | null): Tren
         });
         if (ac.signal.aborted) return;
         setCover(landCover);
-        indicators = measuresForEverything(landCover, scanArea.center[0], scanArea.water);
+        indicators = measuresForEverything(landCover, scanArea.center[0], scanArea.lake ? "lake" : scanArea.water);
         setChosen(indicators);
       }
       const availabilities = await Promise.all(indicators.map((id) => fetchAvailability(id)));
       if (ac.signal.aborted) return;
       const budget = gridBudget(indicators.length);
       const planned: MeasureScan[] = indicators.map((indicator, k) => {
-        const months = current.months ?? seasonMonths(current.season ?? INDICATORS[indicator].season, scanArea.center[0]);
+        const months = current.months ?? (current.season ? seasonMonths(current.season, scanArea.center[0]) : ownMonths(indicator, scanArea.center[0]));
         const plan = planPeriod(current.time, months, availabilities[k].window, budget);
         const base: MeasureScan = { indicator, status: "waiting", plan: null, months, availability: availabilities[k], progress: null, result: null, error: null };
         // Land measures over the open ocean: said straight away, without reading any map.

@@ -10,6 +10,7 @@ export type DatasetId =
   | "evaporation"
   | "topsoil"
   | "waterStorage"
+  | "water"
   | "snow"
   | "snowWater"
   | "snowfall"

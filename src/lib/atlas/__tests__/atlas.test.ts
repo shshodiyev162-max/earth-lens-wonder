@@ -93,6 +93,17 @@ describe("atlas helpers", () => {
     expect(hotspotName({ ...hotspot, name: null })).toBe("Change 3");
   });
 
+  it("names a change bigger than most provinces by its country, numbered when a bigger one has the name", () => {
+    const poland = { ...hotspot, rank: 4, name: "Silesian Voivodeship, Poland", areaKm2: 194_000 };
+    expect(hotspotName(poland)).toBe("Poland");
+    // Under 100,000 km², the province is the right size of name.
+    expect(hotspotName({ ...poland, areaKm2: 90_000 })).toBe("Silesian Voivodeship, Poland");
+    const india = { ...hotspot, rank: 2, name: "India", areaKm2: 1_349_000 };
+    const madhya = { ...hotspot, rank: 9, name: "Madhya Pradesh, India", areaKm2: 120_000 };
+    expect(hotspotName(madhya, [india, madhya])).toBe("India (2)");
+    expect(hotspotName(india, [india, madhya])).toBe("India");
+  });
+
   it("opens the Trends page on the change's outline, measure, direction and years", () => {
     const measure = atlasMeasure("vegetation");
     const href = atlasTrendsHref(measure, hotspot);

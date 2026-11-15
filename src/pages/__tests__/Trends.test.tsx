@@ -106,7 +106,7 @@ describe("the Trends panel", () => {
     expect(list).toHaveTextContent("Aral Sea");
 
     fireEvent.click(screen.getByRole("button", { name: "Add another place" }));
-    fireEvent.change(screen.getByLabelText("Or add a known region, sea or ocean"), { target: { value: "Caspian Sea" } });
+    fireEvent.change(screen.getByLabelText("Or add a known region, lake, sea or ocean"), { target: { value: "Caspian Sea" } });
     expect(await screen.findByText(/Vegetation change in Uzbekistan \+ Aral Sea \+ Caspian Sea since 2015/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Take Uzbekistan out of the area" }));

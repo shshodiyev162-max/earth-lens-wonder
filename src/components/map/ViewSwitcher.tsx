@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
 
+// The same order as the menu and the home page's tools: the trend tools first, then the map views.
 const VIEW_TABS = [
+  { to: "/trends", label: "Trends" },
+  { to: "/atlas", label: "Atlas" },
   { to: "/map", label: "Explore" },
   { to: "/split", label: "Split" },
   { to: "/sync", label: "Sync" },
-  { to: "/trends", label: "Trends" },
-  { to: "/atlas", label: "Atlas" },
 ];
 
 /** The ways of looking at the map, along its bottom edge. Keeps the position when switching views. */

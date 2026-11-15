@@ -41,7 +41,8 @@ export function pixelValue(trends: PixelTrends, index: number, mode: ChangeScale
 
 /** Colour range from the 95th percentile of the magnitudes, so one extreme pixel can't wash out the map. */
 export function changeScale(trends: PixelTrends, indicator: Indicator, hasTrend: boolean): ChangeScale {
-  const mode: ChangeScale["mode"] = hasTrend ? "perDecade" : "change";
+  // Open water switches between water and land in steps, which have no rate: its map shows then vs now.
+  const mode: ChangeScale["mode"] = hasTrend && !indicator.share ? "perDecade" : "change";
   const magnitudes: number[] = [];
   for (let i = 0; i < trends.change.length; i++) {
     const v = pixelValue(trends, i, mode);
@@ -73,7 +74,7 @@ export function changeImage(trends: PixelTrends, scale: ChangeScale, clearBelow 
     const t = Math.min(1, Math.abs(v) / scale.max);
     const color = v < 0 ? scale.decline : scale.increase;
     const p = trends.p[i];
-    const faded = scale.mode === "perDecade" && !(p < clearBelow);
+    const faded = trends.tested && !(p < clearBelow);
     const o = i * 4;
     out[o] = NEUTRAL[0] + (color[0] - NEUTRAL[0]) * t;
     out[o + 1] = NEUTRAL[1] + (color[1] - NEUTRAL[1]) * t;

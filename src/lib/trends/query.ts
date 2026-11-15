@@ -372,6 +372,7 @@ const NOUN: Record<IndicatorId, string> = {
   sunlight: "sunlight at the ground",
   topsoil: "topsoil moisture",
   waterStorage: "water storage",
+  water: "open water",
   snowWater: "snow water",
   snowfall: "snowfall",
   humidity: "humidity",

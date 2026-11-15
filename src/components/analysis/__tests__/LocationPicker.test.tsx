@@ -57,9 +57,9 @@ describe("choosing several places on the Analysis page", () => {
     const { onRemovePart } = show({ target, parts: ROWS });
     const list = screen.getByRole("list", { name: "Places in this area" });
     expect(list).toHaveTextContent("Uzbekistan");
-    expect(list).toHaveTextContent("471k km²");
+    expect(list).toHaveTextContent("471,000 km²");
     expect(list).toHaveTextContent("Together, shared land counted once");
-    expect(list).toHaveTextContent("918k km²");
+    expect(list).toHaveTextContent("918,000 km²");
     fireEvent.click(screen.getByRole("button", { name: "Take Uzbekistan out of the area" }));
     expect(onRemovePart).toHaveBeenCalledWith(0);
   });

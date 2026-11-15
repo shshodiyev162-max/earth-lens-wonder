@@ -7,14 +7,14 @@ const TOOLS: { mode: DrawMode; label: string; icon: typeof Square }[] = [
   { mode: "rectangle", label: "Draw a rectangle", icon: Square },
   { mode: "polygon", label: "Draw a polygon", icon: Hexagon },
   { mode: "circle", label: "Draw a circle", icon: Circle },
-  { mode: "country", label: "Pick a country or sea", icon: Flag },
+  { mode: "country", label: "Pick a country, lake or sea", icon: Flag },
 ];
 
 const HINTS: Record<DrawMode, string> = {
   rectangle: "Press and drag on the map to draw a rectangle. Esc to cancel.",
   polygon: "Click to add points. Double-click, press Enter or click the first point to finish.",
   circle: "Press at the centre and drag outwards. Esc to cancel.",
-  country: "Point at a country or a sea to see its name, then click to select it. You can still drag the map. Esc to cancel.",
+  country: "Point at a country, a lake or a sea to see its name, then click to select it. You can still drag the map. Esc to cancel.",
 };
 
 interface DrawToolbarProps {
@@ -31,7 +31,7 @@ interface DrawToolbarProps {
 export default function DrawToolbar({ mode, onModeChange, vertexCount, onFinish, onUndo, className, showHint = true }: DrawToolbarProps) {
   return (
     <div className={cn("pointer-events-auto flex flex-col items-end gap-2", className)}>
-      <div className="flex flex-col items-end gap-1" role="toolbar" aria-label="Draw an area or pick a country or sea" aria-orientation="vertical">
+      <div className="flex flex-col items-end gap-1" role="toolbar" aria-label="Draw an area or pick a country, lake or sea" aria-orientation="vertical">
         {TOOLS.map((tool) => {
           const Icon = tool.icon;
           const active = mode === tool.mode;

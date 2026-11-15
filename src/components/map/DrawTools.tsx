@@ -263,6 +263,11 @@ export default function DrawTools({ mode, onComplete, onCancel, finishSignal = 0
           // The sea's water area (land cut out), bundled with the app.
           void waterShape(water).then((geometry) => callbacks.current.onComplete(geometry, "place", { name: water.label, region: water.label }));
         }}
+        onPickLake={(lake, outline) => {
+          swallowTrailingClicks();
+          // The lake's largest extent since 2000, with the shore it has left (lib/geo/lakes).
+          callbacks.current.onComplete(outline, "place", { name: lake.label, region: lake.label });
+        }}
         onCancel={() => callbacks.current.onCancel()}
       />
     );

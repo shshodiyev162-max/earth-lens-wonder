@@ -22,6 +22,7 @@ export type IndicatorId =
   | "sunlight"
   | "topsoil"
   | "waterStorage"
+  | "water"
   | "snowWater"
   | "snowfall"
   | "humidity"
@@ -90,6 +91,16 @@ export interface Indicator {
   firstMonth?: string;
   /** Last month NASA publishes, when the record has ended (e.g. GRACE to July 2022). */
   lastMonth?: string;
+  /**
+   * Each pixel's value is the share of the time it was covered (open water): an area's yearly
+   * series and its trend are then totals in km² (the share times the area), not averages.
+   */
+  share?: { unit: string; decimals: number };
+  /**
+   * Read by default in the clearest months: summer outside the tropics, the dry season inside them
+   * (see ownMonths). For open water, which clouds and snow hide.
+   */
+  clearMonths?: boolean;
 }
 
 export type MeasureGroup = "land" | "water" | "air" | "gases" | "ocean";
@@ -452,6 +463,29 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
     firstMonth: "2002-04",
     lastMonth: "2022-07",
   },
+  water: {
+    id: "water",
+    label: "Open water",
+    noun: "open water",
+    subject: "Open water",
+    layerId: "MODIS_Terra_L3_NDVI_Monthly",
+    product: "MODIS Terra and Aqua monthly NDVI (MOD13A3, MYD13A3), ~1 km, with MODIS monthly snow cover (MOD10CM) to leave out snow and ice",
+    unit: "% water",
+    decimals: 0,
+    minChange: 25,
+    nativeDeg: 0.01,
+    concern: "decline",
+    season: "summer",
+    colors: { decline: "#b45309", increase: "#0369a1" },
+    words: { decline: "shrinking water", increase: "spreading water", any: "water area change" },
+    dataset: "water",
+    surface: "any",
+    group: "water",
+    share: { unit: "km²", decimals: 0 },
+    clearMonths: true,
+    // Read from both satellites, so it starts with Aqua's record.
+    firstMonth: "2002-07",
+  },
   snowWater: {
     id: "snowWater",
     label: "Snow water",
@@ -671,7 +705,7 @@ export const INDICATORS: Record<IndicatorId, Indicator> = {
 };
 
 /** Every measure, in the order tabs and lists use. */
-export const INDICATOR_ORDER: IndicatorId[] = ["vegetation", "heat", "rainfall", "soil", "dust", "snow", "airTemp", "evaporation", "sst", "so2", "co", "upperAir", "ozone", "evi", "nightHeat", "sunlight", "topsoil", "waterStorage", "snowWater", "snowfall", "humidity", "waterVapour", "wind", "heatLeaving", "fineDust", "haze", "coGround", "methane", "salinity"];
+export const INDICATOR_ORDER: IndicatorId[] = ["vegetation", "heat", "rainfall", "soil", "dust", "snow", "airTemp", "evaporation", "sst", "so2", "co", "upperAir", "ozone", "evi", "nightHeat", "sunlight", "topsoil", "waterStorage", "water", "snowWater", "snowfall", "humidity", "waterVapour", "wind", "heatLeaving", "fineDust", "haze", "coGround", "methane", "salinity"];
 
 /** The six measures scanned for "what changed" when nothing better is known about the place. */
 export const CORE_INDICATORS: IndicatorId[] = ["vegetation", "heat", "rainfall", "soil", "dust", "snow"];
@@ -693,7 +727,12 @@ export function recordTag(id: IndicatorId): string | null {
 
 /** "−12%" says nothing for a temperature, a value that is already a share, or one measured from an average (water storage crosses zero). */
 export function percentChangeMeansSomething(indicator: Pick<Indicator, "id" | "unit">): boolean {
-  return indicator.unit !== "°C" && indicator.unit !== "%" && indicator.id !== "waterStorage";
+  return indicator.unit !== "°C" && !indicator.unit.startsWith("%") && indicator.id !== "waterStorage";
+}
+
+/** The unit of an area's yearly series and trend: km² of water for open water, otherwise the measure's own. */
+export function seriesUnit(indicator: Pick<Indicator, "unit" | "decimals" | "share">): { unit: string; decimals: number } {
+  return indicator.share ?? { unit: indicator.unit, decimals: indicator.decimals };
 }
 
 const ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
@@ -704,6 +743,22 @@ export function numberInWords(n: number): string {
   if (n < 20) return ONES[n];
   if (n >= 100) return String(n);
   return n % 10 ? `${TENS[Math.floor(n / 10)]}-${ONES[n % 10]}` : TENS[Math.floor(n / 10)];
+}
+
+/** Where the tropics end, in degrees of latitude. */
+const TROPIC = 23.44;
+
+/**
+ * The months a measure is read in when none are chosen. Most follow their season (flipped south of
+ * the equator). A measure read in the clearest months gets summer outside the tropics and the dry
+ * season inside them: December–February north of the equator (Lake Chad), June–August south of it
+ * (Lake Tanganyika), when clouds hide the least.
+ */
+export function ownMonths(id: IndicatorId, latitude = 0): number[] {
+  const info = INDICATORS[id];
+  if (!info.clearMonths) return seasonMonths(info.season, latitude);
+  const juneToAugust = latitude >= TROPIC || (latitude < 0 && latitude > -TROPIC);
+  return juneToAugust ? [6, 7, 8] : [12, 1, 2];
 }
 
 /** Months for a season, flipped by six months for places south of the equator. */

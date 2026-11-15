@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { TONE_COLOUR, toneOf } from "@/components/analysis/tone";
 import { demoAttr } from "@/lib/demo/scripts";
-import { answerInWords, explainVerdict, formatP, signed, type TrendVerdict } from "@/lib/analysis/stats";
+import { answerInWords, explainVerdict, formatP, grouped, signed, type TrendVerdict } from "@/lib/analysis/stats";
 import { rateText, type LongerPeriodHint } from "@/lib/analysis/trend";
 import { formatArea } from "@/lib/geo/geometry";
-import { percentChangeMeansSomething, type Indicator } from "@/lib/query/indicators";
+import { percentChangeMeansSomething, seriesUnit, type Indicator } from "@/lib/query/indicators";
 import type { PeriodPlan } from "@/lib/query/period";
 import type { ResultFilter } from "@/lib/trends/query";
 import type { AreaSummary, YearValue } from "@/lib/trends/scan";
@@ -60,15 +60,22 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export default function AreaSummaryCard(props: AreaSummaryCardProps) {
   const { name, kind, summary, verdict, series, indicator, plan, filter, seasonSubject, hotspotCount, hotspotKm2, analysisHref, compareHref, onZoom, hint, onTryAllYears, causes } = props;
   const surface = props.surface ?? indicator.surface;
-  const value = (v: number) => `${v.toFixed(indicator.decimals)} ${indicator.unit}`;
-  const percent = summary.change !== null && summary.baselineMean && percentChangeMeansSomething(indicator) && Math.abs(summary.baselineMean) > 1e-6 ? (summary.change / Math.abs(summary.baselineMean)) * 100 : null;
+  // Open water is told in km² of water (the share times the area measured); other measures as averages.
+  const total = seriesUnit(indicator);
+  const amount = (v: number) => (indicator.share ? (v / 100) * summary.measuredKm2 : v);
+  const value = (v: number) => `${grouped(amount(v), total.decimals)} ${total.unit}`;
+  const percent =
+    summary.change !== null && summary.baselineMean && (indicator.share || percentChangeMeansSomething(indicator)) && Math.abs(summary.baselineMean) > 1e-6
+      ? (summary.change / Math.abs(summary.baselineMean)) * 100
+      : null;
   const threshold = `${(indicator.minChange * filter.minFactor).toFixed(Math.max(indicator.decimals, 2)).replace(/\.?0+$/, "")} ${indicator.unit}`;
   const windows = plan.kind === "comparison" ? [`${plan.baseline[0]}`, `${plan.recent[0]}`] : [`${plan.baseline[0]}–${plan.baseline[1]}`, `${plan.recent[0]}–${plan.recent[1]}`];
   const years = plan.kind === "comparison" ? `${plan.baseline[0]} vs ${plan.recent[0]}` : `${plan.startYear}–${plan.endYear}`;
   // Sea measures are read on water, air measures everywhere (or over the water of a named sea).
   const ground = surface === "water" ? "Sea" : surface === "any" ? "Area" : "Land";
   const groundWord = ground.toLowerCase();
-  const rate = verdict ? rateText(verdict, { unit: indicator.unit, decimals: indicator.decimals }) : null;
+  const rate = verdict ? rateText(verdict, total) : null;
+  const moved = indicator.share ? { fell: "Where water retreated", rose: "Where water spread" } : { fell: `${ground} that fell by ${threshold} or more`, rose: `${ground} that rose by ${threshold} or more` };
   const trendColour = TONE_COLOUR[toneOf(verdict?.direction ?? "none", indicator.concern)];
 
   return (
@@ -96,8 +103,8 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
           baseline={plan.baseline}
           recent={plan.recent}
           color={trendColour}
-          unit={indicator.unit}
-          decimals={indicator.decimals}
+          unit={total.unit}
+          decimals={total.decimals}
           showRange={Boolean(verdict)}
           label={`${indicator.subject} across ${name}, year by year${verdict ? ", with the trend line and its 95% range" : ""}`}
         />
@@ -105,9 +112,9 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
 
       <p className="mt-4 text-[13px] leading-relaxed text-panel-soft">
         {verdict
-          ? explainVerdict(verdict, seasonSubject, indicator.unit, indicator.decimals + 1)
+          ? explainVerdict(verdict, seasonSubject, total.unit, indicator.share ? total.decimals : indicator.decimals + 1)
           : summary.change !== null
-            ? `${seasonSubject} changed by ${signed(summary.change, indicator.decimals)} ${indicator.unit} between ${windows[0]} and ${windows[1]}. Choose a range of years for a trend test.`
+            ? `${seasonSubject} changed by ${signed(amount(summary.change), total.decimals)} ${total.unit} between ${windows[0]} and ${windows[1]}. Choose a range of years for a trend test.`
             : ""}
       </p>
 
@@ -127,19 +134,19 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
         </Row>
         {summary.baselineMean !== null && summary.recentMean !== null && summary.change !== null && (
           <>
-            <Row label={`Average, ${windows[0]}`}>{value(summary.baselineMean)}</Row>
-            <Row label={`Average, ${windows[1]}`}>{value(summary.recentMean)}</Row>
+            <Row label={`${indicator.share ? "Water" : "Average"}, ${windows[0]}`}>{value(summary.baselineMean)}</Row>
+            <Row label={`${indicator.share ? "Water" : "Average"}, ${windows[1]}`}>{value(summary.recentMean)}</Row>
             <Row label="Change">
-              {signed(summary.change, indicator.decimals)} {indicator.unit}
+              {signed(amount(summary.change), total.decimals)} {total.unit}
               {percent !== null && <span className="text-panel-muted"> ({signed(percent, Math.abs(percent) < 10 ? 1 : 0)}%)</span>}
             </Row>
           </>
         )}
-        <Row label={`${ground} that fell by ${threshold} or more`}>
+        <Row label={moved.fell}>
           {formatArea(summary.declinedKm2)}
           <span className="text-panel-muted">{share(summary.declinedKm2, summary.measuredKm2)}</span>
         </Row>
-        <Row label={`${ground} that rose by ${threshold} or more`}>
+        <Row label={moved.rose}>
           {formatArea(summary.increasedKm2)}
           <span className="text-panel-muted">{share(summary.increasedKm2, summary.measuredKm2)}</span>
         </Row>
@@ -148,7 +155,9 @@ export default function AreaSummaryCard(props: AreaSummaryCardProps) {
         </Row>
       </dl>
       <p className="mt-2 border-t border-panel-line pt-2 text-[11px] leading-relaxed text-panel-muted">
-        {plan.kind === "trend"
+        {indicator.share
+          ? `“Retreated” and “spread” count places under water for ${Math.round(indicator.minChange * filter.minFactor)}% of the season less, or more, ${plan.kind === "trend" ? `with their own yearly trend agreeing${filter.strict ? " clearly, allowing for thousands of pixels tested at once" : ""}` : "between the two seasons"}.`
+          : plan.kind === "trend"
           ? `“Fell” and “rose” count ${groundWord} whose own yearly trend agrees${filter.strict ? " clearly, allowing for thousands of pixels tested at once" : ""}, including small patches too scattered to be listed as hotspots.`
           : `“Fell” and “rose” count ${groundWord} by the change between the two seasons, including small patches too scattered to be listed as hotspots.`}
       </p>
