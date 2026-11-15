@@ -5,6 +5,7 @@ import Analysis from "../Analysis";
 import { WorkspaceProvider } from "@/context/WorkspaceContext";
 import type { AnalysisRequest, AnalysisResult } from "@/lib/analysis/types";
 import { monthRange } from "@/lib/gibs/time";
+import { buildCountryIndex, type CountryIndex } from "@/lib/geo/countries";
 
 vi.mock("@/components/analysis/LocationPicker", () => ({ default: () => <div data-testid="location-picker" /> }));
 // The map needs a real browser: here it is a button that picks Samarkand, with the card shown over it.
@@ -23,6 +24,10 @@ vi.mock("@/lib/geo/geocode", async (original) => {
   const actual = (await original()) as object;
   return { ...actual, reverseGeocode: vi.fn().mockResolvedValue(null) };
 });
+
+// Country outlines without fetching the bundled file: none (as when it can't load), unless a test sets some.
+const countryOutlines = vi.hoisted(() => ({ index: null as CountryIndex | null }));
+vi.mock("@/lib/geo/countries", async (original) => ({ ...((await original()) as object), loadCountries: async () => countryOutlines.index }));
 
 type RunOptions = { onPartial?: (result: AnalysisResult) => void; signal?: AbortSignal };
 
@@ -127,6 +132,32 @@ describe("Analysis page", () => {
     expect(screen.getByText(/Pick a place to start/i)).toBeInTheDocument();
     expect(screen.queryByText(/North America/i)).not.toBeInTheDocument();
     expect(runAnalysis).not.toHaveBeenCalled();
+  });
+
+  it("offers a city, a lake and a whole country to try, and the country opens as a country", async () => {
+    countryOutlines.index = buildCountryIndex({
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: { id: "NPL", name: "Nepal" },
+          geometry: { type: "Polygon", coordinates: [[[80, 26.4], [88.2, 26.4], [88.2, 30.4], [80, 30.4], [80, 26.4]]] },
+        },
+      ],
+    });
+    try {
+      renderAt("/analysis");
+      for (const name of ["Bukhara", "Aral Sea", "Nepal"]) expect(screen.getByRole("button", { name })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Nile Delta" })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Nepal" }));
+      expect(await screen.findByRole("heading", { name: "Nepal" })).toBeInTheDocument();
+      expect(screen.getByText(/^Country · /)).toBeInTheDocument();
+      expect(screen.getByText("Ready to start")).toBeInTheDocument();
+      expect(runAnalysis).not.toHaveBeenCalled();
+    } finally {
+      countryOutlines.index = null;
+    }
   });
 
   it("opens on the map, shows the report once a place is picked there, and switches between them", async () => {

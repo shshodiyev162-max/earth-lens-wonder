@@ -49,11 +49,12 @@ function parseDatasets(value: string | null, lake = false): DatasetId[] {
   return wanted.length ? ALL_DATASETS.filter((id) => wanted.includes(id)) : DEFAULT_DATASETS;
 }
 
-// Places for a quick first try: a circle around a real point, or a known lake's own outline.
+// Places for a quick first try, one of each kind: a circle around a city, a known lake's own outline,
+// and a whole country (Nepal: its forests have been growing back, and NASA's maps show it greening).
 const EXAMPLES: { name: string; ctx: string; target: Record<string, string> }[] = [
   { name: "Bukhara", ctx: "Uzbekistan", target: { lat: "39.7747", lon: "64.4286", r: "10" } },
   { name: "Aral Sea", ctx: "Kazakhstan / Uzbekistan", target: { region: "Aral Sea" } },
-  { name: "Nile Delta", ctx: "Egypt", target: { lat: "30.85", lon: "31.05", r: "60" } },
+  { name: "Nepal", ctx: "Country", target: { country: "NPL" } },
 ];
 
 /** Placeholder shaped like the report while NASA data is still arriving. */
